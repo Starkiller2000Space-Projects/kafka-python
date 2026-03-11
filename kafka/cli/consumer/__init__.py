@@ -1,7 +1,7 @@
 import argparse
 import logging
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import Any, Optional
 
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
@@ -57,7 +57,7 @@ def build_kwargs(props: Iterable[str]) -> dict[str, Any]:
     return kwargs
 
 
-def run_cli(args: Sequence[str] | None = None) -> int | None:
+def run_cli(args: Optional[Sequence[str]] = None) -> Optional[int]:
     parser = main_parser()
     config = parser.parse_args(args)
     if config.log_level:

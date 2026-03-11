@@ -1,6 +1,6 @@
 import abc
-from collections.abc import Iterator
-from typing import TYPE_CHECKING, Literal
+from collections.abc import Iterator, Sequence
+from typing import TYPE_CHECKING, List, Literal, Optional, Tuple
 
 if TYPE_CHECKING:
     from kafka.record.default_records import DefaultRecordMetadata
@@ -61,7 +61,7 @@ class ABCRecordBatchBuilder(object, metaclass=abc.ABCMeta):
     __slots__ = ()
 
     @abc.abstractmethod
-    def append(self, offset: int, timestamp: int | None, key: bytes | None, value: bytes | None, headers: list[tuple[str, bytes]] | None = None) -> DefaultRecordMetadata:
+    def append(self, offset: int, timestamp: Optional[int], key: Optional[bytes], value: Optional[bytes], headers: Optional[List[Tuple[str, bytes]]] = None) -> DefaultRecordMetadata:
         """ Writes record to internal buffer.
 
         Arguments:
@@ -80,7 +80,7 @@ class ABCRecordBatchBuilder(object, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def size_in_bytes(self, offset: int, timestamp: int | None, key: bytes | None, value: bytes | None, headers: list[tuple[str, bytes]]) -> int:
+    def size_in_bytes(self, offset: int, timestamp: Optional[int], key: Optional[bytes], value: Optional[bytes], headers: Optional[List[Tuple[str, bytes]]]) -> int:
         """ Return the expected size change on buffer (uncompressed) if we add
             this message. This will account for varint size changes and give a
             reliable size.
@@ -128,7 +128,7 @@ class ABCRecords(object, metaclass=abc.ABCMeta):
     __slots__ = ()
 
     @abc.abstractmethod
-    def __init__(self, buffer) -> None:
+    def __init__(self, buffer: Sequence[bytes]) -> None:
         """ Initialize with bytes-like object conforming to the buffer
             interface (ie. bytes, bytearray, memoryview etc.).
         """

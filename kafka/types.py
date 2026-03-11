@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from selectors import BaseSelector
 from ssl import SSLContext
-from typing import Literal, TypedDict
+from typing import List, Literal, Optional, Tuple, Type, TypedDict, Union
 
 import gssapi
 
@@ -14,7 +14,32 @@ SECURITY_PROTOCOLS = Literal['PLAINTEXT', 'SSL', 'SASL_PLAINTEXT', 'SASL_SSL']
 SASL_MECHANISM = Literal['PLAIN', 'GSSAPI', 'OAUTHBEARER', 'SCRAM-SHA-256', 'SCRAM-SHA-512']
 
 
-class BrockerConnectionParams(TypedDict):
+class AuthParams(TypedDict, total=False):
+    """Kafka universal authorization parameters."""
+
+    api_version: Union[Tuple[int, int], Tuple[int, int, int], None]
+    api_version_auto_timeout_ms: int
+    selector: Type[BaseSelector]
+    security_protocol: SECURITY_PROTOCOLS
+    ssl_context: Optional[SSLContext]
+    ssl_check_hostname: bool
+    ssl_cafile: Optional[str]
+    ssl_certfile: Optional[str]
+    ssl_keyfile: Optional[str]
+    ssl_password: Union[Callable, str, bytes, bytearray, None]
+    ssl_crlfile: Optional[str]
+    ssl_ciphers: str
+    sasl_mechanism: Optional[SASL_MECHANISM]
+    sasl_plain_username: Optional[str]
+    sasl_plain_password: Optional[str]
+    sasl_kerberos_name: Union[str, gssapi.Name, None]
+    sasl_kerberos_service_name: str
+    sasl_kerberos_domain_name: Optional[str]
+    sasl_oauth_token_provider: Optional[AbstractTokenProvider]
+    socks5_proxy: Optional[str]
+
+
+class BrockerConnectionParams(AuthParams):
     """Config params for brocker instance."""
 
     client_id: str
@@ -24,29 +49,29 @@ class BrockerConnectionParams(TypedDict):
     reconnect_backoff_max_ms: int
     request_timeout_ms: int
     max_in_flight_requests_per_connection: int
-    receive_buffer_bytes: int | None
-    send_buffer_bytes: int | None
-    socket_options: list[tuple[int, int, int]]
-    security_protocol: SECURITY_PROTOCOLS
-    ssl_context: SSLContext | None
-    ssl_check_hostname: bool
-    ssl_cafile: str | None
-    ssl_certfile: str | None
-    ssl_keyfile: str | None
-    ssl_password: Callable | str | bytes | bytearray | None
-    ssl_crlfile: str | None
-    ssl_ciphers: str
-    api_version: tuple[int, int] | tuple[int, int, int] | None
-    api_version_auto_timeout_ms: int
-    selector: BaseSelector
+    receive_buffer_bytes: Optional[int]
+    send_buffer_bytes: Optional[int]
+    socket_options: List[Tuple[int, int, int]]
     state_change_callback: Callable
-    metrics: Metrics | None
+    metrics: Optional[Metrics]
     metric_group_prefix: str
-    sasl_mechanism: SASL_MECHANISM
-    sasl_plain_username: str
-    sasl_plain_password: str
-    sasl_kerberos_name: str | gssapi.Name | None
-    sasl_kerberos_service_name: str
-    sasl_kerberos_domain_name: str
-    sasl_oauth_token_provider: AbstractTokenProvider | None
-    socks5_proxy: str | None
+
+
+class KafkaClientParams(AuthParams, total=False):
+    """Kafka client initial parameters."""
+
+    bootstrap_servers: Union[list[str], str]
+    client_id: str
+    reconnect_backoff_ms: int
+    reconnect_backoff_max_ms: int
+    request_timeout_ms: int
+    connections_max_idle_ms: int
+    retry_backoff_ms: int
+    max_in_flight_requests_per_connection: int
+    receive_buffer_bytes: Optional[int]
+    send_buffer_bytes: Optional[int]
+    socket_options: List[Tuple[int, int, int]]
+    metadata_max_age_ms: int
+    allow_auto_create_topics: bool
+    metrics: Optional[Metrics]
+    metric_group_prefix: str

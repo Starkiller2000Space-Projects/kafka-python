@@ -4,13 +4,14 @@ import argparse
 import logging
 import threading
 import time
+from typing import List, Union
 
 from kafka import KafkaConsumer, KafkaProducer
 
 
 class Producer(threading.Thread):
 
-    def __init__(self, bootstrap_servers: str | list[str], topic: str, stop_event: threading.Event, msg_size: int) -> None:
+    def __init__(self, bootstrap_servers: Union[str, List[str]], topic: str, stop_event: threading.Event, msg_size: int) -> None:
         super(Producer, self).__init__()
         self.bootstrap_servers = bootstrap_servers
         self.topic = topic
@@ -29,7 +30,7 @@ class Producer(threading.Thread):
 
 
 class Consumer(threading.Thread):
-    def __init__(self, bootstrap_servers: str | list[str], topic: str, stop_event: threading.Event, msg_size: int) -> None:
+    def __init__(self, bootstrap_servers: Union[str, List[str]], topic: str, stop_event: threading.Event, msg_size: int) -> None:
         super(Consumer, self).__init__()
         self.bootstrap_servers = bootstrap_servers
         self.topic = topic

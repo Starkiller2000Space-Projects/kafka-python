@@ -5,6 +5,7 @@ import socket
 import threading
 import warnings
 import weakref
+from typing import Dict, Optional
 
 from typing_extensions import Unpack
 
@@ -981,7 +982,7 @@ class KafkaProducer(object):
                                           sorted(all_partitions),
                                           list(available))
 
-    def metrics(self, raw=False) -> None:
+    def metrics(self, raw: bool = False) -> Optional[Dict]:
         """Get metrics on producer performance.
 
         This is ported from the Java Producer, for details see:

@@ -25,6 +25,8 @@ pycrc 0.7.1 (https://pycrc.org/). Command line used:
 """
 
 import array
+from collections.abc import Iterable
+from typing import Union
 
 CRC_TABLE = (
     0x00000000, 0xf26b8303, 0xe13b70f7, 0x1350f3f4,
@@ -97,7 +99,7 @@ CRC_INIT = 0
 _MASK = 0xFFFFFFFF
 
 
-def crc_update(crc, data) -> None:
+def crc_update(crc: int, data: Union[bytearray, str, Iterable[bytes]]) -> int:
     """Update CRC-32C checksum with data.
     Args:
         crc: 32-bit checksum to update as long.
@@ -116,7 +118,7 @@ def crc_update(crc, data) -> None:
     return crc ^ _MASK
 
 
-def crc_finalize(crc) -> None:
+def crc_finalize(crc: int) -> int:
     """Finalize CRC-32C checksum.
     This function should be called as last step of crc calculation.
     Args:
@@ -127,7 +129,7 @@ def crc_finalize(crc) -> None:
     return crc & _MASK
 
 
-def crc(data) -> None:
+def crc(data: Union[bytearray, str, Iterable[bytes]]) -> int:
     """Compute CRC-32C checksum of the data.
     Args:
         data: byte array, string or iterable over bytes.

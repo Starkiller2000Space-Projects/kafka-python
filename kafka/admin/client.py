@@ -4,10 +4,14 @@ import logging
 import socket
 import time
 from collections import defaultdict
+from typing import List, Literal, Mapping, Optional, Tuple
+
+from typing_extensions import Unpack
 
 import kafka.errors as Errors
 from kafka.admin.acl_resource import (ACL, ACLFilter, ACLOperation, ACLPermissionType, ACLResourcePatternType,
                                       ResourcePattern, ResourceType, valid_acl_operations)
+from kafka.admin.types import KafkaAdminClientParams
 from kafka.client_async import KafkaClient, selectors
 from kafka.coordinator.protocol import (ConsumerProtocol_v0, ConsumerProtocolMemberAssignment_v0,
                                         ConsumerProtocolMemberMetadata_v0)
@@ -19,6 +23,7 @@ from kafka.protocol.admin import (AlterConfigsRequest, CreateAclsRequest, Create
                                   DeleteAclsRequest, DeleteGroupsRequest, DeleteRecordsRequest, DeleteTopicsRequest,
                                   DescribeAclsRequest, DescribeConfigsRequest, DescribeGroupsRequest,
                                   DescribeLogDirsRequest, ElectionType, ElectLeadersRequest, ListGroupsRequest)
+from kafka.protocol.api import Request, Response
 from kafka.protocol.commit import OffsetFetchRequest
 from kafka.protocol.find_coordinator import FindCoordinatorRequest
 from kafka.protocol.metadata import MetadataRequest
@@ -150,7 +155,7 @@ class KafkaAdminClient(object):
         socks5_proxy (str): Socks5 proxy url. Default: None
         kafka_client (callable): Custom class / callable for creating KafkaClient instances
     """
-    DEFAULT_CONFIG = {
+    DEFAULT_CONFIG: KafkaAdminClientParams = {
         # client configs
         'bootstrap_servers': 'localhost',
         'client_id': 'kafka-python-' + __version__,
@@ -193,7 +198,7 @@ class KafkaAdminClient(object):
         'kafka_client': KafkaClient,
     }
 
-    def __init__(self, **configs) -> None:
+    def __init__(self, **configs: Unpack[KafkaAdminClientParams]) -> None:
         log.debug("Starting KafkaAdminClient with configuration: %s", configs)
         extra_configs = set(configs).difference(self.DEFAULT_CONFIG)
         if extra_configs:
@@ -234,7 +239,7 @@ class KafkaAdminClient(object):
         self._closed = True
         log.debug("KafkaAdminClient is now closed.")
 
-    def _validate_timeout(self, timeout_ms) -> None:
+    def _validate_timeout(self, timeout_ms: Optional[int]) -> int:
         """Validate the timeout is set or use the configuration default.
 
         Arguments:
@@ -245,7 +250,7 @@ class KafkaAdminClient(object):
         """
         return timeout_ms or self.config['request_timeout_ms']
 
-    def _refresh_controller_id(self, timeout_ms=30000) -> None:
+    def _refresh_controller_id(self, timeout_ms: int = 30000) -> None:
         """Determine the Kafka cluster controller."""
         version = self._client.api_version(MetadataRequest, max_version=8)
         if version == 0:
@@ -291,7 +296,7 @@ class KafkaAdminClient(object):
             request = FindCoordinatorRequest[version](group_id, 0)
         return request  # pylint: disable=E0606
 
-    def _find_coordinator_id_process_response(self, response) -> None:
+    def _find_coordinator_id_process_response(self, response: Response) -> None:
         """Process a FindCoordinatorResponse.
 
         Arguments:
@@ -364,7 +369,7 @@ class KafkaAdminClient(object):
                 if future.failed():
                     raise future.exception  # pylint: disable-msg=raising-bad-type
 
-    def send_request(self, request, node_id=None) -> None:
+    def send_request(self, request: Request, node_id=None) -> None:
         if node_id is None:
             node_id = self._client.least_loaded_node()
         self._client.await_ready(node_id)
@@ -1527,7 +1532,7 @@ class KafkaAdminClient(object):
         results = self.send_requests(requests, response_fn=self._convert_delete_groups_response)
         return list(itertools.chain(*results))
 
-    def _convert_delete_groups_response(self, response) -> None:
+    def _convert_delete_groups_response(self, response: 'Response') -> None:
         """Parse the DeleteGroupsResponse, mapping group IDs to their respective errors.
 
         Arguments:
@@ -1546,7 +1551,7 @@ class KafkaAdminClient(object):
                 "Support for DeleteGroupsResponse_v{} has not yet been added to KafkaAdminClient."
                     .format(response.API_VERSION))
 
-    def _delete_consumer_groups_request(self, group_ids) -> None:
+    def _delete_consumer_groups_request(self, group_ids: List[str]) -> None:
         """Build a DeleteGroupsRequest to send to a broker (the group coordinator).
 
         Arguments:
@@ -1559,7 +1564,7 @@ class KafkaAdminClient(object):
         return DeleteGroupsRequest[version](group_ids)
 
     @staticmethod
-    def _convert_topic_partitions(topic_partitions) -> None:
+    def _convert_topic_partitions(topic_partitions: Mapping[str, List[int]]) -> List[Tuple[str, List[int]]]:
         return [
             (
                 topic,
@@ -1568,7 +1573,7 @@ class KafkaAdminClient(object):
             for topic, partition_ids in topic_partitions.items()
         ]
 
-    def _get_all_topic_partitions(self) -> None:
+    def _get_all_topic_partitions(self) -> List[Tuple[str, List[int]]]:
         return [
             (
                 topic,
@@ -1577,12 +1582,12 @@ class KafkaAdminClient(object):
             for topic in self._client.cluster.topics()
         ]
 
-    def _get_topic_partitions(self, topic_partitions) -> None:
+    def _get_topic_partitions(self, topic_partitions: Mapping[str, List[int]]) -> List[Tuple[str, List[int]]]:
         if topic_partitions is None:
             return self._get_all_topic_partitions()
         return self._convert_topic_partitions(topic_partitions)
 
-    def perform_leader_election(self, election_type, topic_partitions=None, timeout_ms=None) -> None:
+    def perform_leader_election(self, election_type: Literal[0, 1], topic_partitions: Optional[Mapping[str, List[int]]] = None, timeout_ms: Optional[int] = None) -> None:
         """Perform leader election on the topic partitions.
 
         :param election_type: Type of election to attempt. 0 for Perferred, 1 for Unclean
@@ -1597,7 +1602,7 @@ class KafkaAdminClient(object):
         timeout_ms = self._validate_timeout(timeout_ms)
         request = ElectLeadersRequest[version](
             election_type=ElectionType(election_type),
-            topic_partitions=self._get_topic_partitions(topic_partitions),
+            topic_partitions=self._get_topic_partitions(topic_partitions or {}),
             timeout=timeout_ms,
         )
         # TODO convert structs to a more pythonic interface

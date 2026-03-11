@@ -1,16 +1,18 @@
 import selectors
 import ssl
 from collections.abc import Callable
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal
 
 import gssapi
+
+from kafka.types import AuthParams
 
 from ..coordinator.assignors.abstract import AbstractPartitionAssignor
 from ..metrics.metrics_reporter import AbstractMetricsReporter
 from ..sasl.oauth import AbstractTokenProvider
 
 
-class KafkaConsumerParams(TypedDict, total=False):
+class KafkaConsumerParams(AuthParams, total=False):
     """Kafka consumer config params."""
 
     bootstrap_servers: str | list[str]
@@ -46,30 +48,10 @@ class KafkaConsumerParams(TypedDict, total=False):
     send_buffer_bytes: int
     socket_options: list[int]
     consumer_timeout_ms: int
-    security_protocol: Literal['PLAINTEXT', 'SSL', 'SASL_PLAINTEXT', 'SASL_SSL']
-    ssl_context: ssl.SSLContext
-    ssl_check_hostname: bool
-    ssl_cafile: str
-    ssl_certfile: str
-    ssl_keyfile: str
-    ssl_password: str
-    ssl_crlfile: str
-    ssl_ciphers: str
-    api_version: tuple[int, int] | tuple[int, int, int]
-    api_version_auto_timeout_ms: int
     connections_max_idle_ms: int
     metric_reporters: list[AbstractMetricsReporter]
     metrics_enabled: bool
     metrics_num_samples: int
     metrics_sample_window_ms: int
-    selector: selectors.BaseSelector
     exclude_internal_topics: bool
-    sasl_mechanism: Literal['PLAIN', 'GSSAPI', 'OAUTHBEARER', 'SCRAM-SHA-256', 'SCRAM-SHA-512']
-    sasl_plain_username: str
-    sasl_plain_password: str
-    sasl_kerberos_name: str | gssapi.Name
-    sasl_kerberos_service_name: str
-    sasl_kerberos_domain_name: str
-    sasl_oauth_token_provider: AbstractTokenProvider
-    socks5_proxy: str
     kafka_client: Callable

@@ -15,5 +15,7 @@ pytest-timeout
 python-snappy
 Sphinx
 sphinx-rtd-theme
+types-pywin32
+types-setuptools
 xxhash
 zstandard

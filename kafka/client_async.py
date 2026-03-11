@@ -7,6 +7,9 @@ import socket
 import threading
 import time
 import weakref
+from typing import Optional, Tuple, Union
+
+from typing_extensions import Unpack
 
 from kafka import errors as Errors
 from kafka.cluster import ClusterMetadata
@@ -17,6 +20,7 @@ from kafka.metrics.stats import Avg, Count, Rate
 from kafka.metrics.stats.rate import TimeUnit
 from kafka.protocol.broker_api_versions import BROKER_API_VERSIONS
 from kafka.protocol.metadata import MetadataRequest
+from kafka.types import KafkaClientParams
 from kafka.util import Dict, Timer, WeakMethod, ensure_valid_topic_name
 from kafka.version import __version__
 
@@ -159,7 +163,7 @@ class KafkaClient(object):
         socks5_proxy (str): Socks5 proxy URL. Default: None
     """
 
-    DEFAULT_CONFIG = {
+    DEFAULT_CONFIG: KafkaClientParams = {
         'bootstrap_servers': 'localhost',
         'bootstrap_topics_filter': set(),
         'client_id': 'kafka-python-' + __version__,
@@ -201,7 +205,7 @@ class KafkaClient(object):
         'socks5_proxy': None,
     }
 
-    def __init__(self, **configs) -> None:
+    def __init__(self, **configs: Unpack[KafkaClientParams]) -> None:
         self.config = copy.copy(self.DEFAULT_CONFIG)
         for key in self.config:
             if key in configs:
@@ -1000,7 +1004,7 @@ class KafkaClient(object):
         """
         return self._api_versions
 
-    def check_version(self, node_id=None, timeout=None, **kwargs) -> None:
+    def check_version(self, node_id: Optional[str] = None, timeout: Optional[float] = None, **kwargs: Any) -> Union[Tuple[int, int], Tuple[int, int, int]]:
         """Attempt to guess the version of a Kafka broker.
 
         Keyword Arguments:

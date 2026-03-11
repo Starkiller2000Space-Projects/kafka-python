@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+from collections.abc import Callable
+from typing import Tuple
+
 import pyperf
 
 test_data = [
@@ -64,24 +67,24 @@ BENCH_VALUES_DEC = [
 BENCH_VALUES_DEC = list(map(bytearray, BENCH_VALUES_DEC))
 
 
-def _assert_valid_enc(enc_func) -> None:
+def _assert_valid_enc(enc_func: Callable[[int], bytes]) -> None:
     for encoded, decoded in test_data:
         assert enc_func(decoded) == encoded, decoded
 
 
-def _assert_valid_dec(dec_func) -> None:
+def _assert_valid_dec(dec_func: Callable[[bytearray], Tuple[int, int]]) -> None:
     for encoded, decoded in test_data:
         res, pos = dec_func(bytearray(encoded))
         assert res == decoded, (decoded, res)
         assert pos == len(encoded), (decoded, pos)
 
 
-def _assert_valid_size(size_func) -> None:
+def _assert_valid_size(size_func: Callable[[int], int]) -> None:
     for encoded, decoded in test_data:
         assert size_func(decoded) == len(encoded), decoded
 
 
-def encode_varint_1(num) -> None:
+def encode_varint_1(num: int) -> bytearray:
     """ Encode an integer to a varint presentation. See
     https://developers.google.com/protocol-buffers/docs/encoding?csw=1#varints
     on how those can be produced.
@@ -111,10 +114,10 @@ def encode_varint_1(num) -> None:
     return buf[:i + 1]
 
 
-def int2byte(i) -> None:
+def int2byte(i: int) -> bytes:
     return bytes((i,))
 
-def encode_varint_2(value) -> None:
+def encode_varint_2(value: int) -> bytes:
     value = (value << 1) ^ (value >> 63)
 
     bits = value & 0x7f
@@ -127,7 +130,7 @@ def encode_varint_2(value) -> None:
     return res + int2byte(bits)
 
 
-def encode_varint_3(value, buf) -> None:
+def encode_varint_3(value: int, buf: bytearray) -> int:
     append = buf.append
     value = (value << 1) ^ (value >> 63)
 
@@ -141,7 +144,7 @@ def encode_varint_3(value, buf) -> None:
     return value
 
 
-def encode_varint_4(value) -> None:
+def encode_varint_4(value: int) -> bytes:
     value = (value << 1) ^ (value >> 63)
 
     if value <= 0x7f:  # 1 byte
@@ -175,7 +178,7 @@ def encode_varint_4(value) -> None:
         return res + int2byte(bits)
 
 
-def encode_varint_5(value, buf, pos=0) -> None:
+def encode_varint_5(value: int, buf: bytearray, pos: int = 0) -> int:
     value = (value << 1) ^ (value >> 63)
 
     bits = value & 0x7f
@@ -188,7 +191,7 @@ def encode_varint_5(value, buf, pos=0) -> None:
     buf[pos] = bits
     return pos + 1
 
-def encode_varint_6(value, buf) -> None:
+def encode_varint_6(value: int, buf: bytearray) -> int:
     append = buf.append
     value = (value << 1) ^ (value >> 63)
 
@@ -231,7 +234,7 @@ def encode_varint_6(value, buf) -> None:
     return i
 
 
-def size_of_varint_1(value) -> None:
+def size_of_varint_1(value: int) -> int:
     """ Number of bytes needed to encode an integer in variable-length format.
     """
     value = (value << 1) ^ (value >> 63)
@@ -244,7 +247,7 @@ def size_of_varint_1(value) -> None:
     return res
 
 
-def size_of_varint_2(value) -> None:
+def size_of_varint_2(value: int) -> int:
     """ Number of bytes needed to encode an integer in variable-length format.
     """
     value = (value << 1) ^ (value >> 63)
@@ -269,7 +272,7 @@ def size_of_varint_2(value) -> None:
     return 10
 
 
-def _read_byte(memview, pos) -> None:
+def _read_byte(memview: memoryview, pos: int) -> int:
     """ Read a byte from memoryview as an integer
 
         Raises:
@@ -278,7 +281,7 @@ def _read_byte(memview, pos) -> None:
     return memview[pos]
 
 
-def decode_varint_1(buffer, pos=0) -> None:
+def decode_varint_1(buffer: bytearray, pos: int = 0) -> Tuple[int, int]:
     """ Decode an integer from a varint presentation. See
     https://developers.google.com/protocol-buffers/docs/encoding?csw=1#varints
     on how those can be produced.
@@ -311,7 +314,7 @@ def decode_varint_1(buffer, pos=0) -> None:
     return (value >> 1) ^ -(value & 1), i + 1
 
 
-def decode_varint_2(buffer, pos=0) -> None:
+def decode_varint_2(buffer: bytearray, pos: int = 0) -> Tuple[int, int]:
     result = 0
     shift = 0
     while 1:
@@ -326,7 +329,7 @@ def decode_varint_2(buffer, pos=0) -> None:
             raise ValueError("Out of int64 range")
 
 
-def decode_varint_3(buffer, pos=0) -> None:
+def decode_varint_3(buffer: bytearray, pos: int = 0) -> Tuple[int, int]:
     result = buffer[pos]
     if not (result & 0x81):
         return (result >> 1), pos + 1

@@ -1,5 +1,8 @@
 import inspect
 import sys
+from abc import ABC
+from collections.abc import Iterator
+from typing import Any, Tuple, Type
 
 
 class KafkaError(RuntimeError):
@@ -7,13 +10,13 @@ class KafkaError(RuntimeError):
     # whether metadata should be refreshed on error
     invalid_metadata = False
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         if not self.args:
             return self.__class__.__name__
         return '{0}: {1}'.format(self.__class__.__name__,
                                super(KafkaError, self).__str__())
 
-    def __eq__(self, other) -> None:
+    def __eq__(self, other: Any) -> bool:
         return self.__class__ == other.__class__ and self.args == other.args
 
 
@@ -22,7 +25,7 @@ class Cancelled(KafkaError):
 
 
 class CommitFailedError(KafkaError):
-    def __init__(self, *args) -> None:
+    def __init__(self, *args: Any) -> None:
         if not args:
             args = ("Commit cannot be completed since the group has already"
                     " rebalanced and assigned the partitions to another member.",)
@@ -104,12 +107,13 @@ class TransactionAbortedError(KafkaError):
     pass
 
 
-class BrokerResponseError(KafkaError):
-    errno = None
-    message = None
-    description = None
+class BrokerResponseError(KafkaError, ABC):
 
-    def __str__(self) -> None:
+    errno: int
+    message: str
+    description: str
+
+    def __str__(self) -> str:
         """Add errno to standard KafkaError str"""
         return '[Error {0}] {1}'.format(
             self.errno,
@@ -144,6 +148,7 @@ class CorruptRecordError(BrokerResponseError):
     message = 'CORRUPT_MESSAGE'
     description = ('This message has failed its CRC checksum, exceeds the'
                    ' valid size, or is otherwise corrupt.')
+
 
 # Backward compatibility
 CorruptRecordException = CorruptRecordError
@@ -207,6 +212,7 @@ class ReplicaNotAvailableError(BrokerResponseError):
                    ' safely ignored).')
     retriable = True
     invalid_metadata = True
+
 
 class MessageSizeTooLargeError(BrokerResponseError):
     errno = 10
@@ -1050,7 +1056,7 @@ class VoterNotFoundError(BrokerResponseError):
     retriable = False
 
 
-def _iter_broker_errors() -> None:
+def _iter_broker_errors() -> Iterator[type[BrokerResponseError]]:
     for name, obj in inspect.getmembers(sys.modules[__name__]):
         if inspect.isclass(obj) and issubclass(obj, BrokerResponseError) and obj != BrokerResponseError:
             yield obj
@@ -1059,7 +1065,7 @@ def _iter_broker_errors() -> None:
 kafka_errors = dict([(x.errno, x) for x in _iter_broker_errors()])
 
 
-def for_code(error_code) -> None:
+def for_code(error_code: Tuple[int, Type[BrokerResponseError]]) -> None:
     if error_code in kafka_errors:
         return kafka_errors[error_code]
     else:

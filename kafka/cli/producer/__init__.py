@@ -2,7 +2,7 @@ import argparse
 import logging
 import sys
 from collections.abc import Iterable, Sequence
-from typing import Any
+from typing import Any, Dict, Optional
 
 from kafka import KafkaProducer
 
@@ -33,7 +33,7 @@ def main_parser() -> argparse.ArgumentParser:
 _LOGGING_LEVELS = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
 
 
-def build_kwargs(props: Iterable[str]) -> dict[str, Any]:
+def build_kwargs(props: Iterable[str]) -> Dict[str, Any]:
     kwargs: dict[str, Any] = {}
     v: Any
     for prop in props or []:
@@ -52,7 +52,7 @@ def build_kwargs(props: Iterable[str]) -> dict[str, Any]:
     return kwargs
 
 
-def run_cli(args: Sequence[str] | None = None) -> int:
+def run_cli(args: Optional[Sequence[str]] = None) -> int:
     parser = main_parser()
     config = parser.parse_args(args)
     if config.log_level:

@@ -7,13 +7,14 @@ import sys
 import threading
 import time
 import traceback
+from typing import Optional
 
 from kafka import KafkaProducer
 
 
 class ProducerPerformance(object):
     @staticmethod
-    def run(args) -> None:
+    def run(args: argparse.Namespace) -> None:
         try:
             props = {}
             for prop in args.producer_config:
@@ -80,7 +81,7 @@ class ProducerPerformance(object):
 
 
 class StatsReporter(threading.Thread):
-    def __init__(self, interval, producer, event=None, raw_metrics=False) -> None:
+    def __init__(self, interval: int, producer: KafkaProducer, event: Optional[threading.Event] = None, raw_metrics: bool = False) -> None:
         super(StatsReporter, self).__init__()
         self.interval = interval
         self.producer = producer
@@ -111,7 +112,7 @@ class StatsReporter(threading.Thread):
             self.print_final()
 
 
-def get_args_parser() -> None:
+def get_args_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='This tool is used to verify the producer performance.')
 

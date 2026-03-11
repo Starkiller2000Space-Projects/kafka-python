@@ -1,4 +1,5 @@
 import abc
+from typing import Dict
 
 from kafka.protocol.struct import Struct
 from kafka.protocol.types import Array, Int16, Int32, Schema, String, TaggedFields
@@ -81,13 +82,15 @@ class Request(Struct, metaclass=abc.ABCMeta):
 class Response(Struct, metaclass=abc.ABCMeta):
     FLEXIBLE_VERSION = False
 
-    @abc.abstractproperty
-    def API_KEY(self) -> None:
+    @property
+    @abc.abstractmethod
+    def API_KEY(self) -> int:
         """Integer identifier for api request/response"""
         pass
 
-    @abc.abstractproperty
-    def API_VERSION(self) -> None:
+    @property
+    @abc.abstractmethod
+    def API_VERSION(self) -> int:
         """Integer of api request/response version"""
         pass
 
@@ -101,7 +104,7 @@ class Response(Struct, metaclass=abc.ABCMeta):
         return ResponseHeader.decode(read_buffer)
 
 
-def _to_object(schema, data) -> None:
+def _to_object(schema: 'Schema', data: 'Struct') -> Dict:
     obj = {}
     for idx, (name, _type) in enumerate(zip(schema.names, schema.fields)):
         if isinstance(data, Struct):

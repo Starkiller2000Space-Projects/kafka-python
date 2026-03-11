@@ -56,9 +56,12 @@ version = {attr = "kafka.__version__"}
 line_length = 120
 
 [tool.mypy]
+python_version = "3.8"
 exclude_gitignore = true
 disallow_untyped_defs = true
 disallow_untyped_decorators = true
+follow_untyped_imports = true
+enable_error_code = ["deprecated"]
 
 [tool.pylint.TYPECHECK]
 ignored-classes = ["SyncManager", "_socketobject"]

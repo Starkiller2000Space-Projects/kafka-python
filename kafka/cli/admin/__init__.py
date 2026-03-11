@@ -3,7 +3,7 @@ import json
 import logging
 from collections.abc import Iterable, Sequence
 from pprint import pprint
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol
 
 from kafka.admin.client import KafkaAdminClient
 
@@ -63,7 +63,7 @@ class SubCommand(Protocol):
         ...
 
 
-def run_cli(args: Sequence[str] | None = None) -> int:
+def run_cli(args: Optional[Sequence[str]] = None) -> int:
     parser = main_parser()
     subparsers = parser.add_subparsers(help='subcommands')
     subcommands: list[SubCommand] = [ClusterSubCommand, ConfigsSubCommand, LogDirsSubCommand,

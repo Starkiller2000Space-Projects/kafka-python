@@ -8,8 +8,9 @@ from kafka.util import WeakMethod
 
 class Struct(metaclass=abc.ABCMeta):
 
-    @abc.abstractproperty
-    def SCHEMA(self) -> None:
+    @property
+    @abc.astractmethod
+    def SCHEMA(self) -> Schema:
         """An instance of Schema() representing the structure"""
         pass
 

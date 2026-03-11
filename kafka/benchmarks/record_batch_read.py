@@ -3,6 +3,8 @@ import hashlib
 import itertools
 import os
 import random
+from collections.abc import Iterator
+from typing import List, Literal
 
 import pyperf
 
@@ -17,15 +19,15 @@ BATCH_SAMPLES = 5
 MESSAGES_PER_BATCH = 100
 
 
-def random_bytes(length) -> None:
+def random_bytes(length: int) -> bytes:
     buffer = bytearray(length)
     for i in range(length):
         buffer[i] = random.randint(0, 255)
     return bytes(buffer)
 
 
-def prepare(magic) -> None:
-    samples = []
+def prepare(magic: Literal[0, 1, 2]) -> Iterator[bytes]:
+    samples: List[bytes] = []
     for _ in range(BATCH_SAMPLES):
         batch = MemoryRecordsBuilder(
             magic, batch_size=DEFAULT_BATCH_SIZE, compression_type=0)
@@ -42,7 +44,7 @@ def prepare(magic) -> None:
     return iter(itertools.cycle(samples))
 
 
-def finalize(results) -> None:
+def finalize(results: List[bytes]) -> None:
     # Just some strange code to make sure PyPy does execute the code above
     # properly
     hash_val = hashlib.md5()
@@ -51,7 +53,7 @@ def finalize(results) -> None:
     print(hash_val, file=open(os.devnull, "w"))
 
 
-def func(loops, magic) -> None:
+def func(loops: int, magic: Literal[0, 1, 2]) -> float:
     # Jit can optimize out the whole function if the result is the same each
     # time, so we need some randomized input data )
     precomputed_samples = prepare(magic)

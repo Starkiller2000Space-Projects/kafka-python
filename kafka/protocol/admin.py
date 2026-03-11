@@ -1,4 +1,5 @@
 from enum import IntEnum
+from typing import List
 
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import (Array, BitField, Boolean, Bytes, CompactArray, CompactString, Float64, Int8, Int16,
@@ -895,11 +896,11 @@ class DeleteGroupsRequest_v1(Request):
     SCHEMA = DeleteGroupsRequest_v0.SCHEMA
 
 
-DeleteGroupsRequest = [
+DeleteGroupsRequest: List[Request] = [
     DeleteGroupsRequest_v0, DeleteGroupsRequest_v1
 ]
 
-DeleteGroupsResponse = [
+DeleteGroupsResponse: List[Response] = [
     DeleteGroupsResponse_v0, DeleteGroupsResponse_v1
 ]
 

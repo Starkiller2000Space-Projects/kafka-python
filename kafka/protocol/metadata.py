@@ -1,3 +1,5 @@
+from typing import List
+
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import Array, BitField, Boolean, Int16, Int32, Schema, String
 
@@ -287,12 +289,12 @@ class MetadataRequest_v8(Request):
     NO_TOPICS = []
 
 
-MetadataRequest = [
+MetadataRequest: List[Request] = [
     MetadataRequest_v0, MetadataRequest_v1, MetadataRequest_v2,
     MetadataRequest_v3, MetadataRequest_v4, MetadataRequest_v5,
     MetadataRequest_v6, MetadataRequest_v7, MetadataRequest_v8,
 ]
-MetadataResponse = [
+MetadataResponse: List[Response] = [
     MetadataResponse_v0, MetadataResponse_v1, MetadataResponse_v2,
     MetadataResponse_v3, MetadataResponse_v4, MetadataResponse_v5,
     MetadataResponse_v6, MetadataResponse_v7, MetadataResponse_v8,

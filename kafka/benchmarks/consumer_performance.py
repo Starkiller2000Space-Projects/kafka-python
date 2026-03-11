@@ -7,7 +7,7 @@ import sys
 import threading
 import time
 import traceback
-from typing import Any
+from typing import Any, Optional
 
 from kafka import KafkaConsumer
 
@@ -74,7 +74,7 @@ class ConsumerPerformance(object):
 
 
 class StatsReporter(threading.Thread):
-    def __init__(self, interval: float, consumer: KafkaConsumer, event: threading.Event | None = None, raw_metrics: bool = False) -> None:
+    def __init__(self, interval: float, consumer: KafkaConsumer, event: Optional[threading.Event] = None, raw_metrics: bool = False) -> None:
         super(StatsReporter, self).__init__()
         self.interval = interval
         self.consumer = consumer
