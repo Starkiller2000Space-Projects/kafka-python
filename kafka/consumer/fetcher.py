@@ -8,13 +8,11 @@ import time
 import kafka.errors as Errors
 from kafka.future import Future
 from kafka.metrics.stats import Avg, Count, Max, Rate
-from kafka.protocol.fetch import FetchRequest, AbortedTransaction
-from kafka.protocol.list_offsets import (
-    ListOffsetsRequest, OffsetResetStrategy, UNKNOWN_OFFSET
-)
+from kafka.protocol.fetch import AbortedTransaction, FetchRequest
+from kafka.protocol.list_offsets import UNKNOWN_OFFSET, ListOffsetsRequest, OffsetResetStrategy
 from kafka.record import MemoryRecords
 from kafka.serializer import Deserializer
-from kafka.structs import TopicPartition, OffsetAndMetadata, OffsetAndTimestamp
+from kafka.structs import OffsetAndMetadata, OffsetAndTimestamp, TopicPartition
 from kafka.util import Timer
 
 log = logging.getLogger(__name__)
@@ -69,7 +67,7 @@ class Fetcher(object):
         'isolation_level': 'read_uncommitted',
     }
 
-    def __init__(self, client, subscriptions, **configs):
+    def __init__(self, client, subscriptions, **configs) -> None:
         """Initialize a Kafka Message Fetcher.
 
         Keyword Arguments:
@@ -135,7 +133,7 @@ class Fetcher(object):
         self._cached_list_offsets_exception = None
         self._next_in_line_exception_metadata = None
 
-    def send_fetches(self):
+    def send_fetches(self) -> None:
         """Send FetchRequests for all assigned partitions that do not already have
         an in-flight fetch or pending fetch data.
 
@@ -155,7 +153,7 @@ class Fetcher(object):
         self._clean_done_fetch_futures()
         return futures
 
-    def _clean_done_fetch_futures(self):
+    def _clean_done_fetch_futures(self) -> None:
         while True:
             if not self._fetch_futures:
                 break
@@ -163,12 +161,12 @@ class Fetcher(object):
                 break
             self._fetch_futures.popleft()
 
-    def in_flight_fetches(self):
+    def in_flight_fetches(self) -> None:
         """Return True if there are any unprocessed FetchRequests in flight."""
         self._clean_done_fetch_futures()
         return bool(self._fetch_futures)
 
-    def reset_offsets_if_needed(self):
+    def reset_offsets_if_needed(self) -> None:
         """Reset offsets for the given partitions using the offset reset strategy.
 
         Arguments:
@@ -200,7 +198,7 @@ class Fetcher(object):
         self._reset_offsets_async(offset_resets)
         return True
 
-    def offsets_by_times(self, timestamps, timeout_ms=None):
+    def offsets_by_times(self, timestamps, timeout_ms=None) -> None:
         """Fetch offset for each partition passed in ``timestamps`` map.
 
         Blocks until offsets are obtained, a non-retriable exception is raised
@@ -227,7 +225,7 @@ class Fetcher(object):
                 offsets[tp] = None
         return offsets
 
-    def _fetch_offsets_by_times(self, timestamps, timeout_ms=None):
+    def _fetch_offsets_by_times(self, timestamps, timeout_ms=None) -> None:
         if not timestamps:
             return {}
 
@@ -272,22 +270,22 @@ class Fetcher(object):
         raise Errors.KafkaTimeoutError(
             "Failed to get offsets by timestamps in %s ms" % (timeout_ms,))
 
-    def beginning_offsets(self, partitions, timeout_ms):
+    def beginning_offsets(self, partitions, timeout_ms) -> None:
         return self.beginning_or_end_offset(
             partitions, OffsetResetStrategy.EARLIEST, timeout_ms)
 
-    def end_offsets(self, partitions, timeout_ms):
+    def end_offsets(self, partitions, timeout_ms) -> None:
         return self.beginning_or_end_offset(
             partitions, OffsetResetStrategy.LATEST, timeout_ms)
 
-    def beginning_or_end_offset(self, partitions, timestamp, timeout_ms):
+    def beginning_or_end_offset(self, partitions, timestamp, timeout_ms) -> None:
         timestamps = dict([(tp, timestamp) for tp in partitions])
         offsets = self._fetch_offsets_by_times(timestamps, timeout_ms)
         for tp in timestamps:
             offsets[tp] = offsets[tp].offset
         return offsets
 
-    def fetched_records(self, max_records=None, update_offsets=True):
+    def fetched_records(self, max_records=None, update_offsets=True) -> None:
         """Returns previously fetched records and updates consumed offsets.
 
         Arguments:
@@ -349,7 +347,7 @@ class Fetcher(object):
             self._next_in_line_exception_metadata = ExceptionMetadata(fetched_partition, fetched_offset, e)
         return dict(drained), bool(self._completed_fetches)
 
-    def _append(self, drained, part, max_records, update_offsets):
+    def _append(self, drained, part, max_records, update_offsets) -> None:
         if not part:
             return 0
 
@@ -401,7 +399,7 @@ class Fetcher(object):
         part.drain()
         return 0
 
-    def _reset_offset_if_needed(self, partition, timestamp, offset):
+    def _reset_offset_if_needed(self, partition, timestamp, offset) -> None:
         # we might lose the assignment while fetching the offset, or the user might seek to a different offset,
         # so verify it is still assigned and still in need of the requested reset
         if not self._subscriptions.is_assigned(partition):
@@ -414,7 +412,7 @@ class Fetcher(object):
             log.info("Resetting offset for partition %s to offset %s.", partition, offset)
             self._subscriptions.seek(partition, offset)
 
-    def _reset_offsets_async(self, timestamps):
+    def _reset_offsets_async(self, timestamps) -> None:
         timestamps_by_node = self._group_list_offset_requests(timestamps)
 
         for node_id, timestamps_and_epochs in timestamps_by_node.items():
@@ -424,7 +422,7 @@ class Fetcher(object):
             expire_at = time.time() + self.config['request_timeout_ms'] / 1000
             self._subscriptions.set_reset_pending(partitions, expire_at)
 
-            def on_success(timestamps_and_epochs, result):
+            def on_success(timestamps_and_epochs, result) -> None:
                 fetched_offsets, partitions_to_retry = result
                 if partitions_to_retry:
                     self._subscriptions.reset_failed(partitions_to_retry, time.time() + self.config['retry_backoff_ms'] / 1000)
@@ -434,7 +432,7 @@ class Fetcher(object):
                     ts, _epoch = timestamps_and_epochs[partition]
                     self._reset_offset_if_needed(partition, ts, offset.offset)
 
-            def on_failure(partitions, error):
+            def on_failure(partitions, error) -> None:
                 self._subscriptions.reset_failed(partitions, time.time() + self.config['retry_backoff_ms'] / 1000)
                 self._client.cluster.request_update()
 
@@ -448,7 +446,7 @@ class Fetcher(object):
             future.add_callback(on_success, timestamps_and_epochs)
             future.add_errback(on_failure, partitions)
 
-    def _send_list_offsets_requests(self, timestamps):
+    def _send_list_offsets_requests(self, timestamps) -> None:
         """Fetch offsets for each partition in timestamps dict. This may send
         request to multiple nodes, based on who is Leader for partition.
 
@@ -469,14 +467,14 @@ class Fetcher(object):
         partitions_to_retry = set()
         remaining_responses = [len(timestamps_by_node)] # list for mutable / 2.7 hack
 
-        def on_success(remaining_responses, value):
+        def on_success(remaining_responses, value) -> None:
             remaining_responses[0] -= 1 # noqa: F823
             fetched_offsets.update(value[0])
             partitions_to_retry.update(value[1])
             if not remaining_responses[0] and not list_offsets_future.is_done:
                 list_offsets_future.success((fetched_offsets, partitions_to_retry))
 
-        def on_fail(err):
+        def on_fail(err) -> None:
             if not list_offsets_future.is_done:
                 list_offsets_future.failure(err)
 
@@ -486,7 +484,7 @@ class Fetcher(object):
             _f.add_errback(on_fail)
         return list_offsets_future
 
-    def _group_list_offset_requests(self, timestamps):
+    def _group_list_offset_requests(self, timestamps) -> None:
         timestamps_by_node = collections.defaultdict(dict)
         for partition, timestamp in timestamps.items():
             node_id = self._client.cluster.leader_for_partition(partition)
@@ -503,7 +501,7 @@ class Fetcher(object):
                 timestamps_by_node[node_id][partition] = (timestamp, leader_epoch)
         return dict(timestamps_by_node)
 
-    def _send_list_offsets_request(self, node_id, timestamps_and_epochs):
+    def _send_list_offsets_request(self, node_id, timestamps_and_epochs) -> None:
         version = self._client.api_version(ListOffsetsRequest, max_version=5)
         if self.config['isolation_level'] == 'read_committed' and version < 2:
             raise Errors.UnsupportedVersionError('read_committed isolation level requires ListOffsetsRequest >= v2')
@@ -538,7 +536,7 @@ class Fetcher(object):
         _f.add_errback(lambda e: future.failure(e))
         return future
 
-    def _handle_list_offsets_response(self, future, response):
+    def _handle_list_offsets_response(self, future, response) -> None:
         """Callback for the response of the ListOffsets api call
 
         Arguments:
@@ -607,7 +605,7 @@ class Fetcher(object):
         else:
             future.success((fetched_offsets, partitions_to_retry))
 
-    def _fetchable_partitions(self):
+    def _fetchable_partitions(self) -> None:
         fetchable = self._subscriptions.fetchable_partitions()
         # do not fetch a partition if we have a pending fetch response to process
         # use copy to avoid runtimeerror on mutation from different thread
@@ -617,7 +615,7 @@ class Fetcher(object):
             discard.add(current.topic_partition)
         return [tp for tp in fetchable if tp not in discard]
 
-    def _create_fetch_requests(self):
+    def _create_fetch_requests(self) -> None:
         """Create fetch requests for all assigned partitions, grouped by node.
 
         FetchRequests skipped if no leader, or node has requests in flight
@@ -747,7 +745,7 @@ class Fetcher(object):
 
         return requests
 
-    def _handle_fetch_response(self, node_id, fetch_offsets, send_time, response):
+    def _handle_fetch_response(self, node_id, fetch_offsets, send_time, response) -> None:
         """The callback for fetch completion"""
         if response.API_VERSION >= 7 and self.config['enable_incremental_fetch_sessions']:
             if node_id not in self._session_handlers:
@@ -779,19 +777,19 @@ class Fetcher(object):
         if self._sensors:
             self._sensors.fetch_latency.record((time.time() - send_time) * 1000)
 
-    def _handle_fetch_error(self, node_id, exception):
+    def _handle_fetch_error(self, node_id, exception) -> None:
         level = logging.INFO if isinstance(exception, Errors.Cancelled) else logging.ERROR
         log.log(level, 'Fetch to node %s failed: %s', node_id, exception)
         if node_id in self._session_handlers:
             self._session_handlers[node_id].handle_error(exception)
 
-    def _clear_pending_fetch_request(self, node_id, _):
+    def _clear_pending_fetch_request(self, node_id, _) -> None:
         try:
             self._nodes_with_pending_fetch_requests.remove(node_id)
         except KeyError:
             pass
 
-    def _parse_fetched_data(self, completed_fetch):
+    def _parse_fetched_data(self, completed_fetch) -> None:
         tp = completed_fetch.topic_partition
         fetch_offset = completed_fetch.fetched_offset
         error_code, highwater = completed_fetch.partition_data[:2]
@@ -895,13 +893,13 @@ class Fetcher(object):
 
         return parsed_records
 
-    def _on_partition_records_drain(self, partition_records):
+    def _on_partition_records_drain(self, partition_records) -> None:
         # we move the partition to the end if we received some bytes. This way, it's more likely that partitions
         # for the same topic can remain together (allowing for more efficient serialization).
         if partition_records.bytes_read > 0:
             self._subscriptions.move_partition_to_end(partition_records.topic_partition)
 
-    def close(self):
+    def close(self) -> None:
         if self._next_partition_records is not None:
             self._next_partition_records.drain()
         self._next_in_line_exception_metadata = None
@@ -932,7 +930,7 @@ class Fetcher(object):
             self.on_drain = on_drain
             self._next_inline_exception = None
 
-        def _maybe_skip_record(self, record):
+        def _maybe_skip_record(self, record) -> None:
             # When fetching an offset that is in the middle of a
             # compressed batch, we will get all messages in the batch.
             # But we want to start 'take' at the fetch_offset
@@ -945,10 +943,10 @@ class Fetcher(object):
                 return False
 
         # For truthiness evaluation
-        def __bool__(self):
+        def __bool__(self) -> None:
             return self.record_iterator is not None
 
-        def drain(self):
+        def drain(self) -> None:
             if self.record_iterator is not None:
                 self.record_iterator = None
                 self._next_inline_exception = None
@@ -956,12 +954,12 @@ class Fetcher(object):
                     self.metric_aggregator.record(self.topic_partition, self.bytes_read, self.records_read)
                 self.on_drain(self)
 
-        def _maybe_raise_next_inline_exception(self):
+        def _maybe_raise_next_inline_exception(self) -> None:
             if self._next_inline_exception:
                 exc, self._next_inline_exception = self._next_inline_exception, None
                 raise exc
 
-        def take(self, n=None):
+        def take(self, n=None) -> None:
             self._maybe_raise_next_inline_exception()
             records = []
             try:
@@ -974,7 +972,7 @@ class Fetcher(object):
                 self._next_inline_exception = e
             return records
 
-        def _unpack_records(self, tp, records, key_deserializer, value_deserializer):
+        def _unpack_records(self, tp, records, key_deserializer, value_deserializer) -> None:
             try:
                 batch = records.next_batch()
                 last_batch = None
@@ -1057,24 +1055,24 @@ class Fetcher(object):
                 log.exception('StopIteration raised unpacking messageset')
                 raise RuntimeError('StopIteration raised unpacking messageset')
 
-        def _deserialize(self, f, topic, bytes_):
+        def _deserialize(self, f, topic, bytes_) -> None:
             if not f:
                 return bytes_
             if isinstance(f, Deserializer):
                 return f.deserialize(topic, bytes_)
             return f(bytes_)
 
-        def _consume_aborted_transactions_up_to(self, offset):
+        def _consume_aborted_transactions_up_to(self, offset) -> None:
             if not self.aborted_transactions:
                 return
 
             while self.aborted_transactions and self.aborted_transactions[0].first_offset <= offset:
                 self.aborted_producer_ids.add(self.aborted_transactions.popleft().producer_id)
 
-        def _is_batch_aborted(self, batch):
+        def _is_batch_aborted(self, batch) -> None:
             return batch.is_transactional and batch.producer_id in self.aborted_producer_ids
 
-        def _contains_abort_marker(self, batch):
+        def _contains_abort_marker(self, batch) -> None:
             if not batch.is_control_batch:
                 return False
             record = next(batch)
@@ -1097,12 +1095,12 @@ class FetchSessionHandler(object):
     the attached fetch session metadata should be for each request.
     """
 
-    def __init__(self, node_id):
+    def __init__(self, node_id) -> None:
         self.node_id = node_id
         self.next_metadata = FetchMetadata.INITIAL
         self.session_partitions = {}
 
-    def build_next(self, next_partitions):
+    def build_next(self, next_partitions) -> None:
         """
         Arguments:
             next_partitions (dict): TopicPartition -> TopicPartitionState
@@ -1136,7 +1134,7 @@ class FetchSessionHandler(object):
         to_send = collections.OrderedDict({tp: next_partitions[tp] for tp in next_partitions if tp in (added | altered)})
         return FetchRequestData(to_send, removed, self.next_metadata)
 
-    def handle_response(self, response):
+    def handle_response(self, response) -> None:
         if response.error_code != Errors.NoError.errno:
             error_type = Errors.for_code(response.error_code)
             log.info("Node %s was unable to process the fetch request with %s: %s.",
@@ -1201,10 +1199,10 @@ class FetchSessionHandler(object):
                 self.next_metadata = self.next_metadata.next_incremental()
                 return True
 
-    def handle_error(self, _exception):
+    def handle_error(self, _exception) -> None:
         self.next_metadata = self.next_metadata.next_close_existing()
 
-    def _response_partitions(self, response):
+    def _response_partitions(self, response) -> None:
         return {TopicPartition(topic, partition_data[0])
                 for topic, partitions in response.topics
                 for partition_data in partitions}
@@ -1219,16 +1217,16 @@ class FetchMetadata(object):
     INITIAL_EPOCH = 0 # client wants to create or recreate a session.
     FINAL_EPOCH = -1 # client wants to close any existing session, and not create a new one.
 
-    def __init__(self, session_id, epoch):
+    def __init__(self, session_id, epoch) -> None:
         self.session_id = session_id
         self.epoch = epoch
 
     @property
-    def is_full(self):
+    def is_full(self) -> None:
         return self.epoch == self.INITIAL_EPOCH or self.epoch == self.FINAL_EPOCH
 
     @classmethod
-    def next_epoch(cls, prev_epoch):
+    def next_epoch(cls, prev_epoch) -> None:
         if prev_epoch < 0:
             return cls.FINAL_EPOCH
         elif prev_epoch == cls.MAX_EPOCH:
@@ -1236,14 +1234,14 @@ class FetchMetadata(object):
         else:
             return prev_epoch + 1
 
-    def next_close_existing(self):
+    def next_close_existing(self) -> None:
         return self.__class__(self.session_id, self.INITIAL_EPOCH)
 
     @classmethod
-    def new_incremental(cls, session_id):
+    def new_incremental(cls, session_id) -> None:
         return cls(session_id, cls.next_epoch(cls.INITIAL_EPOCH))
 
-    def next_incremental(self):
+    def next_incremental(self) -> None:
         return self.__class__(self.session_id, self.next_epoch(self.epoch))
 
 FetchMetadata.INITIAL = FetchMetadata(FetchMetadata.INVALID_SESSION_ID, FetchMetadata.INITIAL_EPOCH)
@@ -1253,25 +1251,25 @@ FetchMetadata.LEGACY = FetchMetadata(FetchMetadata.INVALID_SESSION_ID, FetchMeta
 class FetchRequestData(object):
     __slots__ = ('_to_send', '_to_forget', '_metadata')
 
-    def __init__(self, to_send, to_forget, metadata):
+    def __init__(self, to_send, to_forget, metadata) -> None:
         self._to_send = to_send or dict() # {TopicPartition: (partition, ...)}
         self._to_forget = to_forget or set() # {TopicPartition}
         self._metadata = metadata
 
     @property
-    def metadata(self):
+    def metadata(self) -> None:
         return self._metadata
 
     @property
-    def id(self):
+    def id(self) -> None:
         return self._metadata.session_id
 
     @property
-    def epoch(self):
+    def epoch(self) -> None:
         return self._metadata.epoch
 
     @property
-    def to_send(self):
+    def to_send(self) -> None:
         # Return as list of [(topic, [(partition, ...), ...]), ...]
         # so it can be passed directly to encoder
         partition_data = collections.defaultdict(list)
@@ -1280,7 +1278,7 @@ class FetchRequestData(object):
         return list(partition_data.items())
 
     @property
-    def to_forget(self):
+    def to_forget(self) -> None:
         # Return as list of [(topic, (partiiton, ...)), ...]
         # so it an be passed directly to encoder
         partition_data = collections.defaultdict(list)
@@ -1292,7 +1290,7 @@ class FetchRequestData(object):
 class FetchMetrics(object):
     __slots__ = ('total_bytes', 'total_records')
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.total_bytes = 0
         self.total_records = 0
 
@@ -1304,13 +1302,13 @@ class FetchResponseMetricAggregator(object):
     from each partition are parsed. This class is used to facilitate this
     incremental aggregation.
     """
-    def __init__(self, sensors, partitions):
+    def __init__(self, sensors, partitions) -> None:
         self.sensors = sensors
         self.unrecorded_partitions = partitions
         self.fetch_metrics = FetchMetrics()
         self.topic_fetch_metrics = collections.defaultdict(FetchMetrics)
 
-    def record(self, partition, num_bytes, num_records):
+    def record(self, partition, num_bytes, num_records) -> None:
         """
         After each partition is parsed, we update the current metric totals
         with the total bytes and number of records parsed. After all partitions
@@ -1331,7 +1329,7 @@ class FetchResponseMetricAggregator(object):
 
 
 class FetchManagerMetrics(object):
-    def __init__(self, metrics, prefix):
+    def __init__(self, metrics, prefix) -> None:
         self.metrics = metrics
         self.group_name = '%s-fetch-manager-metrics' % (prefix,)
 
@@ -1361,7 +1359,7 @@ class FetchManagerMetrics(object):
         self.records_fetch_lag.add(metrics.metric_name('records-lag-max', self.group_name,
             'The maximum lag in terms of number of records for any partition in self window'), Max())
 
-    def record_topic_fetch_metrics(self, topic, num_bytes, num_records):
+    def record_topic_fetch_metrics(self, topic, num_bytes, num_records) -> None:
         # record bytes fetched
         name = '.'.join(['topic', topic, 'bytes-fetched'])
         bytes_fetched = self.metrics.get_sensor(name)

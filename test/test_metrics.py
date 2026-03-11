@@ -6,8 +6,7 @@ import pytest
 from kafka.errors import QuotaViolationError
 from kafka.metrics import DictReporter, MetricConfig, MetricName, Metrics, Quota
 from kafka.metrics.measurable import AbstractMeasurable
-from kafka.metrics.stats import (Avg, Count, Max, Min, Percentile, Percentiles,
-                                 Rate, Total)
+from kafka.metrics.stats import Avg, Count, Max, Min, Percentile, Percentiles, Rate, Total
 from kafka.metrics.stats.percentiles import BucketSizing
 from kafka.metrics.stats.rate import TimeUnit
 
@@ -15,11 +14,11 @@ EPS = 0.000001
 
 
 @pytest.fixture
-def time_keeper():
+def time_keeper() -> None:
     return TimeKeeper()
 
 
-def test_MetricName():
+def test_MetricName() -> None:
     # The Java test only cover the differences between the deprecated
     # constructors, so I'm skipping them but doing some other basic testing.
 
@@ -65,7 +64,7 @@ def test_MetricName():
     assert name.tags == tags
 
 
-def test_simple_stats(mocker, time_keeper, metrics):
+def test_simple_stats(mocker, time_keeper, metrics) -> None:
     mocker.patch('time.time', side_effect=time_keeper.time)
     config = metrics._config
 
@@ -123,7 +122,7 @@ def test_simple_stats(mocker, time_keeper, metrics):
             < EPS, 'Count(0...9) = 10'
 
 
-def test_hierarchical_sensors(metrics):
+def test_hierarchical_sensors(metrics) -> None:
     parent1 = metrics.sensor('test.parent1')
     parent1.add(metrics.metric_name('test.parent1.count', 'grp1'), Count())
     parent2 = metrics.sensor('test.parent2')
@@ -159,7 +158,7 @@ def test_hierarchical_sensors(metrics):
     assert metrics._children_sensors.get(grandchild) is None
 
 
-def test_bad_sensor_hierarchy(metrics):
+def test_bad_sensor_hierarchy(metrics) -> None:
     parent = metrics.sensor('parent')
     child1 = metrics.sensor('child1', parents=[parent])
     child2 = metrics.sensor('child2', parents=[parent])
@@ -168,7 +167,7 @@ def test_bad_sensor_hierarchy(metrics):
         metrics.sensor('gc', parents=[child1, child2])
 
 
-def test_remove_sensor(metrics):
+def test_remove_sensor(metrics) -> None:
     size = len(metrics.metrics)
     parent1 = metrics.sensor('test.parent1')
     parent1.add(metrics.metric_name('test.parent1.count', 'grp1'), Count())
@@ -214,7 +213,7 @@ def test_remove_sensor(metrics):
     assert size == len(metrics.metrics)
 
 
-def test_remove_inactive_metrics(mocker, time_keeper, metrics):
+def test_remove_inactive_metrics(mocker, time_keeper, metrics) -> None:
     mocker.patch('time.time', side_effect=time_keeper.time)
 
     s1 = metrics.sensor('test.s1', None, 1)
@@ -273,7 +272,7 @@ def test_remove_inactive_metrics(mocker, time_keeper, metrics):
             'MetricName test.s1.count must be present'
 
 
-def test_remove_metric(metrics):
+def test_remove_metric(metrics) -> None:
     size = len(metrics.metrics)
     metrics.add_metric(metrics.metric_name('test1', 'grp1'), Count())
     metrics.add_metric(metrics.metric_name('test2', 'grp1'), Count())
@@ -288,7 +287,7 @@ def test_remove_metric(metrics):
     assert size == len(metrics.metrics)
 
 
-def test_event_windowing(mocker, time_keeper):
+def test_event_windowing(mocker, time_keeper) -> None:
     mocker.patch('time.time', side_effect=time_keeper.time)
 
     count = Count()
@@ -300,7 +299,7 @@ def test_event_windowing(mocker, time_keeper):
     assert 2.0 == count.measure(config, time_keeper.ms())
 
 
-def test_time_windowing(mocker, time_keeper):
+def test_time_windowing(mocker, time_keeper) -> None:
     mocker.patch('time.time', side_effect=time_keeper.time)
 
     count = Count()
@@ -314,7 +313,7 @@ def test_time_windowing(mocker, time_keeper):
     assert 2.0 == count.measure(config, time_keeper.ms())
 
 
-def test_old_data_has_no_effect(mocker, time_keeper):
+def test_old_data_has_no_effect(mocker, time_keeper) -> None:
     mocker.patch('time.time', side_effect=time_keeper.time)
 
     max_stat = Max()
@@ -336,13 +335,13 @@ def test_old_data_has_no_effect(mocker, time_keeper):
     assert 0 == count_stat.measure(config, time_keeper.ms())
 
 
-def test_duplicate_MetricName(metrics):
+def test_duplicate_MetricName(metrics) -> None:
     metrics.sensor('test').add(metrics.metric_name('test', 'grp1'), Avg())
     with pytest.raises(ValueError):
         metrics.sensor('test2').add(metrics.metric_name('test', 'grp1'), Total())
 
 
-def test_Quotas(metrics):
+def test_Quotas(metrics) -> None:
     sensor = metrics.sensor('test')
     sensor.add(metrics.metric_name('test1.total', 'grp1'), Total(),
                MetricConfig(quota=Quota.upper_bound(5.0)))
@@ -360,7 +359,7 @@ def test_Quotas(metrics):
         sensor.record(-1.0)
 
 
-def test_Quotas_equality():
+def test_Quotas_equality() -> None:
     quota1 = Quota.upper_bound(10.5)
     quota2 = Quota.lower_bound(10.5)
     assert quota1 != quota2, 'Quota with different upper values should not be equal'
@@ -369,7 +368,7 @@ def test_Quotas_equality():
     assert quota2 == quota3, 'Quota with same upper and bound values should be equal'
 
 
-def test_Percentiles(metrics):
+def test_Percentiles(metrics) -> None:
     buckets = 100
     _percentiles = [
         Percentile(metrics.metric_name('test.p25', 'grp1'), 25),
@@ -400,7 +399,7 @@ def test_Percentiles(metrics):
     assert p50.value() < 1.0
     assert p75.value() < 1.0
 
-def test_rate_windowing(mocker, time_keeper, metrics):
+def test_rate_windowing(mocker, time_keeper, metrics) -> None:
     mocker.patch('time.time', side_effect=time_keeper.time)
 
     # Use the default time window. Set 3 samples
@@ -429,7 +428,7 @@ def test_rate_windowing(mocker, time_keeper, metrics):
             < EPS, 'Elapsed Time = 75 seconds'
 
 
-def test_reporter(metrics):
+def test_reporter(metrics) -> None:
     reporter = DictReporter()
     foo_reporter = DictReporter(prefix='foo')
     metrics.add_reporter(reporter)
@@ -460,7 +459,7 @@ def test_reporter(metrics):
 class ConstantMeasurable(AbstractMeasurable):
     _value = 0.0
 
-    def measure(self, config, now):
+    def measure(self, config, now) -> None:
         return self._value
 
 
@@ -468,16 +467,16 @@ class TimeKeeper(object):
     """
     A clock that you can manually advance by calling sleep
     """
-    def __init__(self, auto_tick_ms=0):
+    def __init__(self, auto_tick_ms=0) -> None:
         self._millis = time.time() * 1000
         self._auto_tick_ms = auto_tick_ms
 
-    def time(self):
+    def time(self) -> None:
         return self.ms() / 1000.0
 
-    def ms(self):
+    def ms(self) -> None:
         self.sleep(self._auto_tick_ms)
         return self._millis
 
-    def sleep(self, seconds):
+    def sleep(self, seconds) -> None:
         self._millis += (seconds * 1000)

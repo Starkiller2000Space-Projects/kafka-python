@@ -3,13 +3,12 @@ import logging
 
 from kafka.sasl.abc import SaslMechanism
 
-
 log = logging.getLogger(__name__)
 
 
 class SaslMechanismOAuth(SaslMechanism):
 
-    def __init__(self, **config):
+    def __init__(self, **config) -> None:
         assert 'sasl_oauth_token_provider' in config, 'sasl_oauth_token_provider required for OAUTHBEARER sasl'
         assert isinstance(config['sasl_oauth_token_provider'], AbstractTokenProvider), \
             'sasl_oauth_token_provider must implement kafka.sasl.oauth.AbstractTokenProvider'
@@ -18,7 +17,7 @@ class SaslMechanismOAuth(SaslMechanism):
         self._is_done = False
         self._is_authenticated = False
 
-    def auth_bytes(self):
+    def auth_bytes(self) -> None:
         if self._error:
             # Server should respond to this with SaslAuthenticate failure, which ends the auth process
             return self._error
@@ -26,7 +25,7 @@ class SaslMechanismOAuth(SaslMechanism):
         extensions = self._token_extensions()
         return "n,,\x01auth=Bearer {}{}\x01\x01".format(token, extensions).encode('utf-8')
 
-    def receive(self, auth_bytes):
+    def receive(self, auth_bytes) -> None:
         if auth_bytes != b'':
             error = auth_bytes.decode('utf-8')
             log.debug("Sending x01 response to server after receiving SASL OAuth error: %s", error)
@@ -35,13 +34,13 @@ class SaslMechanismOAuth(SaslMechanism):
             self._is_done = True
             self._is_authenticated = True
 
-    def is_done(self):
+    def is_done(self) -> None:
         return self._is_done
 
-    def is_authenticated(self):
+    def is_authenticated(self) -> None:
         return self._is_authenticated
 
-    def _token_extensions(self):
+    def _token_extensions(self) -> None:
         """
         Return a string representation of the OPTIONAL key-value pairs that can be sent with an OAUTHBEARER
         initial request.
@@ -51,7 +50,7 @@ class SaslMechanismOAuth(SaslMechanism):
         msg = '\x01'.join(['{}={}'.format(k, v) for k, v in extensions.items()])
         return '\x01' + msg if msg else ''
 
-    def auth_details(self):
+    def auth_details(self) -> None:
         if not self.is_authenticated:
             raise RuntimeError('Not authenticated yet!')
         return 'Authenticated via SASL / OAuth'
@@ -73,18 +72,18 @@ class AbstractTokenProvider(ABC):
     Token Providers MUST implement the token() method
     """
 
-    def __init__(self, **config):
+    def __init__(self, **config) -> None:
         pass
 
     @abc.abstractmethod
-    def token(self):
+    def token(self) -> None:
         """
         Returns a (str) ID/Access Token to be sent to the Kafka
         client.
         """
         pass
 
-    def extensions(self):
+    def extensions(self) -> None:
         """
         This is an OPTIONAL method that may be implemented.
 

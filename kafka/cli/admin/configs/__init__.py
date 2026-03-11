@@ -6,7 +6,7 @@ from .describe import DescribeConfigs
 class ConfigsSubCommand:
 
     @classmethod
-    def add_subparser(cls, subparsers):
+    def add_subparser(cls, subparsers) -> None:
         parser = subparsers.add_parser('configs', help='Manage Kafka Configuration')
         commands = parser.add_subparsers()
         for cmd in [DescribeConfigs]:

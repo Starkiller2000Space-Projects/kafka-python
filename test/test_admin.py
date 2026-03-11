@@ -4,7 +4,7 @@ import kafka.admin
 from kafka.errors import IllegalArgumentError
 
 
-def test_config_resource():
+def test_config_resource() -> None:
     with pytest.raises(KeyError):
         _bad_resource = kafka.admin.ConfigResource('something', 'foo')
     good_resource = kafka.admin.ConfigResource('broker', 'bar')
@@ -17,7 +17,7 @@ def test_config_resource():
     assert good_resource.configs == {'frob': 'nob'}
 
 
-def test_new_partitions():
+def test_new_partitions() -> None:
     good_partitions = kafka.admin.NewPartitions(6)
     assert good_partitions.total_count == 6
     assert good_partitions.new_assignments is None
@@ -26,7 +26,7 @@ def test_new_partitions():
     assert good_partitions.new_assignments == [[1, 2, 3]]
 
 
-def test_acl_resource():
+def test_acl_resource() -> None:
     good_acl = kafka.admin.ACL(
         "User:bar",
         "*",
@@ -57,7 +57,7 @@ def test_acl_resource():
             )
         )
 
-def test_new_topic():
+def test_new_topic() -> None:
     good_topic = kafka.admin.NewTopic('foo')
     assert good_topic.name == 'foo'
     assert good_topic.num_partitions == -1

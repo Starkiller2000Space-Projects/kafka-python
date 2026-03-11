@@ -7,13 +7,13 @@ class Avg(AbstractSampledStat):
     """
     __slots__ = ('_initial_value', '_samples', '_current')
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Avg, self).__init__(0.0)
 
-    def update(self, sample, config, value, now):
+    def update(self, sample, config, value, now) -> None:
         sample.value += value
 
-    def combine(self, samples, config, now):
+    def combine(self, samples, config, now) -> None:
         total_sum = 0
         total_count = 0
         for sample in samples:

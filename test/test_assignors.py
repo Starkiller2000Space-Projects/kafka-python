@@ -5,22 +5,22 @@ from random import randint, sample
 
 import pytest
 
-from kafka.structs import TopicPartition
 from kafka.coordinator.assignors.range import RangePartitionAssignor
 from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
 from kafka.coordinator.assignors.sticky.sticky_assignor import StickyPartitionAssignor
 from kafka.coordinator.protocol import ConsumerProtocolMemberAssignment_v0
 from kafka.coordinator.subscription import Subscription
+from kafka.structs import TopicPartition
 
 
 @pytest.fixture(autouse=True)
-def reset_sticky_assignor():
+def reset_sticky_assignor() -> None:
     yield
     StickyPartitionAssignor.member_assignment = None
     StickyPartitionAssignor.generation = -1
 
 
-def create_cluster(mocker, topics, topics_partitions=None, topic_partitions_lambda=None):
+def create_cluster(mocker, topics, topics_partitions=None, topic_partitions_lambda=None) -> None:
     cluster = mocker.MagicMock()
     cluster.topics.return_value = topics
     if topics_partitions is not None:
@@ -30,7 +30,7 @@ def create_cluster(mocker, topics, topics_partitions=None, topic_partitions_lamb
     return cluster
 
 
-def test_assignor_roundrobin(mocker):
+def test_assignor_roundrobin(mocker) -> None:
     assignor = RoundRobinPartitionAssignor
 
     group_subscriptions = {
@@ -52,7 +52,7 @@ def test_assignor_roundrobin(mocker):
         assert ret[member].encode() == expected[member].encode()
 
 
-def test_assignor_range(mocker):
+def test_assignor_range(mocker) -> None:
     assignor = RangePartitionAssignor
 
     group_subscriptions = {
@@ -74,7 +74,7 @@ def test_assignor_range(mocker):
         assert ret[member].encode() == expected[member].encode()
 
 
-def test_sticky_assignor1(mocker):
+def test_sticky_assignor1(mocker) -> None:
     """
     Given: there are three consumers C0, C1, C2,
         four topics t0, t1, t2, t3, and each topic has 2 partitions,
@@ -124,7 +124,7 @@ def test_sticky_assignor1(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_assignor2(mocker):
+def test_sticky_assignor2(mocker) -> None:
     """
     Given: there are three consumers C0, C1, C2,
     and three topics t0, t1, t2, with 1, 2, and 3 partitions respectively.
@@ -176,7 +176,7 @@ def test_sticky_assignor2(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_one_consumer_no_topic(mocker):
+def test_sticky_one_consumer_no_topic(mocker) -> None:
     cluster = create_cluster(mocker, topics={}, topics_partitions={})
 
     subscriptions = {
@@ -191,7 +191,7 @@ def test_sticky_one_consumer_no_topic(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_one_consumer_nonexisting_topic(mocker):
+def test_sticky_one_consumer_nonexisting_topic(mocker) -> None:
     cluster = create_cluster(mocker, topics={}, topics_partitions={})
 
     subscriptions = {
@@ -206,7 +206,7 @@ def test_sticky_one_consumer_nonexisting_topic(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_one_consumer_one_topic(mocker):
+def test_sticky_one_consumer_one_topic(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0, 1, 2})
 
     subscriptions = {
@@ -221,7 +221,7 @@ def test_sticky_one_consumer_one_topic(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_should_only_assign_partitions_from_subscribed_topics(mocker):
+def test_sticky_should_only_assign_partitions_from_subscribed_topics(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t', 'other-t'}, topics_partitions={0, 1, 2})
 
     subscriptions = {
@@ -236,7 +236,7 @@ def test_sticky_should_only_assign_partitions_from_subscribed_topics(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_one_consumer_multiple_topics(mocker):
+def test_sticky_one_consumer_multiple_topics(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t1', 't2'}, topics_partitions={0, 1, 2})
 
     subscriptions = {
@@ -251,7 +251,7 @@ def test_sticky_one_consumer_multiple_topics(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_two_consumers_one_topic_one_partition(mocker):
+def test_sticky_two_consumers_one_topic_one_partition(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0})
 
     subscriptions = {
@@ -268,7 +268,7 @@ def test_sticky_two_consumers_one_topic_one_partition(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_two_consumers_one_topic_two_partitions(mocker):
+def test_sticky_two_consumers_one_topic_two_partitions(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0, 1})
 
     subscriptions = {
@@ -285,7 +285,7 @@ def test_sticky_two_consumers_one_topic_two_partitions(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_multiple_consumers_mixed_topic_subscriptions(mocker):
+def test_sticky_multiple_consumers_mixed_topic_subscriptions(mocker) -> None:
     partitions = {'t1': {0, 1, 2}, 't2': {0, 1}}
     cluster = create_cluster(mocker, topics={'t1', 't2'}, topic_partitions_lambda=lambda t: partitions[t])
 
@@ -305,7 +305,7 @@ def test_sticky_multiple_consumers_mixed_topic_subscriptions(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_add_remove_consumer_one_topic(mocker):
+def test_sticky_add_remove_consumer_one_topic(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0, 1, 2})
 
     subscriptions = {
@@ -344,7 +344,7 @@ def test_sticky_add_remove_consumer_one_topic(mocker):
     assert len(assignment['C2'].assignment[0][1]) == 3
 
 
-def test_sticky_add_remove_topic_two_consumers(mocker):
+def test_sticky_add_remove_topic_two_consumers(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t1', 't2'}, topics_partitions={0, 1, 2})
 
     subscriptions = {
@@ -391,7 +391,7 @@ def test_sticky_add_remove_topic_two_consumers(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_sticky_reassignment_after_one_consumer_leaves(mocker):
+def test_sticky_reassignment_after_one_consumer_leaves(mocker) -> None:
     partitions = dict([('t{}'.format(i), set(range(i))) for i in range(1, 20)])
     cluster = create_cluster(
         mocker, topics=set(['t{}'.format(i) for i in range(1, 20)]), topic_partitions_lambda=lambda t: partitions[t]
@@ -419,7 +419,7 @@ def test_sticky_reassignment_after_one_consumer_leaves(mocker):
     assert StickyPartitionAssignor._latest_partition_movements.are_sticky()
 
 
-def test_sticky_reassignment_after_one_consumer_added(mocker):
+def test_sticky_reassignment_after_one_consumer_added(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions=set(range(20)))
 
     subscriptions = defaultdict(set)
@@ -442,7 +442,7 @@ def test_sticky_reassignment_after_one_consumer_added(mocker):
     assert StickyPartitionAssignor._latest_partition_movements.are_sticky()
 
 
-def test_sticky_same_subscriptions(mocker):
+def test_sticky_same_subscriptions(mocker) -> None:
     partitions = dict([('t{}'.format(i), set(range(i))) for i in range(1, 15)])
     cluster = create_cluster(
         mocker, topics=set(['t{}'.format(i) for i in range(1, 15)]), topic_partitions_lambda=lambda t: partitions[t]
@@ -467,7 +467,7 @@ def test_sticky_same_subscriptions(mocker):
     assert StickyPartitionAssignor._latest_partition_movements.are_sticky()
 
 
-def test_sticky_large_assignment_with_multiple_consumers_leaving(mocker):
+def test_sticky_large_assignment_with_multiple_consumers_leaving(mocker) -> None:
     n_topics = 40
     n_consumers = 200
 
@@ -500,7 +500,7 @@ def test_sticky_large_assignment_with_multiple_consumers_leaving(mocker):
     assert StickyPartitionAssignor._latest_partition_movements.are_sticky()
 
 
-def test_new_subscription(mocker):
+def test_new_subscription(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t1', 't2', 't3', 't4'}, topics_partitions={0})
 
     subscriptions = defaultdict(set)
@@ -523,7 +523,7 @@ def test_new_subscription(mocker):
     assert StickyPartitionAssignor._latest_partition_movements.are_sticky()
 
 
-def test_move_existing_assignments(mocker):
+def test_move_existing_assignments(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t1', 't2', 't3', 't4', 't5', 't6'}, topics_partitions={0})
 
     subscriptions = {
@@ -545,7 +545,7 @@ def test_move_existing_assignments(mocker):
     verify_validity_and_balance(subscriptions, assignment)
 
 
-def test_stickiness(mocker):
+def test_stickiness(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0, 1, 2})
     subscriptions = {
         'C1': {'t'},
@@ -584,8 +584,8 @@ def test_stickiness(mocker):
         ), 'Stickiness was not honored for consumer {}'.format(consumer)
 
 
-def test_assignment_updated_for_deleted_topic(mocker):
-    def topic_partitions(topic):
+def test_assignment_updated_for_deleted_topic(mocker) -> None:
+    def topic_partitions(topic) -> None:
         if topic == 't1':
             return {0}
         if topic == 't3':
@@ -605,7 +605,7 @@ def test_assignment_updated_for_deleted_topic(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_no_exceptions_when_only_subscribed_topic_is_deleted(mocker):
+def test_no_exceptions_when_only_subscribed_topic_is_deleted(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0, 1, 2})
 
     subscriptions = {
@@ -634,7 +634,7 @@ def test_no_exceptions_when_only_subscribed_topic_is_deleted(mocker):
     assert_assignment(sticky_assignment, expected_assignment)
 
 
-def test_conflicting_previous_assignments(mocker):
+def test_conflicting_previous_assignments(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0, 1})
 
     subscriptions = {
@@ -653,7 +653,7 @@ def test_conflicting_previous_assignments(mocker):
 @pytest.mark.parametrize(
     'execution_number,n_topics,n_consumers', [(i, randint(10, 20), randint(20, 40)) for i in range(100)]
 )
-def test_reassignment_with_random_subscriptions_and_changes(mocker, execution_number, n_topics, n_consumers):
+def test_reassignment_with_random_subscriptions_and_changes(mocker, execution_number, n_topics, n_consumers) -> None:
     all_topics = sorted(['t{}'.format(i) for i in range(1, n_topics + 1)])
     partitions = dict([(t, set(range(1, i + 1))) for i, t in enumerate(all_topics)])
     cluster = create_cluster(mocker, topics=all_topics, topic_partitions_lambda=lambda t: partitions[t])
@@ -682,7 +682,7 @@ def test_reassignment_with_random_subscriptions_and_changes(mocker, execution_nu
     assert StickyPartitionAssignor._latest_partition_movements.are_sticky()
 
 
-def test_assignment_with_multiple_generations1(mocker):
+def test_assignment_with_multiple_generations1(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0, 1, 2, 3, 4, 5})
 
     member_metadata = {
@@ -722,7 +722,7 @@ def test_assignment_with_multiple_generations1(mocker):
     assert StickyPartitionAssignor._latest_partition_movements.are_sticky()
 
 
-def test_assignment_with_multiple_generations2(mocker):
+def test_assignment_with_multiple_generations2(mocker) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0, 1, 2, 3, 4, 5})
 
     member_metadata = {
@@ -762,7 +762,7 @@ def test_assignment_with_multiple_generations2(mocker):
 
 
 @pytest.mark.parametrize('execution_number', range(50))
-def test_assignment_with_conflicting_previous_generations(mocker, execution_number):
+def test_assignment_with_conflicting_previous_generations(mocker, execution_number) -> None:
     cluster = create_cluster(mocker, topics={'t'}, topics_partitions={0, 1, 2, 3, 4, 5})
 
     member_assignments = {
@@ -784,21 +784,21 @@ def test_assignment_with_conflicting_previous_generations(mocker, execution_numb
     assert StickyPartitionAssignor._latest_partition_movements.are_sticky()
 
 
-def make_member_metadata(subscriptions):
+def make_member_metadata(subscriptions) -> None:
     member_metadata = {}
     for member, topics in subscriptions.items():
         member_metadata[member] = StickyPartitionAssignor._metadata(topics, [])
     return member_metadata
 
 
-def assert_assignment(result_assignment, expected_assignment):
+def assert_assignment(result_assignment, expected_assignment) -> None:
     assert result_assignment == expected_assignment
     assert set(result_assignment) == set(expected_assignment)
     for member in result_assignment:
         assert result_assignment[member].encode() == expected_assignment[member].encode()
 
 
-def verify_validity_and_balance(subscriptions, assignment):
+def verify_validity_and_balance(subscriptions, assignment) -> None:
     """
     Verifies that the given assignment is valid with respect to the given subscriptions
     Validity requirements:
@@ -863,7 +863,7 @@ def verify_validity_and_balance(subscriptions, assignment):
                     )
 
 
-def group_partitions_by_topic(partitions):
+def group_partitions_by_topic(partitions) -> None:
     result = defaultdict(set)
     for p in partitions:
         result[p.topic].add(p.partition)

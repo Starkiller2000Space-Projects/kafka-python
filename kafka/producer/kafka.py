@@ -6,21 +6,23 @@ import threading
 import warnings
 import weakref
 
+from typing_extensions import Unpack
+
 import kafka.errors as Errors
 from kafka.client_async import KafkaClient, selectors
-from kafka.codec import has_gzip, has_snappy, has_lz4, has_zstd
+from kafka.codec import has_gzip, has_lz4, has_snappy, has_zstd
 from kafka.metrics import MetricConfig, Metrics
 from kafka.partitioner.default import DefaultPartitioner
-from kafka.producer.future import FutureRecordMetadata, FutureProduceResult
+from kafka.producer.future import FutureProduceResult, FutureRecordMetadata
 from kafka.producer.record_accumulator import AtomicInteger, RecordAccumulator
 from kafka.producer.sender import Sender
 from kafka.producer.transaction_manager import TransactionManager
+from kafka.producer.types import KafkaProducerParams
 from kafka.record.default_records import DefaultRecordBatchBuilder
 from kafka.record.legacy_records import LegacyRecordBatchBuilder
 from kafka.serializer import Serializer
 from kafka.structs import TopicPartition
 from kafka.util import Timer, ensure_valid_topic_name
-
 
 log = logging.getLogger(__name__)
 PRODUCER_CLIENT_ID_SEQUENCE = AtomicInteger()
@@ -364,7 +366,7 @@ class KafkaProducer(object):
         Configuration parameters are described in more detail at
         https://kafka.apache.org/0100/documentation/#producerconfigs
     """
-    DEFAULT_CONFIG = {
+    DEFAULT_CONFIG: KafkaProducerParams = {
         'bootstrap_servers': 'localhost',
         'client_id': None,
         'key_serializer': None,
@@ -432,7 +434,7 @@ class KafkaProducer(object):
         None: (lambda: True, LegacyRecordBatchBuilder.CODEC_NONE),
     }
 
-    def __init__(self, **configs):
+    def __init__(self, **configs: Unpack[KafkaProducerParams]) -> None:
         self.config = copy.copy(self.DEFAULT_CONFIG)
         user_provided_configs = set(configs.keys())
         for key in self.config:
@@ -562,29 +564,29 @@ class KafkaProducer(object):
         atexit.register(self._cleanup)
         log.debug("%s: Kafka producer started", str(self))
 
-    def bootstrap_connected(self):
+    def bootstrap_connected(self) -> None:
         """Return True if the bootstrap is connected."""
         return self._sender.bootstrap_connected()
 
-    def _cleanup_factory(self):
+    def _cleanup_factory(self) -> None:
         """Build a cleanup clojure that doesn't increase our ref count"""
         _self = weakref.proxy(self)
-        def wrapper():
+        def wrapper() -> None:
             try:
                 _self.close(timeout=0, null_logger=True)
             except (ReferenceError, AttributeError):
                 pass
         return wrapper
 
-    def _unregister_cleanup(self):
+    def _unregister_cleanup(self) -> None:
         if getattr(self, '_cleanup', None):
             atexit.unregister(self._cleanup)
         self._cleanup = None
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close(timeout=1, null_logger=True)
 
-    def close(self, timeout=None, null_logger=False):
+    def close(self, timeout=None, null_logger=False) -> None:
         """Close this producer.
 
         Arguments:
@@ -593,7 +595,7 @@ class KafkaProducer(object):
         if null_logger:
             # Disable logger during destruction to avoid touching dangling references
             class NullLogger(object):
-                def __getattr__(self, name):
+                def __getattr__(self, name) -> None:
                     return lambda *args: None
 
             global log
@@ -648,12 +650,12 @@ class KafkaProducer(object):
         self._closed = True
         log.debug("%s: The Kafka producer has closed.", str(self))
 
-    def partitions_for(self, topic):
+    def partitions_for(self, topic) -> None:
         """Returns set of all known partitions for the topic."""
         return self._wait_on_metadata(topic, self.config['max_block_ms'])
 
     @classmethod
-    def max_usable_produce_magic(cls, api_version):
+    def max_usable_produce_magic(cls, api_version) -> None:
         if api_version >= (0, 11):
             return 2
         elif api_version >= (0, 10, 0):
@@ -661,7 +663,7 @@ class KafkaProducer(object):
         else:
             return 0
 
-    def _estimate_size_in_bytes(self, key, value, headers=[]):
+    def _estimate_size_in_bytes(self, key, value, headers=[]) -> None:
         magic = self.max_usable_produce_magic(self.config['api_version'])
         if magic == 2:
             return DefaultRecordBatchBuilder.estimate_size_in_bytes(
@@ -670,7 +672,7 @@ class KafkaProducer(object):
             return LegacyRecordBatchBuilder.estimate_size_in_bytes(
                 magic, self.config['compression_type'], key, value)
 
-    def init_transactions(self):
+    def init_transactions(self) -> None:
         """
         Needs to be called before any other methods when the transactional.id is set in the configuration.
 
@@ -709,7 +711,7 @@ class KafkaProducer(object):
             if self._init_transactions_result.failed:
                 self._init_transactions_result = None
 
-    def begin_transaction(self):
+    def begin_transaction(self) -> None:
         """ Should be called before the start of each new transaction.
 
         Note that prior to the first invocation of this method,
@@ -724,7 +726,7 @@ class KafkaProducer(object):
             raise Errors.IllegalStateError("Cannot use transactional methods without enabling transactions")
         self._transaction_manager.begin_transaction()
 
-    def send_offsets_to_transaction(self, offsets, consumer_group_id):
+    def send_offsets_to_transaction(self, offsets, consumer_group_id) -> None:
         """
         Sends a list of consumed offsets to the consumer group coordinator, and also marks
         those offsets as part of the current transaction. These offsets will be considered
@@ -754,7 +756,7 @@ class KafkaProducer(object):
         self._sender.wakeup()
         result.wait()
 
-    def commit_transaction(self):
+    def commit_transaction(self) -> None:
         """ Commits the ongoing transaction.
 
         Raises: ProducerFencedError if another producer with the same
@@ -766,7 +768,7 @@ class KafkaProducer(object):
         self._sender.wakeup()
         result.wait()
 
-    def abort_transaction(self):
+    def abort_transaction(self) -> None:
         """ Aborts the ongoing transaction.
 
         Raises: ProducerFencedError if another producer with the same
@@ -778,7 +780,7 @@ class KafkaProducer(object):
         self._sender.wakeup()
         result.wait()
 
-    def send(self, topic, value=None, key=None, headers=None, partition=None, timestamp_ms=None):
+    def send(self, topic: str, value: bytes | None = None, key: bytes | None = None, headers: list[tuple[str, bytes]] | None = None, partition: int | None = None, timestamp_ms: int | None = None) -> FutureRecordMetadata:
         """Publish a message to a topic.
 
         Arguments:
@@ -878,7 +880,7 @@ class KafkaProducer(object):
                 sum(len(h_key.encode("utf-8")) + len(h_value) for h_key, h_value in headers) if headers else -1,
             ).failure(e)
 
-    def flush(self, timeout=None):
+    def flush(self, timeout=None) -> None:
         """
         Invoking this method makes all buffered records immediately available
         to send (even if linger_ms is greater than 0) and blocks on the
@@ -905,7 +907,7 @@ class KafkaProducer(object):
         self._sender.wakeup()
         self._accumulator.await_flush_completion(timeout=timeout)
 
-    def _ensure_valid_record_size(self, size):
+    def _ensure_valid_record_size(self, size) -> None:
         """Validate that the record size isn't too large."""
         if size > self.config['max_request_size']:
             raise Errors.MessageSizeTooLargeError(
@@ -913,7 +915,7 @@ class KafkaProducer(object):
                 " the maximum request size you have configured with the"
                 " max_request_size configuration" % (size,))
 
-    def _wait_on_metadata(self, topic, max_wait_ms):
+    def _wait_on_metadata(self, topic, max_wait_ms) -> None:
         """
         Wait for cluster metadata including partitions for the given topic to
         be available.
@@ -957,7 +959,7 @@ class KafkaProducer(object):
             else:
                 log.debug("%s: _wait_on_metadata woke after %s secs.", str(self), timer.elapsed_ms / 1000)
 
-    def _serialize(self, f, topic, data):
+    def _serialize(self, f, topic, data) -> None:
         if not f:
             return data
         if isinstance(f, Serializer):
@@ -965,7 +967,7 @@ class KafkaProducer(object):
         return f(data)
 
     def _partition(self, topic, partition, key, value,
-                   serialized_key, serialized_value):
+                   serialized_key, serialized_value) -> None:
         all_partitions = self._metadata.partitions_for_topic(topic)
         available = self._metadata.available_partitions_for_topic(topic)
         if all_partitions is None or available is None:
@@ -979,7 +981,7 @@ class KafkaProducer(object):
                                           sorted(all_partitions),
                                           list(available))
 
-    def metrics(self, raw=False):
+    def metrics(self, raw=False) -> None:
         """Get metrics on producer performance.
 
         This is ported from the Java Producer, for details see:
@@ -1003,5 +1005,5 @@ class KafkaProducer(object):
             metrics[k.group][k.name] = v.value()
         return metrics
 
-    def __str__(self):
+    def __str__(self) -> None:
         return "<KafkaProducer client_id=%s transactional_id=%s>" % (self.config['client_id'], self.config['transactional_id'])

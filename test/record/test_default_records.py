@@ -1,16 +1,13 @@
 # -*- coding: utf-8 -*-
 
+from test.testutil import maybe_skip_unsupported_compression
 from unittest.mock import patch
 
 import pytest
 
 import kafka.codec
-from kafka.record.default_records import (
-    DefaultRecordBatch, DefaultRecordBatchBuilder
-)
 from kafka.errors import UnsupportedCodecError
-
-from test.testutil import maybe_skip_unsupported_compression
+from kafka.record.default_records import DefaultRecordBatch, DefaultRecordBatchBuilder
 
 
 @pytest.mark.parametrize("compression_type", [
@@ -19,7 +16,7 @@ from test.testutil import maybe_skip_unsupported_compression
     DefaultRecordBatch.CODEC_SNAPPY,
     DefaultRecordBatch.CODEC_LZ4
 ])
-def test_read_write_serde_v2(compression_type):
+def test_read_write_serde_v2(compression_type) -> None:
     maybe_skip_unsupported_compression(compression_type)
     builder = DefaultRecordBatchBuilder(
         magic=2, compression_type=compression_type, is_transactional=1,
@@ -47,7 +44,7 @@ def test_read_write_serde_v2(compression_type):
         assert msg.headers == headers
 
 
-def test_written_bytes_equals_size_in_bytes_v2():
+def test_written_bytes_equals_size_in_bytes_v2() -> None:
     key = b"test"
     value = b"Super"
     headers = [("header1", b"aaa"), ("header2", b"bbb"), ("xx", None)]
@@ -67,7 +64,7 @@ def test_written_bytes_equals_size_in_bytes_v2():
     assert meta.size == size_in_bytes
 
 
-def test_estimate_size_in_bytes_bigger_than_batch_v2():
+def test_estimate_size_in_bytes_bigger_than_batch_v2() -> None:
     key = b"Super Key"
     value = b"1" * 100
     headers = [("header1", b"aaa"), ("header2", b"bbb")]
@@ -85,7 +82,7 @@ def test_estimate_size_in_bytes_bigger_than_batch_v2():
         "Estimate should always be upper bound"
 
 
-def test_default_batch_builder_validates_arguments():
+def test_default_batch_builder_validates_arguments() -> None:
     builder = DefaultRecordBatchBuilder(
         magic=2, compression_type=0, is_transactional=0,
         producer_id=-1, producer_epoch=-1, base_sequence=-1,
@@ -132,7 +129,7 @@ def test_default_batch_builder_validates_arguments():
     assert len(builder.build()) == 124
 
 
-def test_default_correct_metadata_response():
+def test_default_correct_metadata_response() -> None:
     builder = DefaultRecordBatchBuilder(
         magic=2, compression_type=0, is_transactional=0,
         producer_id=-1, producer_epoch=-1, base_sequence=-1,
@@ -150,7 +147,7 @@ def test_default_correct_metadata_response():
     )
 
 
-def test_default_batch_size_limit():
+def test_default_batch_size_limit() -> None:
     # First message can be added even if it's too big
     builder = DefaultRecordBatchBuilder(
         magic=2, compression_type=0, is_transactional=0,
@@ -187,7 +184,7 @@ def test_default_batch_size_limit():
     (DefaultRecordBatch.CODEC_LZ4, "lz4", "has_lz4")
 ])
 @pytest.mark.parametrize("magic", [0, 1])
-def test_unavailable_codec(magic, compression_type, name, checker_name):
+def test_unavailable_codec(magic, compression_type, name, checker_name) -> None:
     if not getattr(kafka.codec, checker_name)():
         pytest.skip('%s compression_type not installed' % (compression_type,))
     builder = DefaultRecordBatchBuilder(

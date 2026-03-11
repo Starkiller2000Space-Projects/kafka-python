@@ -10,21 +10,21 @@ from kafka.structs import TopicPartition
 
 
 @pytest.fixture
-def tp():
+def tp() -> None:
     return TopicPartition('foo', 0)
 
 
 @pytest.fixture
-def memory_records_builder():
+def memory_records_builder() -> None:
     return MemoryRecordsBuilder(magic=2, compression_type=0, batch_size=100000)
 
 
 @pytest.fixture
-def batch(tp, memory_records_builder):
+def batch(tp, memory_records_builder) -> None:
     return ProducerBatch(tp, memory_records_builder)
 
 
-def test_producer_batch_producer_id(tp, memory_records_builder):
+def test_producer_batch_producer_id(tp, memory_records_builder) -> None:
     batch = ProducerBatch(tp, memory_records_builder)
     assert batch.producer_id == -1
     batch.records.set_producer_state(123, 456, 789, False)
@@ -34,7 +34,7 @@ def test_producer_batch_producer_id(tp, memory_records_builder):
 
 
 @pytest.mark.parametrize("magic", [0, 1, 2])
-def test_producer_batch_try_append(magic):
+def test_producer_batch_try_append(magic) -> None:
     tp = TopicPartition('foo', 0)
     records = MemoryRecordsBuilder(
         magic=magic, compression_type=0, batch_size=100000)
@@ -60,13 +60,13 @@ def test_producer_batch_try_append(magic):
     assert future.value == expected_metadata
 
 
-def test_producer_batch_retry(batch):
+def test_producer_batch_retry(batch) -> None:
     assert not batch.in_retry()
     batch.retry()
     assert batch.in_retry()
 
 
-def test_batch_abort(batch):
+def test_batch_abort(batch) -> None:
     future = batch.try_append(123, None, b'msg', [])
     batch.abort(KafkaError())
     assert future.is_done
@@ -80,7 +80,7 @@ def test_batch_abort(batch):
         future.get()
 
 
-def test_batch_cannot_abort_twice(batch):
+def test_batch_cannot_abort_twice(batch) -> None:
     future = batch.try_append(123, None, b'msg', [])
     batch.abort(KafkaError())
     with pytest.raises(IllegalStateError):
@@ -90,7 +90,7 @@ def test_batch_cannot_abort_twice(batch):
         future.get()
 
 
-def test_batch_cannot_complete_twice(batch):
+def test_batch_cannot_complete_twice(batch) -> None:
     future = batch.try_append(123, None, b'msg', [])
     batch.complete(500, 10)
     with pytest.raises(IllegalStateError):
@@ -100,7 +100,7 @@ def test_batch_cannot_complete_twice(batch):
     assert record_metadata.timestamp == 10
 
 
-def _test_complete_exceptionally(batch, record_count, top_level_exception, record_exceptions_fn):
+def _test_complete_exceptionally(batch, record_count, top_level_exception, record_exceptions_fn) -> None:
     futures = []
     for i in range(record_count):
         futures.append(batch.try_append(0, b'key', b'value', []))
@@ -117,7 +117,7 @@ def _test_complete_exceptionally(batch, record_count, top_level_exception, recor
         assert record_exceptions_fn(i) == future.exception
 
 
-def test_complete_exceptionally_with_record_errors(batch):
+def test_complete_exceptionally_with_record_errors(batch) -> None:
     record_count = 5
     top_level_exception = RuntimeError()
 
@@ -127,7 +127,7 @@ def test_complete_exceptionally_with_record_errors(batch):
     _test_complete_exceptionally(batch, record_count, top_level_exception, record_exceptions_fn)
 
 
-def test_complete_exceptionally_with_null_record_errors(batch):
+def test_complete_exceptionally_with_null_record_errors(batch) -> None:
     record_count = 5
     top_level_exception = RuntimeError()
 
@@ -135,7 +135,7 @@ def test_complete_exceptionally_with_null_record_errors(batch):
         _test_complete_exceptionally(batch, record_count, top_level_exception, None)
 
 
-def test_producer_batch_lt(tp, memory_records_builder):
+def test_producer_batch_lt(tp, memory_records_builder) -> None:
     b1 = ProducerBatch(tp, memory_records_builder, now=1)
     b2 = ProducerBatch(tp, memory_records_builder, now=2)
 

@@ -6,7 +6,7 @@ from .describe import DescribeCluster
 class ClusterSubCommand:
 
     @classmethod
-    def add_subparser(cls, subparsers):
+    def add_subparser(cls, subparsers) -> None:
         parser = subparsers.add_parser('cluster', help='Manage Kafka Cluster')
         commands = parser.add_subparsers()
         for cmd in [DescribeCluster]:

@@ -15,7 +15,7 @@ class Percentiles(AbstractSampledStat, AbstractCompoundStat):
                  '_percentiles', '_buckets', '_bin_scheme')
 
     def __init__(self, size_in_bytes, bucketing, max_val, min_val=0.0,
-                 percentiles=None):
+                 percentiles=None) -> None:
         super(Percentiles, self).__init__(0.0)
         self._percentiles = percentiles or []
         self._buckets = int(size_in_bytes / 4)
@@ -30,10 +30,10 @@ class Percentiles(AbstractSampledStat, AbstractCompoundStat):
         else:
             raise ValueError('Unknown bucket type: %s' % (bucketing,))
 
-    def stats(self):
+    def stats(self) -> None:
         measurables = []
 
-        def make_measure_fn(pct):
+        def make_measure_fn(pct) -> None:
             return lambda config, now: self.value(config, now,
                                                   pct / 100.0)
 
@@ -43,7 +43,7 @@ class Percentiles(AbstractSampledStat, AbstractCompoundStat):
             measurables.append(stat)
         return measurables
 
-    def value(self, config, now, quantile):
+    def value(self, config, now, quantile) -> None:
         self.purge_obsolete_samples(config, now)
         count = sum(sample.event_count for sample in self._samples)
         if count == 0.0:
@@ -59,17 +59,17 @@ class Percentiles(AbstractSampledStat, AbstractCompoundStat):
                     return self._bin_scheme.from_bin(b)
         return float('inf')
 
-    def combine(self, samples, config, now):
+    def combine(self, samples, config, now) -> None:
         return self.value(config, now, 0.5)
 
-    def new_sample(self, time_ms):
+    def new_sample(self, time_ms) -> None:
         return Percentiles.HistogramSample(self._bin_scheme, time_ms)
 
-    def update(self, sample, config, value, time_ms):
+    def update(self, sample, config, value, time_ms) -> None:
         assert type(sample) is self.HistogramSample
         sample.histogram.record(value)
 
     class HistogramSample(AbstractSampledStat.Sample):
-        def __init__(self, scheme, now):
+        def __init__(self, scheme, now) -> None:
             super(Percentiles.HistogramSample, self).__init__(0.0, now)
             self.histogram = Histogram(scheme)

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import pyperf
 
-
 test_data = [
     (b"\x00", 0),
     (b"\x01", -1),
@@ -65,24 +64,24 @@ BENCH_VALUES_DEC = [
 BENCH_VALUES_DEC = list(map(bytearray, BENCH_VALUES_DEC))
 
 
-def _assert_valid_enc(enc_func):
+def _assert_valid_enc(enc_func) -> None:
     for encoded, decoded in test_data:
         assert enc_func(decoded) == encoded, decoded
 
 
-def _assert_valid_dec(dec_func):
+def _assert_valid_dec(dec_func) -> None:
     for encoded, decoded in test_data:
         res, pos = dec_func(bytearray(encoded))
         assert res == decoded, (decoded, res)
         assert pos == len(encoded), (decoded, pos)
 
 
-def _assert_valid_size(size_func):
+def _assert_valid_size(size_func) -> None:
     for encoded, decoded in test_data:
         assert size_func(decoded) == len(encoded), decoded
 
 
-def encode_varint_1(num):
+def encode_varint_1(num) -> None:
     """ Encode an integer to a varint presentation. See
     https://developers.google.com/protocol-buffers/docs/encoding?csw=1#varints
     on how those can be produced.
@@ -112,10 +111,10 @@ def encode_varint_1(num):
     return buf[:i + 1]
 
 
-def int2byte(i):
+def int2byte(i) -> None:
     return bytes((i,))
 
-def encode_varint_2(value):
+def encode_varint_2(value) -> None:
     value = (value << 1) ^ (value >> 63)
 
     bits = value & 0x7f
@@ -128,7 +127,7 @@ def encode_varint_2(value):
     return res + int2byte(bits)
 
 
-def encode_varint_3(value, buf):
+def encode_varint_3(value, buf) -> None:
     append = buf.append
     value = (value << 1) ^ (value >> 63)
 
@@ -142,7 +141,7 @@ def encode_varint_3(value, buf):
     return value
 
 
-def encode_varint_4(value):
+def encode_varint_4(value) -> None:
     value = (value << 1) ^ (value >> 63)
 
     if value <= 0x7f:  # 1 byte
@@ -176,7 +175,7 @@ def encode_varint_4(value):
         return res + int2byte(bits)
 
 
-def encode_varint_5(value, buf, pos=0):
+def encode_varint_5(value, buf, pos=0) -> None:
     value = (value << 1) ^ (value >> 63)
 
     bits = value & 0x7f
@@ -189,7 +188,7 @@ def encode_varint_5(value, buf, pos=0):
     buf[pos] = bits
     return pos + 1
 
-def encode_varint_6(value, buf):
+def encode_varint_6(value, buf) -> None:
     append = buf.append
     value = (value << 1) ^ (value >> 63)
 
@@ -232,7 +231,7 @@ def encode_varint_6(value, buf):
     return i
 
 
-def size_of_varint_1(value):
+def size_of_varint_1(value) -> None:
     """ Number of bytes needed to encode an integer in variable-length format.
     """
     value = (value << 1) ^ (value >> 63)
@@ -245,7 +244,7 @@ def size_of_varint_1(value):
     return res
 
 
-def size_of_varint_2(value):
+def size_of_varint_2(value) -> None:
     """ Number of bytes needed to encode an integer in variable-length format.
     """
     value = (value << 1) ^ (value >> 63)
@@ -270,7 +269,7 @@ def size_of_varint_2(value):
     return 10
 
 
-def _read_byte(memview, pos):
+def _read_byte(memview, pos) -> None:
     """ Read a byte from memoryview as an integer
 
         Raises:
@@ -279,7 +278,7 @@ def _read_byte(memview, pos):
     return memview[pos]
 
 
-def decode_varint_1(buffer, pos=0):
+def decode_varint_1(buffer, pos=0) -> None:
     """ Decode an integer from a varint presentation. See
     https://developers.google.com/protocol-buffers/docs/encoding?csw=1#varints
     on how those can be produced.
@@ -312,7 +311,7 @@ def decode_varint_1(buffer, pos=0):
     return (value >> 1) ^ -(value & 1), i + 1
 
 
-def decode_varint_2(buffer, pos=0):
+def decode_varint_2(buffer, pos=0) -> None:
     result = 0
     shift = 0
     while 1:
@@ -327,7 +326,7 @@ def decode_varint_2(buffer, pos=0):
             raise ValueError("Out of int64 range")
 
 
-def decode_varint_3(buffer, pos=0):
+def decode_varint_3(buffer, pos=0) -> None:
     result = buffer[pos]
     if not (result & 0x81):
         return (result >> 1), pos + 1

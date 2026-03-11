@@ -1,10 +1,10 @@
 from unittest import mock
 
-from kafka.sasl import get_sasl_mechanism
 import kafka.sasl.gssapi
+from kafka.sasl import get_sasl_mechanism
 
 
-def test_gssapi():
+def test_gssapi() -> None:
     config = {
         'sasl_kerberos_domain_name': 'foo',
         'sasl_kerberos_service_name': 'bar',
@@ -12,7 +12,7 @@ def test_gssapi():
     client_ctx = mock.Mock()
     client_ctx.step.side_effect = [b'init', b'exchange', b'complete', b'xxxx']
     client_ctx.complete = False
-    def mocked_message_wrapper(msg, *args):
+    def mocked_message_wrapper(msg, *args) -> None:
         wrapped = mock.Mock()
         type(wrapped).message = mock.PropertyMock(return_value=msg)
         return wrapped

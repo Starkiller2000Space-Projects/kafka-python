@@ -2,14 +2,17 @@ import copy
 import errno
 import io
 import logging
-from random import uniform
 import selectors
 import socket
 import threading
 import time
+from random import uniform
+
+from typing_extensions import Unpack
 
 import kafka.errors as Errors
 from kafka.future import Future
+from kafka.metrics import Metrics
 from kafka.metrics.stats import Avg, Count, Max, Rate
 from kafka.protocol.admin import DescribeAclsRequest, DescribeClientQuotasRequest, ListGroupsRequest
 from kafka.protocol.api_versions import ApiVersionsRequest
@@ -26,8 +29,8 @@ from kafka.protocol.sasl_handshake import SaslHandshakeRequest
 from kafka.protocol.types import Int32
 from kafka.sasl import get_sasl_mechanism
 from kafka.socks5_wrapper import Socks5Wrapper
+from kafka.types import BrockerConnectionParams
 from kafka.version import __version__
-
 
 log = logging.getLogger(__name__)
 
@@ -177,7 +180,7 @@ class BrokerConnection(object):
         socks5_proxy (str): Socks5 proxy url. Default: None
     """
 
-    DEFAULT_CONFIG = {
+    DEFAULT_CONFIG: BrockerConnectionParams = {
         'client_id': 'kafka-python-' + __version__,
         'client_software_name': 'kafka-python',
         'client_software_version': __version__,
@@ -223,7 +226,7 @@ class BrokerConnection(object):
         ((0, 8, 0), MetadataRequest[0]([])),
     )
 
-    def __init__(self, host, port, afi, **configs):
+    def __init__(self, host: str, port: int, afi: socket.AddressFamily, **configs: Unpack[BrockerConnectionParams]) -> None:
         self.host = host
         self.port = port
         self.afi = afi
@@ -272,7 +275,7 @@ class BrokerConnection(object):
         # function like a FIFO queue. For additional request data,
         # including tracking request futures and timestamps, we
         # can use a simple dictionary of correlation_id => request data
-        self.in_flight_requests = dict()
+        self.in_flight_requests: dict[int, tuple[int, int, int]] = dict()
 
         self._protocol = self._new_protocol_parser()
         self.state = ConnectionStates.DISCONNECTED
@@ -293,19 +296,19 @@ class BrokerConnection(object):
                                                     self.config['metric_group_prefix'],
                                                     self.node_id)
 
-    def _new_protocol_parser(self):
+    def _new_protocol_parser(self) -> KafkaProtocol:
         return KafkaProtocol(
             ident='%s:%d' % (self.host, self.port),
             client_id=self.config['client_id'],
             api_version=self.config['api_version'])
 
-    def _init_sasl_mechanism(self):
+    def _init_sasl_mechanism(self) -> None:
         if self.config['security_protocol'] in ('SASL_PLAINTEXT', 'SASL_SSL'):
             self._sasl_mechanism = get_sasl_mechanism(self.config['sasl_mechanism'])(host=self.host, **self.config)
         else:
             self._sasl_mechanism = None
 
-    def _dns_lookup(self):
+    def _dns_lookup(self) -> None:
         self._gai = dns_lookup(self.host, self.port, self.afi)
         if not self._gai:
             log.error('%s: DNS lookup failed for %s:%i (%s)',
@@ -313,7 +316,7 @@ class BrokerConnection(object):
             return False
         return True
 
-    def _next_afi_sockaddr(self):
+    def _next_afi_sockaddr(self) -> None:
         if self.config["socks5_proxy"] and Socks5Wrapper.use_remote_lookup(self.config["socks5_proxy"]):
             return (socket.AF_UNSPEC, (self.host, self.port))
 
@@ -355,7 +358,7 @@ class BrokerConnection(object):
                 break
         return False
 
-    def connect(self):
+    def connect(self) -> str:
         """Attempt to connect and return ConnectionState"""
         if self.state is ConnectionStates.DISCONNECTED and not self.blacked_out():
             self.state = ConnectionStates.CONNECTING
@@ -471,7 +474,7 @@ class BrokerConnection(object):
 
         return self.state
 
-    def _wrap_ssl(self):
+    def _wrap_ssl(self) -> None:
         assert self.config['security_protocol'] in ('SSL', 'SASL_SSL')
         if self._ssl_context is None:
             log.debug('%s: configuring default SSL Context', self)
@@ -515,7 +518,7 @@ class BrokerConnection(object):
             log.exception('%s: Failed to wrap socket in SSLContext!', self)
             self.close(e)
 
-    def _try_handshake(self):
+    def _try_handshake(self) -> None:
         assert self.config['security_protocol'] in ('SSL', 'SASL_SSL')
         try:
             self._sock.do_handshake()
@@ -530,7 +533,7 @@ class BrokerConnection(object):
 
         return False
 
-    def _try_api_versions_check(self):
+    def _try_api_versions_check(self) -> None:
         if self._api_versions_future is None:
             if self.config['api_version'] is not None:
                 self._api_version = self.config['api_version']
@@ -583,7 +586,7 @@ class BrokerConnection(object):
                 raise ex
         return self._api_versions_future.succeeded()
 
-    def _handle_api_versions_response(self, future, response):
+    def _handle_api_versions_response(self, future, response) -> None:
         error_type = Errors.for_code(response.error_code)
         if error_type is not Errors.NoError:
             future.failure(error_type())
@@ -611,7 +614,7 @@ class BrokerConnection(object):
         future.success(self._api_version)
         self.connect()
 
-    def _handle_api_versions_failure(self, future, ex):
+    def _handle_api_versions_failure(self, future, ex) -> None:
         future.failure(ex)
         # Modern brokers should not disconnect on unrecognized api-versions request,
         # but in case they do we always want to try v0 as a fallback
@@ -622,7 +625,7 @@ class BrokerConnection(object):
             self._check_version_idx = 0
         # after failure connection is closed, so state should already be DISCONNECTED
 
-    def _handle_check_version_response(self, future, version, _response):
+    def _handle_check_version_response(self, future, version, _response) -> None:
         log.info('%s: Broker version identified as %s', self, '.'.join(map(str, version)))
         log.info('Set configuration api_version=%s to skip auto'
                  ' check_version requests on startup', version)
@@ -631,12 +634,12 @@ class BrokerConnection(object):
         future.success(version)
         self.connect()
 
-    def _handle_check_version_failure(self, future, ex):
+    def _handle_check_version_failure(self, future, ex) -> None:
         future.failure(ex)
         self._check_version_idx += 1
         # after failure connection is closed, so state should already be DISCONNECTED
 
-    def _sasl_handshake_version(self):
+    def _sasl_handshake_version(self) -> None:
         if self._api_versions is None:
             raise RuntimeError('_api_versions not set')
         if SaslHandshakeRequest[0].API_KEY not in self._api_versions:
@@ -648,7 +651,7 @@ class BrokerConnection(object):
             raise Errors.UnsupportedVersionError('SaslHandshake %s' % min_version)
         return min(max_version, 1)
 
-    def _try_authenticate(self):
+    def _try_authenticate(self) -> None:
         if self._sasl_auth_future is None:
             version = self._sasl_handshake_version()
             request = SaslHandshakeRequest[version](self.config['sasl_mechanism'])
@@ -670,7 +673,7 @@ class BrokerConnection(object):
                 raise ex  # pylint: disable-msg=raising-bad-type
         return self._sasl_auth_future.succeeded()
 
-    def _handle_sasl_handshake_response(self, future, response):
+    def _handle_sasl_handshake_response(self, future, response) -> None:
         error_type = Errors.for_code(response.error_code)
         if error_type is not Errors.NoError:
             error = error_type(self)
@@ -691,7 +694,7 @@ class BrokerConnection(object):
         else:
             self.connect()
 
-    def _send_bytes(self, data):
+    def _send_bytes(self, data) -> None:
         """Send some data via non-blocking IO
 
         Note: this method is not synchronized internally; you should
@@ -713,7 +716,7 @@ class BrokerConnection(object):
                 break
         return total_sent
 
-    def _send_bytes_blocking(self, data):
+    def _send_bytes_blocking(self, data) -> None:
         self._sock.setblocking(True)
         self._sock.settimeout(self.config['request_timeout_ms'] / 1000)
         total_sent = 0
@@ -728,7 +731,7 @@ class BrokerConnection(object):
             self._sock.settimeout(0.0)
             self._sock.setblocking(False)
 
-    def _recv_bytes_blocking(self, n):
+    def _recv_bytes_blocking(self, n) -> None:
         self._sock.setblocking(True)
         self._sock.settimeout(self.config['request_timeout_ms'] / 1000)
         try:
@@ -743,7 +746,7 @@ class BrokerConnection(object):
             self._sock.settimeout(0.0)
             self._sock.setblocking(False)
 
-    def _send_sasl_authenticate(self, sasl_auth_bytes):
+    def _send_sasl_authenticate(self, sasl_auth_bytes) -> None:
         version = self._sasl_handshake_version()
         if version == 1:
             request = SaslAuthenticateRequest[0](sasl_auth_bytes)
@@ -757,7 +760,7 @@ class BrokerConnection(object):
                 err = Errors.KafkaConnectionError("%s: %s" % (self, e))
                 self.close(error=err)
 
-    def _recv_sasl_authenticate(self):
+    def _recv_sasl_authenticate(self) -> None:
         version = self._sasl_handshake_version()
         # GSSAPI mechanism does not get a final recv in old non-framed mode
         if version == 0 and self._sasl_mechanism.is_done():
@@ -793,7 +796,7 @@ class BrokerConnection(object):
             log.debug('%s: Received %d raw sasl auth bytes from server', self, nbytes)
             return data[4:]
 
-    def _sasl_authenticate(self, future):
+    def _sasl_authenticate(self, future) -> None:
         while not self._sasl_mechanism.is_done():
             send_token = self._sasl_mechanism.auth_bytes()
             self._send_sasl_authenticate(send_token)
@@ -812,7 +815,7 @@ class BrokerConnection(object):
         else:
             return future.failure(Errors.SaslAuthenticationFailedError('Failed to authenticate via SASL %s' % self.config['sasl_mechanism']))
 
-    def blacked_out(self):
+    def blacked_out(self) -> None:
         """
         Return true if we are disconnected from the given node and can't
         re-establish a connection yet
@@ -821,7 +824,7 @@ class BrokerConnection(object):
             return self.connection_delay() > 0
         return False
 
-    def throttled(self):
+    def throttled(self) -> None:
         """
         Return True if we are connected but currently throttled.
         """
@@ -829,7 +832,7 @@ class BrokerConnection(object):
             return False
         return self.throttle_delay() > 0
 
-    def throttle_delay(self):
+    def throttle_delay(self) -> None:
         """
         Return the number of milliseconds to wait until connection is no longer throttled.
         """
@@ -842,7 +845,7 @@ class BrokerConnection(object):
                 return 0
         return 0
 
-    def connection_delay(self):
+    def connection_delay(self) -> None:
         """
         Return the number of milliseconds to wait, based on the connection
         state, before attempting to send data. When connecting or disconnected,
@@ -863,11 +866,11 @@ class BrokerConnection(object):
             # cause a wakeup once data can be sent.
             return float('inf')
 
-    def connected(self):
+    def connected(self) -> None:
         """Return True iff socket is connected."""
         return self.state is ConnectionStates.CONNECTED
 
-    def connecting(self):
+    def connecting(self) -> None:
         """Returns True if still connecting (this may encompass several
         different states, such as SSL handshake, authorization, etc)."""
         return self.state in (ConnectionStates.CONNECTING,
@@ -876,7 +879,7 @@ class BrokerConnection(object):
                               ConnectionStates.API_VERSIONS_SEND,
                               ConnectionStates.API_VERSIONS_RECV)
 
-    def initializing(self):
+    def initializing(self) -> None:
         """Returns True if socket is connected but full connection is not complete.
         During this time the connection may send api requests to the broker to
         check api versions and perform SASL authentication."""
@@ -884,22 +887,22 @@ class BrokerConnection(object):
                               ConnectionStates.API_VERSIONS_SEND,
                               ConnectionStates.API_VERSIONS_RECV)
 
-    def disconnected(self):
+    def disconnected(self) -> None:
         """Return True iff socket is closed"""
         return self.state is ConnectionStates.DISCONNECTED
 
-    def connect_failed(self):
+    def connect_failed(self) -> None:
         """Return True iff connection attempt failed after attempting all dns records"""
         return self.disconnected() and self.last_attempt >= 0 and len(self._gai) == 0
 
-    def _reset_reconnect_backoff(self):
+    def _reset_reconnect_backoff(self) -> None:
         self._failures = 0
         self._reconnect_backoff = self.config['reconnect_backoff_ms'] / 1000.0
 
-    def _reconnect_jitter_pct(self):
+    def _reconnect_jitter_pct(self) -> None:
         return uniform(0.8, 1.2)
 
-    def _update_reconnect_backoff(self):
+    def _update_reconnect_backoff(self) -> None:
         # Do not mark as failure if there are more dns entries available to try
         if len(self._gai) > 0:
             return
@@ -911,15 +914,15 @@ class BrokerConnection(object):
             self._reconnect_backoff /= 1000.0
             log.debug('%s: reconnect backoff %s after %s failures', self, self._reconnect_backoff, self._failures)
 
-    def _close_socket(self):
+    def _close_socket(self) -> None:
         if hasattr(self, '_sock') and self._sock is not None:
             self._sock.close()
             self._sock = None
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._close_socket()
 
-    def close(self, error=None):
+    def close(self, error=None) -> None:
         """Close socket and fail all in-flight-requests.
 
         Arguments:
@@ -961,11 +964,11 @@ class BrokerConnection(object):
         for (_correlation_id, (future, _timestamp, _timeout)) in ifrs:
             future.failure(error)
 
-    def _can_send_recv(self):
+    def _can_send_recv(self) -> None:
         """Return True iff socket is ready for requests / responses"""
         return self.connected() or self.initializing()
 
-    def send(self, request, blocking=True, request_timeout_ms=None):
+    def send(self, request, blocking=True, request_timeout_ms=None) -> None:
         """Queue request for async network send, return Future()
 
         Arguments:
@@ -991,7 +994,7 @@ class BrokerConnection(object):
             return future.failure(Errors.TooManyInFlightRequests(str(self)))
         return self._send(request, blocking=blocking, request_timeout_ms=request_timeout_ms)
 
-    def _send(self, request, blocking=True, request_timeout_ms=None):
+    def _send(self, request, blocking=True, request_timeout_ms=None) -> None:
         request_timeout_ms = request_timeout_ms or self.config['request_timeout_ms']
         future = Future()
         with self._lock:
@@ -1019,7 +1022,7 @@ class BrokerConnection(object):
 
         return future
 
-    def send_pending_requests(self):
+    def send_pending_requests(self) -> None:
         """Attempts to send pending requests messages via blocking IO
         If all requests have been sent, return True
         Otherwise, if the socket is blocked and there are more bytes to send,
@@ -1042,7 +1045,7 @@ class BrokerConnection(object):
             self.close(error=error)
             return False
 
-    def send_pending_requests_v2(self):
+    def send_pending_requests_v2(self) -> None:
         """Attempts to send pending requests messages via non-blocking IO
         If all requests have been sent, return True
         Otherwise, if the socket is blocked and there are more bytes to send,
@@ -1082,7 +1085,7 @@ class BrokerConnection(object):
             self.close(error=error)
             return False
 
-    def _maybe_throttle(self, response):
+    def _maybe_throttle(self, response) -> None:
         throttle_time_ms = getattr(response, 'throttle_time_ms', 0)
         if self._sensors:
             self._sensors.throttle_time.record(throttle_time_ms)
@@ -1098,14 +1101,14 @@ class BrokerConnection(object):
         log.warning("%s: %s throttled by broker (%d ms)", self,
                     response.__class__.__name__, throttle_time_ms)
 
-    def can_send_more(self):
+    def can_send_more(self) -> None:
         """Check for throttling / quota violations and max in-flight-requests"""
         if self.throttle_delay() > 0:
             return False
         max_ifrs = self.config['max_in_flight_requests_per_connection']
         return len(self.in_flight_requests) < max_ifrs
 
-    def recv(self):
+    def recv(self) -> None:
         """Non-blocking network receive.
 
         Return list of (response, future) tuples
@@ -1139,7 +1142,7 @@ class BrokerConnection(object):
 
         return responses
 
-    def _recv(self):
+    def _recv(self) -> None:
         """Take all available bytes from socket, return list of any responses from parser"""
         recvd = []
         err = None
@@ -1189,18 +1192,18 @@ class BrokerConnection(object):
         self.close(error=err)
         return ()
 
-    def requests_timed_out(self):
+    def requests_timed_out(self) -> None:
         return self.next_ifr_request_timeout_ms() == 0
 
-    def timed_out_ifrs(self):
+    def timed_out_ifrs(self) -> None:
         now = time.time()
         ifrs = sorted(self.in_flight_requests.values(), reverse=True, key=lambda ifr: ifr[2])
         return list(filter(lambda ifr: ifr[2] <= now, ifrs))
 
-    def next_ifr_request_timeout_ms(self):
+    def next_ifr_request_timeout_ms(self) -> None:
         with self._lock:
             if self.in_flight_requests:
-                def get_timeout(v):
+                def get_timeout(v) -> None:
                     return v[2]
                 next_timeout = min(map(get_timeout,
                                    self.in_flight_requests.values()))
@@ -1208,7 +1211,7 @@ class BrokerConnection(object):
             else:
                 return float('inf')
 
-    def get_api_versions(self):
+    def get_api_versions(self) -> None:
         # _api_versions is set as a side effect of first connection
         # which should typically be bootstrap, but call check_version
         # if that hasn't happened yet
@@ -1216,7 +1219,7 @@ class BrokerConnection(object):
             self.check_version()
         return self._api_versions
 
-    def _infer_broker_version_from_api_versions(self, api_versions):
+    def _infer_broker_version_from_api_versions(self, api_versions) -> None:
         # The logic here is to check the list of supported request versions
         # in reverse order. As soon as we find one that works, return it
         test_cases = [
@@ -1262,7 +1265,7 @@ class BrokerConnection(object):
         # so if all else fails, choose that
         return (0, 10, 0)
 
-    def check_version(self, timeout=2, **kwargs):
+    def check_version(self, timeout=2, **kwargs) -> None:
         """Attempt to guess the broker version.
 
         Keyword Arguments:
@@ -1281,14 +1284,14 @@ class BrokerConnection(object):
         else:
             return self._api_version
 
-    def __str__(self):
+    def __str__(self) -> None:
         return "<BrokerConnection client_id=%s, node_id=%s host=%s:%d %s [%s %s]>" % (
             self.config['client_id'], self.node_id, self.host, self.port, self.state,
             AFI_NAMES[self._sock_afi], self._sock_addr)
 
 
 class BrokerConnectionMetrics(object):
-    def __init__(self, metrics, metric_group_prefix, node_id):
+    def __init__(self, metrics: Metrics, metric_group_prefix, node_id) -> None:
         self.metrics = metrics
 
         # Any broker may have registered summary metrics already
@@ -1420,7 +1423,7 @@ class BrokerConnectionMetrics(object):
         self.throttle_time = metrics.sensor(node_str + '.throttle')
 
 
-def _address_family(address):
+def _address_family(address: str) -> socket.AddressFamily:
     """
         Attempt to determine the family of an address (or hostname)
 
@@ -1438,7 +1441,7 @@ def _address_family(address):
     return socket.AF_UNSPEC
 
 
-def get_ip_port_afi(host_and_port_str):
+def get_ip_port_afi(host_and_port_str: str) -> tuple[str, int, socket.AddressFamily]:
     """
         Parse the IP and port from a string in the format of:
 
@@ -1487,12 +1490,12 @@ def get_ip_port_afi(host_and_port_str):
             return host, port, af
 
 
-def is_inet_4_or_6(gai):
+def is_inet_4_or_6(gai: tuple[socket.AddressFamily, socket.SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes]]) -> bool:
     """Given a getaddrinfo struct, return True iff ipv4 or ipv6"""
     return gai[0] in (socket.AF_INET, socket.AF_INET6)
 
 
-def dns_lookup(host, port, afi=socket.AF_UNSPEC):
+def dns_lookup(host: str, port: int, afi: socket.AddressFamily = socket.AF_UNSPEC) -> list[tuple[socket.AddressFamily, socket.SocketKind, int, str, tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes]]]:
     """Returns a list of getaddrinfo structs, optionally filtered to an afi (ipv4 / ipv6)"""
     # XXX: all DNS functions in Python are blocking. If we really
     # want to be non-blocking here, we need to use a 3rd-party

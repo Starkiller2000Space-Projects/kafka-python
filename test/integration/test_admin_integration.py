@@ -1,20 +1,19 @@
-from kafka.structs import TopicPartition
-import pytest
-
 from logging import info
 from test.testutil import env_kafka_version, random_string
 from threading import Event, Thread
-from time import time, sleep
+from time import sleep, time
 
-from kafka.admin import (
-    ACLFilter, ACLOperation, ACLPermissionType, ResourcePattern, ResourceType, ACL, ConfigResource, ConfigResourceType)
-from kafka.errors import (
-        BrokerResponseError, NoError, CoordinatorNotAvailableError, NonEmptyGroupError,
-        GroupIdNotFoundError, OffsetOutOfRangeError, UnknownTopicOrPartitionError)
+import pytest
+
+from kafka.admin import (ACL, ACLFilter, ACLOperation, ACLPermissionType, ConfigResource, ConfigResourceType,
+                         ResourcePattern, ResourceType)
+from kafka.errors import (BrokerResponseError, CoordinatorNotAvailableError, GroupIdNotFoundError, NoError,
+                          NonEmptyGroupError, OffsetOutOfRangeError, UnknownTopicOrPartitionError)
+from kafka.structs import TopicPartition
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="ACL features require broker >=0.11")
-def test_create_describe_delete_acls(kafka_admin_client):
+def test_create_describe_delete_acls(kafka_admin_client) -> None:
     """Tests that we can add, list and remove ACLs
     """
 
@@ -90,7 +89,7 @@ def test_create_describe_delete_acls(kafka_admin_client):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Describe config features require broker >=0.11")
-def test_describe_configs_broker_resource_returns_configs(kafka_admin_client):
+def test_describe_configs_broker_resource_returns_configs(kafka_admin_client) -> None:
     """Tests that describe config returns configs for broker
     """
     broker_id = kafka_admin_client._client.cluster._brokers[0].nodeId
@@ -106,7 +105,7 @@ def test_describe_configs_broker_resource_returns_configs(kafka_admin_client):
                    reason="https://github.com/dpkp/kafka-python/issues/1929",
                    raises=AssertionError)
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Describe config features require broker >=0.11")
-def test_describe_configs_topic_resource_returns_configs(topic, kafka_admin_client):
+def test_describe_configs_topic_resource_returns_configs(topic, kafka_admin_client) -> None:
     """Tests that describe config returns configs for topic
     """
     configs = kafka_admin_client.describe_configs([ConfigResource(ConfigResourceType.TOPIC, topic)])
@@ -118,7 +117,7 @@ def test_describe_configs_topic_resource_returns_configs(topic, kafka_admin_clie
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Describe config features require broker >=0.11")
-def test_describe_configs_mixed_resources_returns_configs(topic, kafka_admin_client):
+def test_describe_configs_mixed_resources_returns_configs(topic, kafka_admin_client) -> None:
     """Tests that describe config returns configs for mixed resource types (topic + broker)
     """
     broker_id = kafka_admin_client._client.cluster._brokers[0].nodeId
@@ -137,7 +136,7 @@ def test_describe_configs_mixed_resources_returns_configs(topic, kafka_admin_cli
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Describe config features require broker >=0.11")
-def test_describe_configs_invalid_broker_id_raises(kafka_admin_client):
+def test_describe_configs_invalid_broker_id_raises(kafka_admin_client) -> None:
     """Tests that describe config raises exception on non-integer broker id
     """
     broker_id = "str"
@@ -147,7 +146,7 @@ def test_describe_configs_invalid_broker_id_raises(kafka_admin_client):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason='Describe consumer group requires broker >=0.11')
-def test_describe_consumer_group_does_not_exist(kafka_admin_client):
+def test_describe_consumer_group_does_not_exist(kafka_admin_client) -> None:
     """Tests that the describe consumer group call fails if the group coordinator is not available
     """
     with pytest.raises(CoordinatorNotAvailableError):
@@ -155,7 +154,7 @@ def test_describe_consumer_group_does_not_exist(kafka_admin_client):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason='Describe consumer group requires broker >=0.11')
-def test_describe_consumer_group_exists(kafka_admin_client, kafka_consumer_factory, topic):
+def test_describe_consumer_group_exists(kafka_admin_client, kafka_consumer_factory, topic) -> None:
     """Tests that the describe consumer group call returns valid consumer group information
     This test takes inspiration from the test 'test_group' in test_consumer_group.py.
     """
@@ -165,7 +164,7 @@ def test_describe_consumer_group_exists(kafka_admin_client, kafka_consumer_facto
     random_group_id = 'test-group-' + random_string(6)
     group_id_list = [random_group_id, random_group_id + '_2']
     generations = {group_id_list[0]: set(), group_id_list[1]: set()}
-    def consumer_thread(i, group_id):
+    def consumer_thread(i, group_id) -> None:
         assert i not in consumers
         assert i not in stop
         stop[i] = Event()
@@ -247,7 +246,7 @@ def test_describe_consumer_group_exists(kafka_admin_client, kafka_consumer_facto
 
 
 @pytest.mark.skipif(env_kafka_version() < (1, 1), reason="Delete consumer groups requires broker >=1.1")
-def test_delete_consumergroups(kafka_admin_client, kafka_consumer_factory, send_messages):
+def test_delete_consumergroups(kafka_admin_client, kafka_consumer_factory, send_messages) -> None:
     random_group_id = 'test-group-' + random_string(6)
     group1 = random_group_id + "_1"
     group2 = random_group_id + "_2"
@@ -286,7 +285,7 @@ def test_delete_consumergroups(kafka_admin_client, kafka_consumer_factory, send_
 
 
 @pytest.mark.skipif(env_kafka_version() < (1, 1), reason="Delete consumer groups requires broker >=1.1")
-def test_delete_consumergroups_with_errors(kafka_admin_client, kafka_consumer_factory, send_messages):
+def test_delete_consumergroups_with_errors(kafka_admin_client, kafka_consumer_factory, send_messages) -> None:
     random_group_id = 'test-group-' + random_string(6)
     group1 = random_group_id + "_1"
     group2 = random_group_id + "_2"
@@ -320,14 +319,14 @@ def test_delete_consumergroups_with_errors(kafka_admin_client, kafka_consumer_fa
     assert group3 not in consumergroups
 
 @pytest.fixture(name="topic2")
-def _topic2(kafka_broker, request):
+def _topic2(kafka_broker, request) -> None:
     """Same as `topic` fixture, but a different name if you need to topics."""
     topic_name = '%s_%s' % (request.node.name, random_string(10))
     kafka_broker.create_topics([topic_name])
     return topic_name
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Delete records requires broker >=0.11.0")
-def test_delete_records(kafka_admin_client, kafka_consumer_factory, send_messages, topic, topic2):
+def test_delete_records(kafka_admin_client, kafka_consumer_factory, send_messages, topic, topic2) -> None:
     t0p0 = TopicPartition(topic, 0)
     t0p1 = TopicPartition(topic, 1)
     t0p2 = TopicPartition(topic, 2)
@@ -367,7 +366,7 @@ def test_delete_records(kafka_admin_client, kafka_consumer_factory, send_message
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Delete records requires broker >=0.11.0")
-def test_delete_records_with_errors(kafka_admin_client, topic, send_messages):
+def test_delete_records_with_errors(kafka_admin_client, topic, send_messages) -> None:
     sleep(1)  # sometimes the topic is not created yet...?
     p0 = TopicPartition(topic, 0)
     p1 = TopicPartition(topic, 1)

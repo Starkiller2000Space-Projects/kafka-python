@@ -2,40 +2,40 @@ class Quota(object):
     """An upper or lower bound for metrics"""
     __slots__ = ('_bound', '_upper')
 
-    def __init__(self, bound, is_upper):
+    def __init__(self, bound, is_upper) -> None:
         self._bound = bound
         self._upper = is_upper
 
     @staticmethod
-    def upper_bound(upper_bound):
+    def upper_bound(upper_bound) -> None:
         return Quota(upper_bound, True)
 
     @staticmethod
-    def lower_bound(lower_bound):
+    def lower_bound(lower_bound) -> None:
         return Quota(lower_bound, False)
 
-    def is_upper_bound(self):
+    def is_upper_bound(self) -> None:
         return self._upper
 
     @property
-    def bound(self):
+    def bound(self) -> None:
         return self._bound
 
-    def is_acceptable(self, value):
+    def is_acceptable(self, value) -> None:
         return ((self.is_upper_bound() and value <= self.bound) or
                 (not self.is_upper_bound() and value >= self.bound))
 
-    def __hash__(self):
+    def __hash__(self) -> None:
         prime = 31
         result = prime + self.bound
         return prime * result + self.is_upper_bound()
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> None:
         if self is other:
             return True
         return (isinstance(self, type(other)) and
                 self.bound == other.bound and
                 self.is_upper_bound() == other.is_upper_bound())
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> None:
         return not self.__eq__(other)

@@ -1,13 +1,14 @@
 import binascii
 
 from kafka.record._crc32c import crc as crc32c_py
+
 try:
     from crc32c import crc32c as crc32c_c
 except ImportError:
     crc32c_c = None
 
 
-def encode_varint(value, write):
+def encode_varint(value, write) -> None:
     """ Encode an integer to a varint presentation. See
     https://developers.google.com/protocol-buffers/docs/encoding?csw=1#varints
     on how those can be produced.
@@ -60,7 +61,7 @@ def encode_varint(value, write):
     return i
 
 
-def size_of_varint(value):
+def size_of_varint(value) -> None:
     """ Number of bytes needed to encode an integer in variable-length format.
     """
     value = (value << 1) ^ (value >> 63)
@@ -85,7 +86,7 @@ def size_of_varint(value):
     return 10
 
 
-def decode_varint(buffer, pos=0):
+def decode_varint(buffer, pos=0) -> None:
     """ Decode an integer from a varint presentation. See
     https://developers.google.com/protocol-buffers/docs/encoding?csw=1#varints
     on how those can be produced.
@@ -122,13 +123,13 @@ if crc32c_c is not None:
     _crc32c = crc32c_c
 
 
-def calc_crc32c(memview, _crc32c=_crc32c):
+def calc_crc32c(memview, _crc32c=_crc32c) -> None:
     """ Calculate CRC-32C (Castagnoli) checksum over a memoryview of data
     """
     return _crc32c(memview)
 
 
-def calc_crc32(memview):
+def calc_crc32(memview) -> None:
     """ Calculate simple CRC-32 checksum over a memoryview of data
     """
     crc = binascii.crc32(memview) & 0xffffffff

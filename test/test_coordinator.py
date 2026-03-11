@@ -3,23 +3,19 @@ import time
 
 import pytest
 
+import kafka.errors as Errors
 from kafka.client_async import KafkaClient
-from kafka.consumer.subscription_state import (
-    SubscriptionState, ConsumerRebalanceListener)
+from kafka.consumer.subscription_state import ConsumerRebalanceListener, SubscriptionState
 from kafka.coordinator.assignors.range import RangePartitionAssignor
 from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
 from kafka.coordinator.assignors.sticky.sticky_assignor import StickyPartitionAssignor
-from kafka.coordinator.base import Generation, MemberState, HeartbeatThread
+from kafka.coordinator.base import Generation, HeartbeatThread, MemberState
 from kafka.coordinator.consumer import ConsumerCoordinator
-from kafka.coordinator.protocol import (
-    ConsumerProtocolMemberMetadata_v0, ConsumerProtocolMemberAssignment_v0)
+from kafka.coordinator.protocol import ConsumerProtocolMemberAssignment_v0, ConsumerProtocolMemberMetadata_v0
 from kafka.coordinator.subscription import Subscription
-import kafka.errors as Errors
 from kafka.future import Future
 from kafka.protocol.broker_api_versions import BROKER_API_VERSIONS
-from kafka.protocol.commit import (
-    OffsetCommitRequest, OffsetCommitResponse,
-    OffsetFetchRequest, OffsetFetchResponse)
+from kafka.protocol.commit import OffsetCommitRequest, OffsetCommitResponse, OffsetFetchRequest, OffsetFetchResponse
 from kafka.protocol.group import GroupMember
 from kafka.protocol.metadata import MetadataResponse
 from kafka.structs import OffsetAndMetadata, TopicPartition
@@ -27,7 +23,7 @@ from kafka.util import WeakMethod
 
 
 @pytest.fixture
-def coordinator(client, metrics, mocker):
+def coordinator(client, metrics, mocker) -> None:
     coord = ConsumerCoordinator(client, SubscriptionState(), metrics=metrics)
     try:
         yield coord
@@ -36,14 +32,14 @@ def coordinator(client, metrics, mocker):
         coord.close(timeout_ms=0)
 
 
-def test_init(client, coordinator):
+def test_init(client, coordinator) -> None:
     # metadata update on init
     assert client.cluster._need_update is True
     assert WeakMethod(coordinator._handle_metadata_update) in client.cluster._listeners
 
 
 @pytest.mark.parametrize("api_version", [(0, 8, 0), (0, 8, 1), (0, 8, 2), (0, 9)])
-def test_autocommit_enable_api_version(conn, metrics, api_version):
+def test_autocommit_enable_api_version(conn, metrics, api_version) -> None:
     coordinator = ConsumerCoordinator(KafkaClient(api_version=api_version),
                                       SubscriptionState(),
                                       metrics=metrics,
@@ -59,11 +55,11 @@ def test_autocommit_enable_api_version(conn, metrics, api_version):
     coordinator.close()
 
 
-def test_protocol_type(coordinator):
+def test_protocol_type(coordinator) -> None:
     assert coordinator.protocol_type() == 'consumer'
 
 
-def test_group_protocols(coordinator):
+def test_group_protocols(coordinator) -> None:
     # Requires a subscription
     try:
         coordinator.group_protocols()
@@ -90,7 +86,7 @@ def test_group_protocols(coordinator):
 
 
 @pytest.mark.parametrize('api_version', [(0, 8, 0), (0, 8, 1), (0, 8, 2), (0, 9)])
-def test_pattern_subscription(conn, metrics, api_version):
+def test_pattern_subscription(conn, metrics, api_version) -> None:
     coordinator = ConsumerCoordinator(KafkaClient(api_version=api_version),
                                       SubscriptionState(),
                                       metrics=metrics,
@@ -122,14 +118,14 @@ def test_pattern_subscription(conn, metrics, api_version):
     coordinator.close()
 
 
-def test_lookup_assignor(coordinator):
+def test_lookup_assignor(coordinator) -> None:
     assert coordinator._lookup_assignor('roundrobin') is RoundRobinPartitionAssignor
     assert coordinator._lookup_assignor('range') is RangePartitionAssignor
     assert coordinator._lookup_assignor('sticky') is StickyPartitionAssignor
     assert coordinator._lookup_assignor('foobar') is None
 
 
-def test_join_complete(mocker, coordinator):
+def test_join_complete(mocker, coordinator) -> None:
     coordinator._subscription.subscribe(topics=['foobar'])
     assignor = RoundRobinPartitionAssignor()
     coordinator.config['assignors'] = (assignor,)
@@ -141,7 +137,7 @@ def test_join_complete(mocker, coordinator):
     assignor.on_assignment.assert_called_with(assignment)
 
 
-def test_join_complete_with_sticky_assignor(mocker, coordinator):
+def test_join_complete_with_sticky_assignor(mocker, coordinator) -> None:
     coordinator._subscription.subscribe(topics=['foobar'])
     assignor = StickyPartitionAssignor()
     coordinator.config['assignors'] = (assignor,)
@@ -157,7 +153,7 @@ def test_join_complete_with_sticky_assignor(mocker, coordinator):
     assignor.on_generation_assignment.assert_called_with(0)
 
 
-def test_subscription_listener(mocker, coordinator):
+def test_subscription_listener(mocker, coordinator) -> None:
     listener = mocker.MagicMock(spec=ConsumerRebalanceListener)
     coordinator._subscription.subscribe(
         topics=['foobar'],
@@ -174,7 +170,7 @@ def test_subscription_listener(mocker, coordinator):
     listener.on_partitions_assigned.assert_called_with({TopicPartition('foobar', 0), TopicPartition('foobar', 1)})
 
 
-def test_subscription_listener_failure(mocker, coordinator):
+def test_subscription_listener_failure(mocker, coordinator) -> None:
     listener = mocker.MagicMock(spec=ConsumerRebalanceListener)
     coordinator._subscription.subscribe(
         topics=['foobar'],
@@ -191,7 +187,7 @@ def test_subscription_listener_failure(mocker, coordinator):
     assert listener.on_partitions_assigned.call_count == 1
 
 
-def test_perform_assignment(mocker, coordinator):
+def test_perform_assignment(mocker, coordinator) -> None:
     coordinator._subscription.subscribe(topics=['foo1'])
     group_subscriptions = {
         'member-foo': Subscription(ConsumerProtocolMemberMetadata_v0(0, ['foo1'], b''), None),
@@ -218,12 +214,12 @@ def test_perform_assignment(mocker, coordinator):
     assert ret == assignments
 
 
-def test_on_join_prepare(coordinator):
+def test_on_join_prepare(coordinator) -> None:
     coordinator._subscription.subscribe(topics=['foobar'])
     coordinator._on_join_prepare(0, 'member-foo')
 
 
-def test_need_rejoin(coordinator):
+def test_need_rejoin(coordinator) -> None:
     # No subscription - no rejoin
     assert coordinator.need_rejoin() is False
 
@@ -231,7 +227,7 @@ def test_need_rejoin(coordinator):
     assert coordinator.need_rejoin() is True
 
 
-def test_refresh_committed_offsets_if_needed(mocker, coordinator):
+def test_refresh_committed_offsets_if_needed(mocker, coordinator) -> None:
     tp0 = TopicPartition('foobar', 0)
     tp1 = TopicPartition('foobar', 1)
     mocker.patch.object(ConsumerCoordinator, 'fetch_committed_offsets',
@@ -251,7 +247,7 @@ def test_refresh_committed_offsets_if_needed(mocker, coordinator):
     assert not coordinator._subscription.is_offset_reset_needed(tp1)
 
 
-def test_fetch_committed_offsets(mocker, coordinator):
+def test_fetch_committed_offsets(mocker, coordinator) -> None:
 
     # No partitions, no IO polling
     mocker.patch.object(coordinator._client, 'poll')
@@ -289,7 +285,7 @@ def test_fetch_committed_offsets(mocker, coordinator):
     assert coordinator._client.poll.call_count == 2 # call + retry
 
 
-def test_close(mocker, coordinator):
+def test_close(mocker, coordinator) -> None:
     mocker.patch.object(coordinator, '_maybe_auto_commit_offsets_sync')
     mocker.patch.object(coordinator, '_handle_leave_group_response')
     mocker.patch.object(coordinator, 'coordinator_unknown', return_value=False)
@@ -311,14 +307,14 @@ def test_close(mocker, coordinator):
 
 
 @pytest.fixture
-def offsets():
+def offsets() -> None:
     return {
         TopicPartition('foobar', 0): OffsetAndMetadata(123, '', -1),
         TopicPartition('foobar', 1): OffsetAndMetadata(234, '', -1),
     }
 
 
-def test_commit_offsets_async(mocker, coordinator, offsets):
+def test_commit_offsets_async(mocker, coordinator, offsets) -> None:
     mocker.patch.object(coordinator._client, 'poll')
     mocker.patch.object(coordinator, 'coordinator_unknown', return_value=False)
     mocker.patch.object(coordinator, 'ensure_coordinator_ready')
@@ -328,7 +324,7 @@ def test_commit_offsets_async(mocker, coordinator, offsets):
     assert coordinator._send_offset_commit_request.call_count == 1
 
 
-def test_commit_offsets_sync(mocker, coordinator, offsets):
+def test_commit_offsets_sync(mocker, coordinator, offsets) -> None:
     mocker.patch.object(coordinator, 'ensure_coordinator_ready')
     mocker.patch.object(coordinator, '_send_offset_commit_request',
                         return_value=Future().success('fizzbuzz'))
@@ -381,7 +377,7 @@ def test_commit_offsets_sync(mocker, coordinator, offsets):
     ])
 def test_maybe_auto_commit_offsets_sync(mocker, api_version, group_id, enable,
                                         error, has_auto_commit, commit_offsets,
-                                        warn, exc):
+                                        warn, exc) -> None:
     mock_warn = mocker.patch('kafka.coordinator.consumer.log.warning')
     mock_exc = mocker.patch('kafka.coordinator.consumer.log.exception')
     client = KafkaClient(api_version=api_version)
@@ -410,7 +406,7 @@ def test_maybe_auto_commit_offsets_sync(mocker, api_version, group_id, enable,
 
 
 @pytest.fixture
-def patched_coord(mocker, coordinator):
+def patched_coord(mocker, coordinator) -> None:
     coordinator._subscription.subscribe(topics=['foobar'])
     mocker.patch.object(coordinator, 'coordinator_unknown', return_value=False)
     coordinator.coordinator_id = 0
@@ -430,7 +426,7 @@ def patched_coord(mocker, coordinator):
     return coordinator
 
 
-def test_send_offset_commit_request_fail(mocker, patched_coord, offsets):
+def test_send_offset_commit_request_fail(mocker, patched_coord, offsets) -> None:
     patched_coord.coordinator_unknown.return_value = True
     patched_coord.coordinator_id = None
     patched_coord.coordinator.return_value = None
@@ -455,7 +451,7 @@ def test_send_offset_commit_request_fail(mocker, patched_coord, offsets):
     ((2, 1), OffsetCommitRequest[6]),
 ])
 def test_send_offset_commit_request_versions(patched_coord, offsets,
-                                             api_version, req_type):
+                                             api_version, req_type) -> None:
     expect_node = 0
     patched_coord._client._api_versions = BROKER_API_VERSIONS[api_version]
 
@@ -465,7 +461,7 @@ def test_send_offset_commit_request_versions(patched_coord, offsets,
     assert isinstance(request, req_type)
 
 
-def test_send_offset_commit_request_failure(patched_coord, offsets):
+def test_send_offset_commit_request_failure(patched_coord, offsets) -> None:
     _f = Future()
     patched_coord._client.send.return_value = _f
     future = patched_coord._send_offset_commit_request(offsets)
@@ -477,7 +473,7 @@ def test_send_offset_commit_request_failure(patched_coord, offsets):
     assert future.exception is error
 
 
-def test_send_offset_commit_request_success(mocker, patched_coord, offsets):
+def test_send_offset_commit_request_success(mocker, patched_coord, offsets) -> None:
     _f = Future()
     patched_coord._client.send.return_value = _f
     future = patched_coord._send_offset_commit_request(offsets)
@@ -529,7 +525,7 @@ def test_send_offset_commit_request_success(mocker, patched_coord, offsets):
      None, False),
 ])
 def test_handle_offset_commit_response(mocker, patched_coord, offsets,
-                                       response, error, dead):
+                                       response, error, dead) -> None:
     future = Future()
     patched_coord._handle_offset_commit_response(offsets, future, time.time(),
                                                  response)
@@ -538,11 +534,11 @@ def test_handle_offset_commit_response(mocker, patched_coord, offsets,
 
 
 @pytest.fixture
-def partitions():
+def partitions() -> None:
     return [TopicPartition('foobar', 0), TopicPartition('foobar', 1)]
 
 
-def test_send_offset_fetch_request_fail(mocker, patched_coord, partitions):
+def test_send_offset_fetch_request_fail(mocker, patched_coord, partitions) -> None:
     patched_coord.coordinator_unknown.return_value = True
     patched_coord.coordinator_id = None
     patched_coord.coordinator.return_value = None
@@ -569,7 +565,7 @@ def test_send_offset_fetch_request_fail(mocker, patched_coord, partitions):
     ((2, 1), OffsetFetchRequest[5]),
 ])
 def test_send_offset_fetch_request_versions(patched_coord, partitions,
-                                            api_version, req_type):
+                                            api_version, req_type) -> None:
     # assuming fixture sets coordinator=0, least_loaded_node=1
     expect_node = 0
     patched_coord._client._api_versions = BROKER_API_VERSIONS[api_version]
@@ -580,7 +576,7 @@ def test_send_offset_fetch_request_versions(patched_coord, partitions,
     assert isinstance(request, req_type)
 
 
-def test_send_offset_fetch_request_failure(patched_coord, partitions):
+def test_send_offset_fetch_request_failure(patched_coord, partitions) -> None:
     _f = Future()
     patched_coord._client.send.return_value = _f
     future = patched_coord._send_offset_fetch_request(partitions)
@@ -592,7 +588,7 @@ def test_send_offset_fetch_request_failure(patched_coord, partitions):
     assert future.exception is error
 
 
-def test_send_offset_fetch_request_success(patched_coord, partitions):
+def test_send_offset_fetch_request_success(patched_coord, partitions) -> None:
     _f = Future()
     patched_coord._client.send.return_value = _f
     future = patched_coord._send_offset_fetch_request(partitions)
@@ -628,7 +624,7 @@ def test_send_offset_fetch_request_success(patched_coord, partitions):
      None, False),
 ])
 def test_handle_offset_fetch_response(patched_coord, offsets,
-                                      response, error, dead):
+                                      response, error, dead) -> None:
     future = Future()
     patched_coord._handle_offset_fetch_response(future, response)
     if error is not None:
@@ -639,7 +635,7 @@ def test_handle_offset_fetch_response(patched_coord, offsets,
     assert patched_coord.coordinator_id is (None if dead else 0)
 
 
-def test_heartbeat(mocker, patched_coord):
+def test_heartbeat(mocker, patched_coord) -> None:
     heartbeat = HeartbeatThread(patched_coord)
 
     assert not heartbeat.enabled and not heartbeat.closed
@@ -668,7 +664,7 @@ def test_heartbeat(mocker, patched_coord):
     assert heartbeat.closed
 
 
-def test_lookup_coordinator_failure(mocker, coordinator):
+def test_lookup_coordinator_failure(mocker, coordinator) -> None:
 
     mocker.patch.object(coordinator, '_send_group_coordinator_request',
                         return_value=Future().failure(Exception('foobar')))
@@ -676,7 +672,7 @@ def test_lookup_coordinator_failure(mocker, coordinator):
     assert future.failed()
 
 
-def test_ensure_active_group(mocker, coordinator):
+def test_ensure_active_group(mocker, coordinator) -> None:
     coordinator._subscription.subscribe(topics=['foobar'])
     mocker.patch.object(coordinator, 'coordinator_unknown', return_value=False)
     mocker.patch.object(coordinator, '_send_join_group_request', return_value=Future().success(True))

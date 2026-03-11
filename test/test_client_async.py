@@ -4,10 +4,10 @@ import time
 
 import pytest
 
-from kafka.client_async import KafkaClient, IdleConnectionManager
+import kafka.errors as Errors
+from kafka.client_async import IdleConnectionManager, KafkaClient
 from kafka.cluster import ClusterMetadata
 from kafka.conn import ConnectionStates
-import kafka.errors as Errors
 from kafka.future import Future
 from kafka.protocol.metadata import MetadataRequest
 from kafka.protocol.produce import ProduceRequest
@@ -15,7 +15,7 @@ from kafka.structs import BrokerMetadata
 
 
 @pytest.fixture
-def client_poll_mocked(mocker):
+def client_poll_mocked(mocker) -> None:
     cli = KafkaClient(request_timeout_ms=9999999,
                       reconnect_backoff_ms=2222,
                       connections_max_idle_ms=float('inf'),
@@ -30,7 +30,7 @@ def client_poll_mocked(mocker):
 
 
 @pytest.fixture
-def client_selector_mocked(mocker, conn):
+def client_selector_mocked(mocker, conn) -> None:
     client = KafkaClient(api_version=(0, 9))
     mocker.patch.object(client, '_selector')
     client.poll(future=client.cluster.request_update())
@@ -39,7 +39,7 @@ def client_selector_mocked(mocker, conn):
     finally:
         client._close()
 
-def test_bootstrap(mocker, conn):
+def test_bootstrap(mocker, conn) -> None:
     conn.state = ConnectionStates.CONNECTED
     cli = KafkaClient(api_version=(2, 1))
     mocker.patch.object(cli, '_selector')
@@ -58,7 +58,7 @@ def test_bootstrap(mocker, conn):
                                          BrokerMetadata(1, 'bar', 34, None)])
 
 
-def test_can_connect(client_selector_mocked, conn):
+def test_can_connect(client_selector_mocked, conn) -> None:
     # Node is not in broker metadata - can't connect
     assert not client_selector_mocked._can_connect(2)
 
@@ -79,7 +79,7 @@ def test_can_connect(client_selector_mocked, conn):
     assert not client_selector_mocked._can_connect(0)
 
 
-def test_init_connect(client_selector_mocked, conn):
+def test_init_connect(client_selector_mocked, conn) -> None:
     # Node not in metadata, return False
     assert not client_selector_mocked._init_connect(2)
 
@@ -91,7 +91,7 @@ def test_init_connect(client_selector_mocked, conn):
     assert client_selector_mocked._conns[0] is conn
 
 
-def test_conn_state_change(client_selector_mocked, conn):
+def test_conn_state_change(client_selector_mocked, conn) -> None:
     sel = client_selector_mocked._selector
 
     node_id = 0
@@ -123,14 +123,14 @@ def test_conn_state_change(client_selector_mocked, conn):
     assert node_id not in client_selector_mocked._connecting
 
 
-def test_ready(mocker, client_selector_mocked, conn):
+def test_ready(mocker, client_selector_mocked, conn) -> None:
     maybe_connect = mocker.patch.object(client_selector_mocked, 'maybe_connect')
     node_id = 1
     client_selector_mocked.ready(node_id)
     maybe_connect.assert_called_with(node_id)
 
 
-def test_is_ready(client_selector_mocked, conn):
+def test_is_ready(client_selector_mocked, conn) -> None:
     client_selector_mocked._init_connect(0)
     client_selector_mocked._init_connect(1)
 
@@ -164,7 +164,7 @@ def test_is_ready(client_selector_mocked, conn):
     assert not client_selector_mocked.is_ready(0)
 
 
-def test_close(client_selector_mocked, conn):
+def test_close(client_selector_mocked, conn) -> None:
     call_count = conn.close.call_count
 
     # Unknown node - silent
@@ -187,7 +187,7 @@ def test_close(client_selector_mocked, conn):
     assert conn.close.call_count == call_count
 
 
-def test_is_disconnected(client_selector_mocked, conn):
+def test_is_disconnected(client_selector_mocked, conn) -> None:
     # False if not connected yet
     conn.state = ConnectionStates.DISCONNECTED
     assert not client_selector_mocked.is_disconnected(0)
@@ -202,7 +202,7 @@ def test_is_disconnected(client_selector_mocked, conn):
     assert not client_selector_mocked.is_disconnected(0)
 
 
-def test_send(client_selector_mocked, conn):
+def test_send(client_selector_mocked, conn) -> None:
     # Send to unknown node => raises AssertionError
     try:
         client_selector_mocked.send(2, None)
@@ -230,7 +230,7 @@ def test_send(client_selector_mocked, conn):
     conn.send.assert_called_with(request, blocking=False, request_timeout_ms=None)
 
 
-def test_poll(mocker, client_poll_mocked):
+def test_poll(mocker, client_poll_mocked) -> None:
     metadata = mocker.patch.object(client_poll_mocked, '_maybe_refresh_metadata')
     ifr_request_timeout = mocker.patch.object(client_poll_mocked, '_next_ifr_request_timeout_ms')
     now = time.time()
@@ -254,19 +254,19 @@ def test_poll(mocker, client_poll_mocked):
     client_poll_mocked._poll.assert_called_with(30.0)
 
 
-def test__poll():
+def test__poll() -> None:
     pass
 
 
-def test_in_flight_request_count():
+def test_in_flight_request_count() -> None:
     pass
 
 
-def test_least_loaded_node():
+def test_least_loaded_node() -> None:
     pass
 
 
-def test_set_topics(mocker):
+def test_set_topics(mocker) -> None:
     request_update = mocker.patch.object(ClusterMetadata, 'request_update')
     request_update.side_effect = lambda: Future()
     cli = KafkaClient(api_version=(0, 10, 0))
@@ -292,14 +292,14 @@ def test_set_topics(mocker):
     request_update.assert_not_called()
 
 
-def test_maybe_refresh_metadata_ttl(client_poll_mocked):
+def test_maybe_refresh_metadata_ttl(client_poll_mocked) -> None:
     client_poll_mocked.cluster.ttl.return_value = 1234
 
     client_poll_mocked.poll(timeout_ms=12345678)
     client_poll_mocked._poll.assert_called_with(1.234)
 
 
-def test_maybe_refresh_metadata_backoff(mocker, client_poll_mocked):
+def test_maybe_refresh_metadata_backoff(mocker, client_poll_mocked) -> None:
     mocker.patch.object(client_poll_mocked, 'least_loaded_node', return_value=None)
     mocker.patch.object(client_poll_mocked, 'least_loaded_node_refresh_ms', return_value=4321)
     now = time.time()
@@ -310,14 +310,14 @@ def test_maybe_refresh_metadata_backoff(mocker, client_poll_mocked):
     client_poll_mocked._poll.assert_called_with(4.321)
 
 
-def test_maybe_refresh_metadata_in_progress(client_poll_mocked):
+def test_maybe_refresh_metadata_in_progress(client_poll_mocked) -> None:
     client_poll_mocked._metadata_refresh_in_progress = True
 
     client_poll_mocked.poll(timeout_ms=12345678)
     client_poll_mocked._poll.assert_called_with(9999.999) # request_timeout_ms
 
 
-def test_maybe_refresh_metadata_update(mocker, client_poll_mocked):
+def test_maybe_refresh_metadata_update(mocker, client_poll_mocked) -> None:
     mocker.patch.object(client_poll_mocked, 'least_loaded_node', return_value='foobar')
     mocker.patch.object(client_poll_mocked, '_can_send_request', return_value=True)
     send = mocker.patch.object(client_poll_mocked, 'send')
@@ -330,7 +330,7 @@ def test_maybe_refresh_metadata_update(mocker, client_poll_mocked):
     send.assert_called_once_with('foobar', request, wakeup=False)
 
 
-def test_maybe_refresh_metadata_cant_send(mocker, client_poll_mocked):
+def test_maybe_refresh_metadata_cant_send(mocker, client_poll_mocked) -> None:
     mocker.patch.object(client_poll_mocked, 'least_loaded_node', return_value='foobar')
     mocker.patch.object(client_poll_mocked, '_can_send_request', return_value=False)
     mocker.patch.object(client_poll_mocked, '_can_connect', return_value=True)
@@ -354,15 +354,15 @@ def test_maybe_refresh_metadata_cant_send(mocker, client_poll_mocked):
     assert not client_poll_mocked._metadata_refresh_in_progress
 
 
-def test_schedule():
+def test_schedule() -> None:
     pass
 
 
-def test_unschedule():
+def test_unschedule() -> None:
     pass
 
 
-def test_idle_connection_manager(mocker):
+def test_idle_connection_manager(mocker) -> None:
     t = mocker.patch.object(time, 'time')
     t.return_value = 0
 

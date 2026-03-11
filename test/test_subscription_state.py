@@ -4,7 +4,7 @@ from kafka import TopicPartition
 from kafka.consumer.subscription_state import SubscriptionState, TopicPartitionState
 
 
-def test_type_error():
+def test_type_error() -> None:
     s = SubscriptionState()
     with pytest.raises(TypeError):
         s.subscribe(topics='foo')
@@ -12,7 +12,7 @@ def test_type_error():
     s.subscribe(topics=['foo'])
 
 
-def test_change_subscription():
+def test_change_subscription() -> None:
     s = SubscriptionState()
     s.subscribe(topics=['foo'])
     assert s.subscription == set(['foo'])
@@ -20,7 +20,7 @@ def test_change_subscription():
     assert s.subscription == set(['bar'])
 
 
-def test_group_subscribe():
+def test_group_subscribe() -> None:
     s = SubscriptionState()
     s.subscribe(topics=['foo'])
     assert s.subscription == set(['foo'])
@@ -33,7 +33,7 @@ def test_group_subscribe():
     assert s._group_subscription == set(['foo'])
 
 
-def test_assign_from_subscribed():
+def test_assign_from_subscribed() -> None:
     s = SubscriptionState()
     s.subscribe(topics=['foo'])
     with pytest.raises(ValueError):
@@ -45,7 +45,7 @@ def test_assign_from_subscribed():
     assert all([not tps.has_valid_position for tps in s.assignment.values()])
 
 
-def test_change_subscription_after_assignment():
+def test_change_subscription_after_assignment() -> None:
     s = SubscriptionState()
     s.subscribe(topics=['foo'])
     s.assign_from_subscribed([TopicPartition('foo', 0), TopicPartition('foo', 1)])

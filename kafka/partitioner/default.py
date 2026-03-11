@@ -9,7 +9,7 @@ class DefaultPartitioner(object):
     or from all partitions if none are currently available
     """
     @classmethod
-    def __call__(cls, key, all_partitions, available):
+    def __call__(cls, key, all_partitions, available) -> None:
         """
         Get the partition corresponding to key
         :param key: partitioning key
@@ -29,7 +29,7 @@ class DefaultPartitioner(object):
 
 
 # https://github.com/apache/kafka/blob/0.8.2/clients/src/main/java/org/apache/kafka/common/utils/Utils.java#L244
-def murmur2(data):
+def murmur2(data) -> None:
     """Pure-python Murmur2 implementation.
 
     Based on java client, see org.apache.kafka.common.utils.Utils.murmur2

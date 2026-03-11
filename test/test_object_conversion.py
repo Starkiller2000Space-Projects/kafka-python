@@ -1,15 +1,12 @@
-from kafka.protocol.admin import Request
-from kafka.protocol.admin import Response
-from kafka.protocol.types import Schema
-from kafka.protocol.types import Array
-from kafka.protocol.types import Int16
-from kafka.protocol.types import String
-
 import pytest
+
+from kafka.protocol.admin import Request, Response
+from kafka.protocol.types import Array, Int16, Schema, String
+
 
 @pytest.mark.parametrize('superclass', (Request, Response))
 class TestObjectConversion:
-    def test_get_item(self, superclass):
+    def test_get_item(self, superclass) -> None:
         class TestClass(superclass):
             API_KEY = 0
             API_VERSION = 0
@@ -22,7 +19,7 @@ class TestObjectConversion:
         with pytest.raises(KeyError):
             tc.get_item('does-not-exist')
 
-    def test_with_empty_schema(self, superclass):
+    def test_with_empty_schema(self, superclass) -> None:
         class TestClass(superclass):
             API_KEY = 0
             API_VERSION = 0
@@ -33,7 +30,7 @@ class TestObjectConversion:
         tc.encode()
         assert tc.to_object() == {}
 
-    def test_with_basic_schema(self, superclass):
+    def test_with_basic_schema(self, superclass) -> None:
         class TestClass(superclass):
             API_KEY = 0
             API_VERSION = 0
@@ -45,7 +42,7 @@ class TestObjectConversion:
         tc.encode()
         assert tc.to_object() == {'myobject': 0}
 
-    def test_with_basic_array_schema(self, superclass):
+    def test_with_basic_array_schema(self, superclass) -> None:
         class TestClass(superclass):
             API_KEY = 0
             API_VERSION = 0
@@ -57,7 +54,7 @@ class TestObjectConversion:
         tc.encode()
         assert tc.to_object()['myarray'] == [1, 2, 3]
 
-    def test_with_complex_array_schema(self, superclass):
+    def test_with_complex_array_schema(self, superclass) -> None:
         class TestClass(superclass):
             API_KEY = 0
             API_VERSION = 0
@@ -76,7 +73,7 @@ class TestObjectConversion:
         assert obj['myarray'][0]['subobject'] == 10
         assert obj['myarray'][0]['othersubobject'] == 'hello'
 
-    def test_with_array_and_other(self, superclass):
+    def test_with_array_and_other(self, superclass) -> None:
         class TestClass(superclass):
             API_KEY = 0
             API_VERSION = 0
@@ -98,7 +95,7 @@ class TestObjectConversion:
         assert obj['myarray'][0]['othersubobject'] == 'hello'
         assert obj['notarray'] == 42
 
-    def test_with_nested_array(self, superclass):
+    def test_with_nested_array(self, superclass) -> None:
         class TestClass(superclass):
             API_KEY = 0
             API_VERSION = 0
@@ -124,7 +121,7 @@ class TestObjectConversion:
         assert obj['myarray'][1]['subarray'] == [2, 3]
         assert obj['myarray'][1]['otherobject'] == 4
 
-    def test_with_complex_nested_array(self, superclass):
+    def test_with_complex_nested_array(self, superclass) -> None:
         class TestClass(superclass):
             API_KEY = 0
             API_VERSION = 0
@@ -164,7 +161,7 @@ class TestObjectConversion:
         assert myarray[1]['subarray'][0]['innertest'] == 'hello'
         assert myarray[1]['subarray'][0]['otherinnertest'] == 'hello again'
 
-def test_with_metadata_response():
+def test_with_metadata_response() -> None:
     from kafka.protocol.metadata import MetadataResponse_v5
     tc = MetadataResponse_v5(
         throttle_time_ms=0,

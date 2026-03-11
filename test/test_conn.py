@@ -1,14 +1,14 @@
 # pylint: skip-file
 
-from errno import EALREADY, EINPROGRESS, EISCONN, ECONNRESET
 import socket
+from errno import EALREADY, ECONNRESET, EINPROGRESS, EISCONN
 from unittest import mock
 
 import pytest
 
-from kafka.conn import BrokerConnection, ConnectionStates
-from kafka.future import Future
+import kafka.errors as Errors
 from kafka.conn import BrokerConnection, ConnectionStates, SSLWantWriteError
+from kafka.future import Future
 from kafka.metrics.metrics import Metrics
 from kafka.metrics.stats.sensor import Sensor
 from kafka.protocol.api import RequestHeader
@@ -16,18 +16,16 @@ from kafka.protocol.group import HeartbeatResponse
 from kafka.protocol.metadata import MetadataRequest
 from kafka.protocol.produce import ProduceRequest
 
-import kafka.errors as Errors
-
 
 @pytest.fixture
-def dns_lookup(mocker):
+def dns_lookup(mocker) -> None:
     return mocker.patch('kafka.conn.dns_lookup',
                         return_value=[(socket.AF_INET,
                                        None, None, None,
                                        ('localhost', 9092))])
 
 @pytest.fixture
-def _socket(mocker):
+def _socket(mocker) -> None:
     socket = mocker.MagicMock()
     socket.connect_ex.return_value = 0
     socket.send.side_effect = lambda d: len(d)
@@ -36,10 +34,10 @@ def _socket(mocker):
     return socket
 
 @pytest.fixture
-def metrics(mocker):
+def metrics(mocker) -> None:
     metrics = mocker.MagicMock(Metrics)
     metrics.mocked_sensors = {}
-    def sensor(name, **kwargs):
+    def sensor(name, **kwargs) -> None:
         if name not in metrics.mocked_sensors:
             metrics.mocked_sensors[name] = mocker.MagicMock(Sensor)
         return metrics.mocked_sensors[name]
@@ -47,7 +45,7 @@ def metrics(mocker):
     return metrics
 
 @pytest.fixture
-def conn(_socket, dns_lookup, metrics, mocker):
+def conn(_socket, dns_lookup, metrics, mocker) -> None:
     conn = BrokerConnection('localhost', 9092, socket.AF_INET, metrics=metrics)
     mocker.patch.object(conn, '_try_api_versions_check', return_value=True)
     return conn
@@ -63,7 +61,7 @@ def conn(_socket, dns_lookup, metrics, mocker):
      ([EALREADY], ConnectionStates.CONNECTING),
      ([EISCONN], ConnectionStates.CONNECTED)),
 ])
-def test_connect(_socket, conn, states):
+def test_connect(_socket, conn, states) -> None:
     assert conn.state is ConnectionStates.DISCONNECTED
 
     for errno, state in states:
@@ -72,7 +70,7 @@ def test_connect(_socket, conn, states):
         assert conn.state is state
 
 
-def test_api_versions_check(_socket, mocker):
+def test_api_versions_check(_socket, mocker) -> None:
     conn = BrokerConnection('localhost', 9092, socket.AF_INET)
     mocker.patch.object(conn, '_send', return_value=Future())
     mocker.patch.object(conn, 'recv', return_value=[])
@@ -98,13 +96,13 @@ def test_api_versions_check(_socket, mocker):
     assert conn.disconnected() is True
 
 
-def test_api_versions_check_unrecognized(_socket):
+def test_api_versions_check_unrecognized(_socket) -> None:
     conn = BrokerConnection('localhost', 9092, socket.AF_INET, api_version=(0, 0))
     with pytest.raises(Errors.UnrecognizedBrokerVersion):
         conn.connect()
 
 
-def test_connect_timeout(_socket, conn):
+def test_connect_timeout(_socket, conn) -> None:
     assert conn.state is ConnectionStates.DISCONNECTED
 
     # Initial connect returns EINPROGRESS
@@ -121,7 +119,7 @@ def test_connect_timeout(_socket, conn):
     assert conn.state is ConnectionStates.DISCONNECTED
 
 
-def test_blacked_out(conn):
+def test_blacked_out(conn) -> None:
     with mock.patch("time.time", return_value=1000):
         conn.last_attempt = 0
         assert conn.blacked_out() is False
@@ -129,7 +127,7 @@ def test_blacked_out(conn):
         assert conn.blacked_out() is True
 
 
-def test_connection_delay(conn, mocker):
+def test_connection_delay(conn, mocker) -> None:
     mocker.patch.object(conn, '_reconnect_jitter_pct', return_value=1.0)
     with mock.patch("time.time", return_value=1000):
         conn.last_attempt = 1000
@@ -159,13 +157,13 @@ def test_connection_delay(conn, mocker):
         assert conn.connection_delay() == 4.0 * conn.config['reconnect_backoff_ms']
 
 
-def test_connected(conn):
+def test_connected(conn) -> None:
     assert conn.connected() is False
     conn.state = ConnectionStates.CONNECTED
     assert conn.connected() is True
 
 
-def test_connecting(conn):
+def test_connecting(conn) -> None:
     assert conn.connecting() is False
     conn.state = ConnectionStates.CONNECTING
     assert conn.connecting() is True
@@ -173,21 +171,21 @@ def test_connecting(conn):
     assert conn.connecting() is False
 
 
-def test_send_disconnected(conn):
+def test_send_disconnected(conn) -> None:
     conn.state = ConnectionStates.DISCONNECTED
     f = conn.send('foobar')
     assert f.failed() is True
     assert isinstance(f.exception, Errors.KafkaConnectionError)
 
 
-def test_send_connecting(conn):
+def test_send_connecting(conn) -> None:
     conn.state = ConnectionStates.CONNECTING
     f = conn.send('foobar')
     assert f.failed() is True
     assert isinstance(f.exception, Errors.NodeNotReadyError)
 
 
-def test_send_max_ifr(conn):
+def test_send_max_ifr(conn) -> None:
     conn.state = ConnectionStates.CONNECTED
     max_ifrs = conn.config['max_in_flight_requests_per_connection']
     for i in range(max_ifrs):
@@ -197,7 +195,7 @@ def test_send_max_ifr(conn):
     assert isinstance(f.exception, Errors.TooManyInFlightRequests)
 
 
-def test_send_no_response(_socket, conn):
+def test_send_no_response(_socket, conn) -> None:
     conn.connect()
     assert conn.state is ConnectionStates.CONNECTED
     req = ProduceRequest[0](required_acks=0, timeout=0, topics=())
@@ -214,7 +212,7 @@ def test_send_no_response(_socket, conn):
     assert len(conn.in_flight_requests) == 0
 
 
-def test_send_response(_socket, conn):
+def test_send_response(_socket, conn) -> None:
     conn.connect()
     assert conn.state is ConnectionStates.CONNECTED
     req = MetadataRequest[0]([])
@@ -230,7 +228,7 @@ def test_send_response(_socket, conn):
     assert len(conn.in_flight_requests) == 1
 
 
-def test_send_async_request_while_other_request_is_already_in_buffer(_socket, conn, metrics):
+def test_send_async_request_while_other_request_is_already_in_buffer(_socket, conn, metrics) -> None:
     conn.connect()
     assert conn.state is ConnectionStates.CONNECTED
     assert 'node-0.bytes-sent' in metrics.mocked_sensors
@@ -270,7 +268,7 @@ def test_send_async_request_while_other_request_is_already_in_buffer(_socket, co
     bytes_sent_sensor.record.assert_called_once_with(0)
 
 
-def test_send_error(_socket, conn):
+def test_send_error(_socket, conn) -> None:
     conn.connect()
     assert conn.state is ConnectionStates.CONNECTED
     req = MetadataRequest[0]([])
@@ -285,7 +283,7 @@ def test_send_error(_socket, conn):
     assert conn.state is ConnectionStates.DISCONNECTED
 
 
-def test_can_send_more(conn):
+def test_can_send_more(conn) -> None:
     assert conn.can_send_more() is True
     max_ifrs = conn.config['max_in_flight_requests_per_connection']
     for i in range(max_ifrs):
@@ -294,7 +292,7 @@ def test_can_send_more(conn):
     assert conn.can_send_more() is False
 
 
-def test_recv_disconnected(_socket, conn):
+def test_recv_disconnected(_socket, conn) -> None:
     conn.connect()
     assert conn.connected()
 
@@ -314,15 +312,15 @@ def test_recv_disconnected(_socket, conn):
     assert conn.disconnected(), 'Not disconnected: %s' % conn.state
 
 
-def test_recv(_socket, conn):
+def test_recv(_socket, conn) -> None:
     pass # TODO
 
 
-def test_close(conn):
+def test_close(conn) -> None:
     pass # TODO
 
 
-def test_lookup_on_connect():
+def test_lookup_on_connect() -> None:
     hostname = 'example.org'
     port = 9092
     conn = BrokerConnection(hostname, port, socket.AF_UNSPEC)
@@ -356,7 +354,7 @@ def test_lookup_on_connect():
         conn.close()
 
 
-def test_relookup_on_failure():
+def test_relookup_on_failure() -> None:
     hostname = 'example.org'
     port = 9092
     conn = BrokerConnection(hostname, port, socket.AF_UNSPEC)
@@ -384,7 +382,7 @@ def test_relookup_on_failure():
         conn.close()
 
 
-def test_requests_timed_out(conn):
+def test_requests_timed_out(conn) -> None:
     with mock.patch("time.time", return_value=0):
         # No in-flight requests, not timed out
         assert not conn.requests_timed_out()
@@ -404,7 +402,7 @@ def test_requests_timed_out(conn):
         assert not conn.requests_timed_out()
 
 
-def test_maybe_throttle(conn):
+def test_maybe_throttle(conn) -> None:
     assert conn.state is ConnectionStates.DISCONNECTED
     assert not conn.throttled()
 
@@ -430,7 +428,7 @@ def test_maybe_throttle(conn):
         assert not conn.throttled()
 
 
-def test_host_in_sasl_config():
+def test_host_in_sasl_config() -> None:
     hostname = 'example.org'
     port = 9092
     for security_protocol in ('SASL_PLAINTEXT', 'SASL_SSL'):

@@ -4,6 +4,7 @@ import pytest
 
 from kafka.util import ensure_valid_topic_name
 
+
 @pytest.mark.parametrize(('topic_name', 'expectation'), [
     (0, pytest.raises(TypeError)),
     (None, pytest.raises(TypeError)),
@@ -18,7 +19,7 @@ from kafka.util import ensure_valid_topic_name
     ('name*with*stars', pytest.raises(ValueError)),
     ('name+with+plus', pytest.raises(ValueError)),
 ])
-def test_topic_name_validation(topic_name, expectation):
+def test_topic_name_validation(topic_name, expectation) -> None:
     with expectation:
         ensure_valid_topic_name(topic_name)
 

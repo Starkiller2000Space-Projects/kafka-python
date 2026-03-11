@@ -8,7 +8,6 @@ import pyperf
 
 from kafka.record.memory_records import MemoryRecords, MemoryRecordsBuilder
 
-
 DEFAULT_BATCH_SIZE = 1600 * 1024
 KEY_SIZE = 6
 VALUE_SIZE = 60
@@ -18,14 +17,14 @@ BATCH_SAMPLES = 5
 MESSAGES_PER_BATCH = 100
 
 
-def random_bytes(length):
+def random_bytes(length) -> None:
     buffer = bytearray(length)
     for i in range(length):
         buffer[i] = random.randint(0, 255)
     return bytes(buffer)
 
 
-def prepare(magic):
+def prepare(magic) -> None:
     samples = []
     for _ in range(BATCH_SAMPLES):
         batch = MemoryRecordsBuilder(
@@ -43,7 +42,7 @@ def prepare(magic):
     return iter(itertools.cycle(samples))
 
 
-def finalize(results):
+def finalize(results) -> None:
     # Just some strange code to make sure PyPy does execute the code above
     # properly
     hash_val = hashlib.md5()
@@ -52,7 +51,7 @@ def finalize(results):
     print(hash_val, file=open(os.devnull, "w"))
 
 
-def func(loops, magic):
+def func(loops, magic) -> None:
     # Jit can optimize out the whole function if the result is the same each
     # time, so we need some randomized input data )
     precomputed_samples = prepare(magic)

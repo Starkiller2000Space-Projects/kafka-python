@@ -1,8 +1,7 @@
 import collections
 
 from kafka.protocol.api import Request, Response
-from kafka.protocol.types import Array, Int8, Int16, Int32, Int64, Schema, String, Bytes
-
+from kafka.protocol.types import Array, Bytes, Int8, Int16, Int32, Int64, Schema, String
 
 AbortedTransaction = collections.namedtuple("AbortedTransaction",
     ["producer_id", "first_offset"])

@@ -1,21 +1,14 @@
 import platform
 import struct
+from test.testutil import random_string
 
 import pytest
 
-from kafka.codec import (
-    has_snappy, has_lz4, has_zstd,
-    gzip_encode, gzip_decode,
-    snappy_encode, snappy_decode,
-    lz4_encode, lz4_decode,
-    lz4_encode_old_kafka, lz4_decode_old_kafka,
-    zstd_encode, zstd_decode,
-)
-
-from test.testutil import random_string
+from kafka.codec import (gzip_decode, gzip_encode, has_lz4, has_snappy, has_zstd, lz4_decode, lz4_decode_old_kafka,
+                         lz4_encode, lz4_encode_old_kafka, snappy_decode, snappy_encode, zstd_decode, zstd_encode)
 
 
-def test_gzip():
+def test_gzip() -> None:
     for i in range(1000):
         b1 = random_string(100).encode('utf-8')
         b2 = gzip_decode(gzip_encode(b1))
@@ -23,7 +16,7 @@ def test_gzip():
 
 
 @pytest.mark.skipif(not has_snappy(), reason="Snappy not available")
-def test_snappy():
+def test_snappy() -> None:
     for i in range(1000):
         b1 = random_string(100).encode('utf-8')
         b2 = snappy_decode(snappy_encode(b1))
@@ -31,7 +24,7 @@ def test_snappy():
 
 
 @pytest.mark.skipif(not has_snappy(), reason="Snappy not available")
-def test_snappy_detect_xerial():
+def test_snappy_detect_xerial() -> None:
     import kafka as kafka1
     _detect_xerial_stream = kafka1.codec._detect_xerial_stream
 
@@ -53,7 +46,7 @@ def test_snappy_detect_xerial():
 
 
 @pytest.mark.skipif(not has_snappy(), reason="Snappy not available")
-def test_snappy_decode_xerial():
+def test_snappy_decode_xerial() -> None:
     header = b'\x82SNAPPY\x00\x00\x00\x00\x01\x00\x00\x00\x01'
     random_snappy = snappy_encode(b'SNAPPY' * 50, xerial_compatible=False)
     block_len = len(random_snappy)
@@ -68,7 +61,7 @@ def test_snappy_decode_xerial():
 
 
 @pytest.mark.skipif(not has_snappy(), reason="Snappy not available")
-def test_snappy_encode_xerial():
+def test_snappy_encode_xerial() -> None:
     to_ensure = (
         b'\x82SNAPPY\x00\x00\x00\x00\x01\x00\x00\x00\x01'
         b'\x00\x00\x00\x18'
@@ -85,7 +78,7 @@ def test_snappy_encode_xerial():
 
 @pytest.mark.skipif(not has_lz4() or platform.python_implementation() == 'PyPy',
                     reason="python-lz4 crashes on old versions of pypy")
-def test_lz4():
+def test_lz4() -> None:
     for i in range(1000):
         b1 = random_string(100).encode('utf-8')
         b2 = lz4_decode(lz4_encode(b1))
@@ -95,7 +88,7 @@ def test_lz4():
 
 @pytest.mark.skipif(not has_lz4() or platform.python_implementation() == 'PyPy',
                     reason="python-lz4 crashes on old versions of pypy")
-def test_lz4_old():
+def test_lz4_old() -> None:
     for i in range(1000):
         b1 = random_string(100).encode('utf-8')
         b2 = lz4_decode_old_kafka(lz4_encode_old_kafka(b1))
@@ -105,7 +98,7 @@ def test_lz4_old():
 
 @pytest.mark.skipif(not has_lz4() or platform.python_implementation() == 'PyPy',
                     reason="python-lz4 crashes on old versions of pypy")
-def test_lz4_incremental():
+def test_lz4_incremental() -> None:
     for i in range(1000):
         # lz4 max single block size is 4MB
         # make sure we test with multiple-blocks
@@ -116,7 +109,7 @@ def test_lz4_incremental():
 
 
 @pytest.mark.skipif(not has_zstd(), reason="Zstd not available")
-def test_zstd():
+def test_zstd() -> None:
     for _ in range(1000):
         b1 = random_string(100).encode('utf-8')
         b2 = zstd_decode(zstd_encode(b1))
@@ -124,7 +117,7 @@ def test_zstd():
 
 
 @pytest.mark.skipif(not has_zstd(), reason="Zstd not available")
-def test_zstd_multi_frame():
+def test_zstd_multi_frame() -> None:
     """Test that zstd_decode handles multiple concatenated zstd frames."""
     frame1_data = b'some payload data ' * 100
     frame2_data = b'another frame of data ' * 100

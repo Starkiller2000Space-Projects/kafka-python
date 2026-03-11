@@ -1,12 +1,12 @@
 class SortedSet:
-    def __init__(self, iterable=None, key=None):
+    def __init__(self, iterable=None, key=None) -> None:
         self._key = key if key is not None else lambda x: x
         self._set = set(iterable) if iterable is not None else set()
 
         self._cached_last = None
         self._cached_first = None
 
-    def first(self):
+    def first(self) -> None:
         if self._cached_first is not None:
             return self._cached_first
 
@@ -17,7 +17,7 @@ class SortedSet:
         self._cached_first = first
         return first
 
-    def last(self):
+    def last(self) -> None:
         if self._cached_last is not None:
             return self._cached_last
 
@@ -28,13 +28,13 @@ class SortedSet:
         self._cached_last = last
         return last
 
-    def pop_last(self):
+    def pop_last(self) -> None:
         value = self.last()
         self._set.remove(value)
         self._cached_last = None
         return value
 
-    def add(self, value):
+    def add(self, value) -> None:
         if self._cached_last is not None and self._key(value) > self._key(self._cached_last):
             self._cached_last = value
         if self._cached_first is not None and self._key(value) < self._key(self._cached_first):
@@ -42,7 +42,7 @@ class SortedSet:
 
         return self._set.add(value)
 
-    def remove(self, value):
+    def remove(self, value) -> None:
         if self._cached_last is not None and self._cached_last == value:
             self._cached_last = None
         if self._cached_first is not None and self._cached_first == value:
@@ -50,13 +50,13 @@ class SortedSet:
 
         return self._set.remove(value)
 
-    def __contains__(self, value):
+    def __contains__(self, value) -> None:
         return value in self._set
 
-    def __iter__(self):
+    def __iter__(self) -> None:
         return iter(sorted(self._set, key=self._key))
 
-    def _bool(self):
+    def _bool(self) -> None:
         return len(self._set) != 0
 
     __nonzero__ = _bool

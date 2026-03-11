@@ -22,7 +22,7 @@ class TimeUnit(object):
     DAYS = _names['day']
 
     @staticmethod
-    def get_name(time_unit):
+    def get_name(time_unit) -> None:
         return TimeUnit._names[time_unit]
 
 
@@ -37,21 +37,21 @@ class Rate(AbstractMeasurableStat):
     """
     __slots__ = ('_stat', '_unit')
 
-    def __init__(self, time_unit=TimeUnit.SECONDS, sampled_stat=None):
+    def __init__(self, time_unit=TimeUnit.SECONDS, sampled_stat=None) -> None:
         self._stat = sampled_stat or SampledTotal()
         self._unit = time_unit
 
-    def unit_name(self):
+    def unit_name(self) -> None:
         return TimeUnit.get_name(self._unit)
 
-    def record(self, config, value, time_ms):
+    def record(self, config, value, time_ms) -> None:
         self._stat.record(config, value, time_ms)
 
-    def measure(self, config, now):
+    def measure(self, config, now) -> None:
         value = self._stat.measure(config, now)
         return float(value) / self.convert(self.window_size(config, now))
 
-    def window_size(self, config, now):
+    def window_size(self, config, now) -> None:
         # purge old samples before we compute the window size
         self._stat.purge_obsolete_samples(config, now)
 
@@ -85,7 +85,7 @@ class Rate(AbstractMeasurableStat):
 
         return total_elapsed_time_ms
 
-    def convert(self, time_ms):
+    def convert(self, time_ms) -> None:
         if self._unit == TimeUnit.NANOSECONDS:
             return time_ms * 1000.0 * 1000.0
         elif self._unit == TimeUnit.MICROSECONDS:
@@ -106,13 +106,13 @@ class Rate(AbstractMeasurableStat):
 
 class SampledTotal(AbstractSampledStat):
     __slots__ = ('_initial_value', '_samples', '_current')
-    def __init__(self, initial_value=None):
+    def __init__(self, initial_value=None) -> None:
         if initial_value is not None:
             raise ValueError('initial_value cannot be set on SampledTotal')
         super(SampledTotal, self).__init__(0.0)
 
-    def update(self, sample, config, value, time_ms):
+    def update(self, sample, config, value, time_ms) -> None:
         sample.value += value
 
-    def combine(self, samples, config, now):
+    def combine(self, samples, config, now) -> None:
         return float(sum(sample.value for sample in samples))

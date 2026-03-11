@@ -1,16 +1,20 @@
 import argparse
 import json
 import logging
+from collections.abc import Iterable, Sequence
 from pprint import pprint
+from typing import Any, Protocol
 
 from kafka.admin.client import KafkaAdminClient
+
 from .cluster import ClusterSubCommand
 from .configs import ConfigsSubCommand
 from .consumer_groups import ConsumerGroupsSubCommand
 from .log_dirs import LogDirsSubCommand
 from .topics import TopicsSubCommand
 
-def main_parser():
+
+def main_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog='python -m kafka.admin',
         description='Kafka admin client',
@@ -33,8 +37,9 @@ def main_parser():
 _LOGGING_LEVELS = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
 
 
-def build_kwargs(props):
-    kwargs = {}
+def build_kwargs(props: Iterable[str]) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {}
+    v: Any
     for prop in props or []:
         k, v = prop.split('=')
         try:
@@ -51,11 +56,19 @@ def build_kwargs(props):
     return kwargs
 
 
-def run_cli(args=None):
+class SubCommand(Protocol):
+
+    @classmethod
+    def add_subparser(cls, subparsers: Any) -> None:
+        ...
+
+
+def run_cli(args: Sequence[str] | None = None) -> int:
     parser = main_parser()
     subparsers = parser.add_subparsers(help='subcommands')
-    for cmd in [ClusterSubCommand, ConfigsSubCommand, LogDirsSubCommand,
-                TopicsSubCommand, ConsumerGroupsSubCommand]:
+    subcommands: list[SubCommand] = [ClusterSubCommand, ConfigsSubCommand, LogDirsSubCommand,
+                TopicsSubCommand, ConsumerGroupsSubCommand]
+    for cmd in subcommands:
         cmd.add_subparser(subparsers)
 
     config = parser.parse_args(args)

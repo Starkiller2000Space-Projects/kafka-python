@@ -1,15 +1,18 @@
 import os
-from urllib.parse import urlparse
 import uuid
+from collections.abc import Callable, Iterable, Iterator
+from test.integration.fixtures import KafkaFixture, ZookeeperFixture
+from test.testutil import env_kafka_version, random_string
+from urllib.parse import urlparse
 
 import pytest
 
-from test.testutil import env_kafka_version, random_string
-from test.integration.fixtures import KafkaFixture, ZookeeperFixture
+from kafka import KafkaClient, KafkaConsumer, KafkaProducer
+from kafka.producer.future import FutureRecordMetadata
 
 
 @pytest.fixture(scope="module")
-def zookeeper():
+def zookeeper() -> Iterator[ZookeeperFixture]:
     """Return a Zookeeper fixture"""
     if "ZOOKEEPER_URI" in os.environ:
         parse = urlparse(os.environ["ZOOKEEPER_URI"])
@@ -22,7 +25,7 @@ def zookeeper():
 
 
 @pytest.fixture(scope="module")
-def kafka_broker(kafka_broker_factory):
+def kafka_broker(kafka_broker_factory: type[KafkaFixture]) -> KafkaFixture:
     """Return a Kafka broker fixture"""
     if "KAFKA_URI" in os.environ:
         parse = urlparse(os.environ["KAFKA_URI"])
@@ -33,12 +36,12 @@ def kafka_broker(kafka_broker_factory):
 
 
 @pytest.fixture(scope="module")
-def kafka_broker_factory():
+def kafka_broker_factory() -> Callable:
     """Return a Kafka broker fixture factory"""
     assert env_kafka_version(), 'KAFKA_VERSION must be specified to run integration tests'
 
-    _brokers = []
-    def factory(**broker_params):
+    _brokers: list[KafkaFixture] = []
+    def factory(**broker_params) -> KafkaFixture:
         params = {} if broker_params is None else broker_params.copy()
         params.setdefault('partitions', 4)
         node_id = params.pop('node_id', 0)
@@ -58,7 +61,7 @@ def kafka_broker_factory():
 
 
 @pytest.fixture
-def kafka_client(kafka_broker, request):
+def kafka_client(kafka_broker: KafkaFixture, request: pytest.FixtureRequest) -> Iterator[KafkaClient]:
     """Return a KafkaClient fixture"""
     (client,) = kafka_broker.get_clients(cnt=1, client_id='%s_client' % (request.node.name,))
     yield client
@@ -66,13 +69,13 @@ def kafka_client(kafka_broker, request):
 
 
 @pytest.fixture
-def kafka_consumer(kafka_consumer_factory):
+def kafka_consumer(kafka_consumer_factory: type[KafkaConsumer]) -> KafkaConsumer:
     """Return a KafkaConsumer fixture"""
     return kafka_consumer_factory()
 
 
 @pytest.fixture
-def kafka_consumer_factory(kafka_broker, topic, request):
+def kafka_consumer_factory(kafka_broker, topic, request) -> None:
     """Return a KafkaConsumer factory fixture"""
     _consumer = [None]
 
@@ -90,17 +93,17 @@ def kafka_consumer_factory(kafka_broker, topic, request):
 
 
 @pytest.fixture
-def kafka_producer(kafka_producer_factory):
+def kafka_producer(kafka_producer_factory) -> None:
     """Return a KafkaProducer fixture"""
     yield kafka_producer_factory()
 
 
 @pytest.fixture
-def kafka_producer_factory(kafka_broker, request):
+def kafka_producer_factory(kafka_broker, request) -> None:
     """Return a KafkaProduce factory fixture"""
     _producer = [None]
 
-    def factory(**kafka_producer_params):
+    def factory(**kafka_producer_params) -> None:
         params = {} if kafka_producer_params is None else kafka_producer_params.copy()
         params.setdefault('client_id', 'producer_%s' % (request.node.name,))
         _producer[0] = next(kafka_broker.get_producers(cnt=1, **params))
@@ -113,17 +116,17 @@ def kafka_producer_factory(kafka_broker, request):
 
 
 @pytest.fixture
-def kafka_admin_client(kafka_admin_client_factory):
+def kafka_admin_client(kafka_admin_client_factory) -> None:
     """Return a KafkaAdminClient fixture"""
     yield kafka_admin_client_factory()
 
 
 @pytest.fixture
-def kafka_admin_client_factory(kafka_broker):
+def kafka_admin_client_factory(kafka_broker) -> None:
     """Return a KafkaAdminClient factory fixture"""
     _admin_client = [None]
 
-    def factory(**kafka_admin_client_params):
+    def factory(**kafka_admin_client_params) -> None:
         params = {} if kafka_admin_client_params is None else kafka_admin_client_params.copy()
         _admin_client[0] = next(kafka_broker.get_admin_clients(cnt=1, **params))
         return _admin_client[0]
@@ -135,7 +138,7 @@ def kafka_admin_client_factory(kafka_broker):
 
 
 @pytest.fixture
-def topic(kafka_broker, request):
+def topic(kafka_broker, request: pytest.FixtureRequest) -> None:
     """Return a topic fixture"""
     topic_name = '%s_%s' % (request.node.name, random_string(10))
     kafka_broker.create_topics([topic_name])
@@ -143,16 +146,16 @@ def topic(kafka_broker, request):
 
 
 @pytest.fixture()
-def send_messages(topic, kafka_producer, request):
+def send_messages(topic: str, kafka_producer: KafkaProducer, request: pytest.FixtureRequest) -> Callable:
     """A factory that returns a send_messages function with a pre-populated
     topic topic / producer."""
 
-    def _send_messages(number_range, partition=0, topic=topic, producer=kafka_producer, request=request):
+    def _send_messages(number_range: Iterable[int], partition: int = 0, topic: str = topic, producer: KafkaProducer = kafka_producer, request: pytest.FixtureRequest = request) -> list[bytes]:
         """
             messages is typically `range(0,100)`
             partition is an int
         """
-        messages_and_futures = []  # [(message, produce_future),]
+        messages_and_futures: list[tuple[bytes, FutureRecordMetadata]] = []  # [(message, produce_future),]
         for i in number_range:
             # request.node.name provides the test name (including parametrized values)
             encoded_msg = '{}-{}-{}'.format(i, request.node.name, uuid.uuid4()).encode('utf-8')

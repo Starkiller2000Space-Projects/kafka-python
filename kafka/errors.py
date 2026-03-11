@@ -7,13 +7,13 @@ class KafkaError(RuntimeError):
     # whether metadata should be refreshed on error
     invalid_metadata = False
 
-    def __str__(self):
+    def __str__(self) -> None:
         if not self.args:
             return self.__class__.__name__
         return '{0}: {1}'.format(self.__class__.__name__,
                                super(KafkaError, self).__str__())
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> None:
         return self.__class__ == other.__class__ and self.args == other.args
 
 
@@ -22,7 +22,7 @@ class Cancelled(KafkaError):
 
 
 class CommitFailedError(KafkaError):
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:
         if not args:
             args = ("Commit cannot be completed since the group has already"
                     " rebalanced and assigned the partitions to another member.",)
@@ -109,7 +109,7 @@ class BrokerResponseError(KafkaError):
     message = None
     description = None
 
-    def __str__(self):
+    def __str__(self) -> None:
         """Add errno to standard KafkaError str"""
         return '[Error {0}] {1}'.format(
             self.errno,
@@ -1050,7 +1050,7 @@ class VoterNotFoundError(BrokerResponseError):
     retriable = False
 
 
-def _iter_broker_errors():
+def _iter_broker_errors() -> None:
     for name, obj in inspect.getmembers(sys.modules[__name__]):
         if inspect.isclass(obj) and issubclass(obj, BrokerResponseError) and obj != BrokerResponseError:
             yield obj
@@ -1059,7 +1059,7 @@ def _iter_broker_errors():
 kafka_errors = dict([(x.errno, x) for x in _iter_broker_errors()])
 
 
-def for_code(error_code):
+def for_code(error_code) -> None:
     if error_code in kafka_errors:
         return kafka_errors[error_code]
     else:

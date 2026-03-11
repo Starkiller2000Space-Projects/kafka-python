@@ -2,15 +2,14 @@ import logging
 
 # Windows-only
 try:
-    import sspi
     import pywintypes
+    import sspi
     import sspicon
     import win32security
 except ImportError:
     sspi = None
 
 from kafka.sasl.abc import SaslMechanism
-
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ class SaslMechanismSSPI(SaslMechanism):
     SASL_QOP_AUTH_INT = 2
     SASL_QOP_AUTH_CONF = 4
 
-    def __init__(self, **config):
+    def __init__(self, **config) -> None:
         assert sspi is not None, 'No GSSAPI lib available (gssapi or sspi)'
         if 'sasl_kerberos_name' not in config and 'sasl_kerberos_service_name' not in config:
             raise ValueError('sasl_kerberos_service_name or sasl_kerberos_name required for GSSAPI sasl configuration')
@@ -45,7 +44,7 @@ class SaslMechanismSSPI(SaslMechanism):
         self._client_ctx = sspi.ClientAuth(scheme, targetspn=self.auth_id, scflags=flags)
         self._next_token = self._client_ctx.step(None)
 
-    def auth_bytes(self):
+    def auth_bytes(self) -> None:
         # GSSAPI Auth does not have a final broker->client message
         # so mark is_done after the final auth_bytes are provided
         # in practice we'll still receive a response when using SaslAuthenticate
@@ -55,7 +54,7 @@ class SaslMechanismSSPI(SaslMechanism):
             self._is_authenticated = True
         return self._next_token or b''
 
-    def receive(self, auth_bytes):
+    def receive(self, auth_bytes) -> None:
         log.debug("Received token from server (size %s)", len(auth_bytes))
         if not self._client_ctx.authenticated:
             # calculate an output token from kafka token (or None on first iteration)
@@ -99,11 +98,11 @@ class SaslMechanismSSPI(SaslMechanism):
             # add authorization identity to the response, and GSS-wrap
             self._next_token = self._client_ctx.wrap(b''.join(message_parts), False)
 
-    def is_done(self):
+    def is_done(self) -> None:
         return self._is_done
 
-    def is_authenticated(self):
+    def is_authenticated(self) -> None:
         return self._is_authenticated
 
-    def auth_details(self):
+    def auth_details(self) -> None:
         return 'Authenticated as %s to %s via SASL / SSPI/GSSAPI \\o/' % (self._client_ctx.initiator_name, self._client_ctx.service_name)

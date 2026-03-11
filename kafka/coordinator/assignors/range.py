@@ -3,7 +3,7 @@ import itertools
 import logging
 
 from kafka.coordinator.assignors.abstract import AbstractPartitionAssignor
-from kafka.coordinator.protocol import ConsumerProtocolMemberMetadata_v0, ConsumerProtocolMemberAssignment_v0
+from kafka.coordinator.protocol import ConsumerProtocolMemberAssignment_v0, ConsumerProtocolMemberMetadata_v0
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class RangePartitionAssignor(AbstractPartitionAssignor):
     version = 0
 
     @classmethod
-    def assign(cls, cluster, group_subscriptions):
+    def assign(cls, cluster, group_subscriptions) -> None:
         consumers_per_topic = collections.defaultdict(list)
         for member_id, subscription in group_subscriptions.items():
             for topic in subscription.topics:
@@ -70,9 +70,9 @@ class RangePartitionAssignor(AbstractPartitionAssignor):
         return protocol_assignment
 
     @classmethod
-    def metadata(cls, topics):
+    def metadata(cls, topics) -> None:
         return ConsumerProtocolMemberMetadata_v0(cls.version, list(topics), b'')
 
     @classmethod
-    def on_assignment(cls, assignment):
+    def on_assignment(cls, assignment) -> None:
         pass

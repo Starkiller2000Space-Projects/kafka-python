@@ -8,7 +8,7 @@ from kafka.protocol.find_coordinator import FindCoordinatorRequest
 from kafka.protocol.metadata import MetadataRequest
 
 
-def test_encode_message_header():
+def test_encode_message_header() -> None:
     expect = b''.join([
         struct.pack('>h', 10),             # API Key
         struct.pack('>h', 0),              # API Version
@@ -22,7 +22,7 @@ def test_encode_message_header():
     assert header.encode() == expect
 
 
-def test_struct_unrecognized_kwargs():
+def test_struct_unrecognized_kwargs() -> None:
     try:
         _mr = MetadataRequest[0](topicz='foo')
         assert False, 'Structs should not allow unrecognized kwargs'
@@ -30,6 +30,6 @@ def test_struct_unrecognized_kwargs():
         pass
 
 
-def test_struct_missing_kwargs():
+def test_struct_missing_kwargs() -> None:
     fr = FetchRequest[0](max_wait_time=100)
     assert fr.min_bytes is None

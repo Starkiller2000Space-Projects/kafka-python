@@ -8,7 +8,7 @@ from kafka.protocol.fetch import FetchResponse
 from kafka.protocol.types import Int16, Int32, Int64, String
 
 
-def test_decode_fetch_response_partial():
+def test_decode_fetch_response_partial() -> None:
     encoded = b''.join([
         Int32.encode(1),               # Num Topics (Array)
         String('utf-8').encode('foobar'),

@@ -3,7 +3,6 @@ import io
 import platform
 import struct
 
-
 _XERIAL_V1_HEADER = (-126, b'S', b'N', b'A', b'P', b'P', b'Y', 0, 1, 1)
 _XERIAL_V1_FORMAT = 'bccccccBii'
 ZSTD_MAX_OUTPUT_SIZE = 1024 * 1024
@@ -21,7 +20,7 @@ except ImportError:
 try:
     import lz4.frame as lz4
 
-    def _lz4_compress(payload, **kwargs):
+    def _lz4_compress(payload, **kwargs) -> None:
         # Kafka does not support LZ4 dependent blocks
         try:
             # For lz4>=0.12.0
@@ -52,19 +51,19 @@ except ImportError:
 
 PYPY = bool(platform.python_implementation() == 'PyPy')
 
-def has_gzip():
+def has_gzip() -> None:
     return True
 
 
-def has_snappy():
+def has_snappy() -> None:
     return snappy is not None
 
 
-def has_zstd():
+def has_zstd() -> None:
     return zstd is not None
 
 
-def has_lz4():
+def has_lz4() -> None:
     if lz4 is not None:
         return True
     if lz4f is not None:
@@ -74,7 +73,7 @@ def has_lz4():
     return False
 
 
-def gzip_encode(payload, compresslevel=None):
+def gzip_encode(payload, compresslevel=None) -> None:
     if not compresslevel:
         compresslevel = 9
 
@@ -91,7 +90,7 @@ def gzip_encode(payload, compresslevel=None):
     return buf.getvalue()
 
 
-def gzip_decode(payload):
+def gzip_decode(payload) -> None:
     buf = io.BytesIO(payload)
 
     # Gzip context manager introduced in python 2.7
@@ -103,7 +102,7 @@ def gzip_decode(payload):
         gzipper.close()
 
 
-def snappy_encode(payload, xerial_compatible=True, xerial_blocksize=32*1024):
+def snappy_encode(payload, xerial_compatible=True, xerial_blocksize=32*1024) -> None:
     """Encodes the given data with snappy compression.
 
     If xerial_compatible is set then the stream is encoded in a fashion
@@ -162,7 +161,7 @@ def snappy_encode(payload, xerial_compatible=True, xerial_blocksize=32*1024):
     return out.getvalue()
 
 
-def _detect_xerial_stream(payload):
+def _detect_xerial_stream(payload) -> None:
     """Detects if the data given might have been encoded with the blocking mode
         of the xerial snappy library.
 
@@ -197,7 +196,7 @@ def _detect_xerial_stream(payload):
     return False
 
 
-def snappy_decode(payload):
+def snappy_decode(payload) -> None:
     if not has_snappy():
         raise NotImplementedError("Snappy codec is not available")
 
@@ -232,7 +231,7 @@ else:
     lz4_encode = None
 
 
-def lz4f_decode(payload):
+def lz4f_decode(payload) -> None:
     """Decode payload using interoperable LZ4 framing. Requires Kafka >= 0.10"""
     # pylint: disable-msg=no-member
     ctx = lz4f.createDecompContext()
@@ -256,7 +255,7 @@ else:
     lz4_decode = None
 
 
-def lz4_encode_old_kafka(payload):
+def lz4_encode_old_kafka(payload) -> None:
     """Encode payload for 0.8/0.9 brokers -- requires an incorrect header checksum."""
     assert xxhash is not None
     data = lz4_encode(payload)
@@ -287,7 +286,7 @@ def lz4_encode_old_kafka(payload):
     ])
 
 
-def lz4_decode_old_kafka(payload):
+def lz4_decode_old_kafka(payload) -> None:
     assert xxhash is not None
     # Kafka's LZ4 code has a bug in its header checksum implementation
     header_size = 7
@@ -310,13 +309,13 @@ def lz4_decode_old_kafka(payload):
     return lz4_decode(munged_payload)
 
 
-def zstd_encode(payload):
+def zstd_encode(payload) -> None:
     if not zstd:
         raise NotImplementedError("Zstd codec is not available")
     return zstd.ZstdCompressor().compress(payload)
 
 
-def zstd_decode(payload):
+def zstd_decode(payload) -> None:
     if not zstd:
         raise NotImplementedError("Zstd codec is not available")
     with zstd.ZstdDecompressor().stream_reader(io.BytesIO(payload), read_across_frames=True) as reader:

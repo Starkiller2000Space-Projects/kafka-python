@@ -38,7 +38,7 @@ class MetricName(object):
     """
     __slots__ = ('_name', '_group', '_description', '_tags', '_hash')
 
-    def __init__(self, name, group, description=None, tags=None):
+    def __init__(self, name, group, description=None, tags=None) -> None:
         """
         Arguments:
             name (str): The name of the metric.
@@ -60,22 +60,22 @@ class MetricName(object):
         self._hash = 0
 
     @property
-    def name(self):
+    def name(self) -> None:
         return self._name
 
     @property
-    def group(self):
+    def group(self) -> None:
         return self._group
 
     @property
-    def description(self):
+    def description(self) -> None:
         return self._description
 
     @property
-    def tags(self):
+    def tags(self) -> None:
         return copy.copy(self._tags)
 
-    def __hash__(self):
+    def __hash__(self) -> None:
         if self._hash != 0:
             return self._hash
         prime = 31
@@ -87,7 +87,7 @@ class MetricName(object):
         self._hash = result
         return result
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> None:
         if self is other:
             return True
         if other is None:
@@ -97,9 +97,9 @@ class MetricName(object):
                 self.name == other.name and
                 self.tags == other.tags)
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> None:
         return not self.__eq__(other)
 
-    def __str__(self):
+    def __str__(self) -> None:
         return 'MetricName(name=%s, group=%s, description=%s, tags=%s)' % (
             self.name, self.group, self.description, self.tags)

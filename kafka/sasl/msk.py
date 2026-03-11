@@ -16,12 +16,11 @@ except ImportError:
 from kafka.errors import KafkaConfigurationError
 from kafka.sasl.abc import SaslMechanism
 
-
 log = logging.getLogger(__name__)
 
 
 class SaslMechanismAwsMskIam(SaslMechanism):
-    def __init__(self, **config):
+    def __init__(self, **config) -> None:
         assert BotoSession is not None, 'AWS_MSK_IAM requires the "botocore" package'
         assert config.get('security_protocol', '') == 'SASL_SSL', 'AWS_MSK_IAM requires SASL_SSL'
         assert 'host' in config, 'AWS_MSK_IAM requires host configuration'
@@ -30,7 +29,7 @@ class SaslMechanismAwsMskIam(SaslMechanism):
         self._is_done = False
         self._is_authenticated = False
 
-    def _build_client(self):
+    def _build_client(self) -> None:
         session = BotoSession()
         credentials = session.get_credentials().get_frozen_credentials()
         if not session.get_config_variable('region'):
@@ -43,23 +42,23 @@ class SaslMechanismAwsMskIam(SaslMechanism):
             token=credentials.token,
         )
 
-    def auth_bytes(self):
+    def auth_bytes(self) -> None:
         client = self._build_client()
         log.debug("Generating auth token for MSK scope: %s", client._scope)
         return client.first_message()
 
-    def receive(self, auth_bytes):
+    def receive(self, auth_bytes) -> None:
         self._is_done = True
         self._is_authenticated = auth_bytes != b''
         self._auth = auth_bytes.decode('utf-8')
 
-    def is_done(self):
+    def is_done(self) -> None:
         return self._is_done
 
-    def is_authenticated(self):
+    def is_authenticated(self) -> None:
         return self._is_authenticated
 
-    def auth_details(self):
+    def auth_details(self) -> None:
         if not self.is_authenticated:
             raise RuntimeError('Not authenticated yet!')
         return 'Authenticated via SASL / AWS_MSK_IAM %s' % (self._auth,)
@@ -68,7 +67,7 @@ class SaslMechanismAwsMskIam(SaslMechanism):
 class AwsMskIamClient:
     UNRESERVED_CHARS = string.ascii_letters + string.digits + '-._~'
 
-    def __init__(self, host, access_key, secret_key, region, token=None):
+    def __init__(self, host, access_key, secret_key, region, token=None) -> None:
         """
         Arguments:
             host (str): The hostname of the broker.
@@ -100,15 +99,15 @@ class AwsMskIamClient:
         self.token = token
 
     @property
-    def _credential(self):
+    def _credential(self) -> None:
         return '{0.access_key}/{0._scope}'.format(self)
 
     @property
-    def _scope(self):
+    def _scope(self) -> None:
         return '{0.datestamp}/{0.region}/{0.service}/aws4_request'.format(self)
 
     @property
-    def _signed_headers(self):
+    def _signed_headers(self) -> None:
         """
         Returns (str):
             An alphabetically sorted, semicolon-delimited list of lowercase
@@ -117,7 +116,7 @@ class AwsMskIamClient:
         return ';'.join(sorted(k.lower() for k, _ in self.headers))
 
     @property
-    def _canonical_headers(self):
+    def _canonical_headers(self) -> None:
         """
         Returns (str):
             A newline-delited list of header names and values.
@@ -126,7 +125,7 @@ class AwsMskIamClient:
         return '\n'.join(map(':'.join, self.headers)) + '\n'
 
     @property
-    def _canonical_request(self):
+    def _canonical_request(self) -> None:
         """
         Returns (str):
             An AWS Signature Version 4 canonical request in the format:
@@ -149,7 +148,7 @@ class AwsMskIamClient:
         ))
 
     @property
-    def _canonical_querystring(self):
+    def _canonical_querystring(self) -> None:
         """
         Returns (str):
             A '&'-separated list of URI-encoded key/value pairs.
@@ -167,7 +166,7 @@ class AwsMskIamClient:
         return '&'.join(self._uriencode(k) + '=' + self._uriencode(v) for k, v in params)
 
     @property
-    def _signing_key(self):
+    def _signing_key(self) -> None:
         """
         Returns (bytes):
             An AWS Signature V4 signing key generated from the secret_key, date,
@@ -180,7 +179,7 @@ class AwsMskIamClient:
         return key
 
     @property
-    def _signing_str(self):
+    def _signing_str(self) -> None:
         """
         Returns (str):
             A string used to sign the AWS Signature V4 payload in the format:
@@ -192,7 +191,7 @@ class AwsMskIamClient:
         canonical_request_hash = self.hashfunc(self._canonical_request.encode('utf-8')).hexdigest()
         return '\n'.join((self.algorithm, self.timestamp, self._scope, canonical_request_hash))
 
-    def _uriencode(self, msg):
+    def _uriencode(self, msg) -> None:
         """
         Arguments:
             msg (str): A string to URI-encode.
@@ -203,7 +202,7 @@ class AwsMskIamClient:
         """
         return urllib.parse.quote(msg, safe=self.UNRESERVED_CHARS)
 
-    def _hmac(self, key, msg):
+    def _hmac(self, key, msg) -> None:
         """
         Arguments:
             key (bytes): A key to use for the HMAC digest.
@@ -213,7 +212,7 @@ class AwsMskIamClient:
         """
         return hmac.new(key, msg.encode('utf-8'), digestmod=self.hashfunc).digest()
 
-    def first_message(self):
+    def first_message(self) -> None:
         """
         Returns (bytes):
             An encoded JSON authentication payload that can be sent to the

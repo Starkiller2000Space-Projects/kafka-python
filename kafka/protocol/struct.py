@@ -3,18 +3,17 @@ from io import BytesIO
 
 from kafka.protocol.abstract import AbstractType
 from kafka.protocol.types import Schema
-
 from kafka.util import WeakMethod
 
 
 class Struct(metaclass=abc.ABCMeta):
 
     @abc.abstractproperty
-    def SCHEMA(self):
+    def SCHEMA(self) -> None:
         """An instance of Schema() representing the structure"""
         pass
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         if len(args) == len(self.SCHEMA):
             for i, name in enumerate(self.SCHEMA.names):
                 setattr(self, name, args[i])
@@ -28,32 +27,32 @@ class Struct(metaclass=abc.ABCMeta):
                                  % (list(self.SCHEMA.names),
                                     ', '.join(kwargs.keys())))
 
-    def encode(self):
+    def encode(self) -> None:
         return self.SCHEMA.encode(
             [getattr(self, name) for name in self.SCHEMA.names]
         )
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         if isinstance(data, bytes):
             data = BytesIO(data)
         return cls(*cls.SCHEMA.decode(data))
 
-    def get_item(self, name):
+    def get_item(self, name) -> None:
         if name not in self.SCHEMA.names:
             raise KeyError("%s is not in the schema" % name)
         return getattr(self, name)
 
-    def __repr__(self):
+    def __repr__(self) -> None:
         key_vals = []
         for name, field in zip(self.SCHEMA.names, self.SCHEMA.fields):
             key_vals.append('%s=%s' % (name, field.repr(getattr(self, name))))
         return self.__class__.__name__ + '(' + ', '.join(key_vals) + ')'
 
-    def __hash__(self):
+    def __hash__(self) -> None:
         return hash(self.encode())
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> None:
         if self.SCHEMA != other.SCHEMA:
             return False
         for attr in self.SCHEMA.names:

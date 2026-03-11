@@ -1,18 +1,15 @@
+from test.testutil import maybe_skip_unsupported_compression
 from unittest.mock import patch
 
 import pytest
 
-from kafka.record.legacy_records import (
-    LegacyRecordBatch, LegacyRecordBatchBuilder
-)
 import kafka.codec
 from kafka.errors import UnsupportedCodecError
-
-from test.testutil import maybe_skip_unsupported_compression
+from kafka.record.legacy_records import LegacyRecordBatch, LegacyRecordBatchBuilder
 
 
 @pytest.mark.parametrize("magic", [0, 1])
-def test_read_write_serde_v0_v1_no_compression(magic):
+def test_read_write_serde_v0_v1_no_compression(magic) -> None:
     builder = LegacyRecordBatchBuilder(
         magic=magic, compression_type=0, batch_size=9999999)
     builder.append(
@@ -38,7 +35,7 @@ def test_read_write_serde_v0_v1_no_compression(magic):
     LegacyRecordBatch.CODEC_LZ4
 ])
 @pytest.mark.parametrize("magic", [0, 1])
-def test_read_write_serde_v0_v1_with_compression(compression_type, magic):
+def test_read_write_serde_v0_v1_with_compression(compression_type, magic) -> None:
     maybe_skip_unsupported_compression(compression_type)
     builder = LegacyRecordBatchBuilder(
         magic=magic, compression_type=compression_type, batch_size=9999999)
@@ -61,7 +58,7 @@ def test_read_write_serde_v0_v1_with_compression(compression_type, magic):
 
 
 @pytest.mark.parametrize("magic", [0, 1])
-def test_written_bytes_equals_size_in_bytes(magic):
+def test_written_bytes_equals_size_in_bytes(magic) -> None:
     key = b"test"
     value = b"Super"
     builder = LegacyRecordBatchBuilder(
@@ -77,7 +74,7 @@ def test_written_bytes_equals_size_in_bytes(magic):
 
 
 @pytest.mark.parametrize("magic", [0, 1])
-def test_estimate_size_in_bytes_bigger_than_batch(magic):
+def test_estimate_size_in_bytes_bigger_than_batch(magic) -> None:
     key = b"Super Key"
     value = b"1" * 100
     estimate_size = LegacyRecordBatchBuilder.estimate_size_in_bytes(
@@ -93,7 +90,7 @@ def test_estimate_size_in_bytes_bigger_than_batch(magic):
 
 
 @pytest.mark.parametrize("magic", [0, 1])
-def test_legacy_batch_builder_validates_arguments(magic):
+def test_legacy_batch_builder_validates_arguments(magic) -> None:
     builder = LegacyRecordBatchBuilder(
         magic=magic, compression_type=0, batch_size=1024 * 1024)
 
@@ -135,7 +132,7 @@ def test_legacy_batch_builder_validates_arguments(magic):
 
 
 @pytest.mark.parametrize("magic", [0, 1])
-def test_legacy_correct_metadata_response(magic):
+def test_legacy_correct_metadata_response(magic) -> None:
     builder = LegacyRecordBatchBuilder(
         magic=magic, compression_type=0, batch_size=1024 * 1024)
     meta = builder.append(
@@ -151,7 +148,7 @@ def test_legacy_correct_metadata_response(magic):
 
 
 @pytest.mark.parametrize("magic", [0, 1])
-def test_legacy_batch_size_limit(magic):
+def test_legacy_batch_size_limit(magic) -> None:
     # First message can be added even if it's too big
     builder = LegacyRecordBatchBuilder(
         magic=magic, compression_type=0, batch_size=1024)
@@ -179,7 +176,7 @@ def test_legacy_batch_size_limit(magic):
     (LegacyRecordBatch.CODEC_LZ4, "lz4", "has_lz4")
 ])
 @pytest.mark.parametrize("magic", [0, 1])
-def test_unavailable_codec(magic, compression_type, name, checker_name):
+def test_unavailable_codec(magic, compression_type, name, checker_name) -> None:
     maybe_skip_unsupported_compression(compression_type)
     builder = LegacyRecordBatchBuilder(
         magic=magic, compression_type=compression_type, batch_size=1024)

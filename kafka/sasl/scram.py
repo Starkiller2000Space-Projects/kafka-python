@@ -4,19 +4,17 @@ import hmac
 import logging
 import uuid
 
-
 from kafka.sasl.abc import SaslMechanism
-
 
 log = logging.getLogger(__name__)
 
 
-def xor_bytes(left, right):
+def xor_bytes(left, right) -> None:
     return bytes(lb ^ rb for lb, rb in zip(left, right))
 
 
 class SaslMechanismScram(SaslMechanism):
-    def __init__(self, **config):
+    def __init__(self, **config) -> None:
         assert 'sasl_plain_username' in config, 'sasl_plain_username required for SCRAM sasl'
         assert 'sasl_plain_password' in config, 'sasl_plain_password required for SCRAM sasl'
         assert config.get('sasl_mechanism', '') in ScramClient.MECHANISMS, 'Unrecognized SCRAM mechanism'
@@ -32,7 +30,7 @@ class SaslMechanismScram(SaslMechanism):
         )
         self._state = 0
 
-    def auth_bytes(self):
+    def auth_bytes(self) -> None:
         if self._state == 0:
             return self._scram_client.first_message()
         elif self._state == 1:
@@ -40,7 +38,7 @@ class SaslMechanismScram(SaslMechanism):
         else:
             raise ValueError('No auth_bytes for state: %s' % self._state)
 
-    def receive(self, auth_bytes):
+    def receive(self, auth_bytes) -> None:
         if self._state == 0:
             self._scram_client.process_server_first_message(auth_bytes)
         elif self._state == 1:
@@ -50,14 +48,14 @@ class SaslMechanismScram(SaslMechanism):
         self._state += 1
         return self.is_done()
 
-    def is_done(self):
+    def is_done(self) -> None:
         return self._state == 2
 
-    def is_authenticated(self):
+    def is_authenticated(self) -> None:
         # receive raises if authentication fails...?
         return self._state == 2
 
-    def auth_details(self):
+    def auth_details(self) -> None:
         if not self.is_authenticated:
             raise RuntimeError('Not authenticated yet!')
         return 'Authenticated as %s via SASL / %s' % (self.username, self.mechanism)
@@ -69,7 +67,7 @@ class ScramClient:
         'SCRAM-SHA-512': hashlib.sha512
     }
 
-    def __init__(self, user, password, mechanism):
+    def __init__(self, user, password, mechanism) -> None:
         self.nonce = str(uuid.uuid4()).replace('-', '').encode('utf-8')
         self.auth_message = b''
         self.salted_password = None
@@ -84,12 +82,12 @@ class ScramClient:
         self.server_key = None
         self.server_signature = None
 
-    def first_message(self):
+    def first_message(self) -> None:
         client_first_bare = b'n=' + self.user + b',r=' + self.nonce
         self.auth_message += client_first_bare
         return b'n,,' + client_first_bare
 
-    def process_server_first_message(self, server_first_message):
+    def process_server_first_message(self, server_first_message) -> None:
         self.auth_message += b',' + server_first_message
         params = dict(pair.split('=', 1) for pair in server_first_message.decode('utf-8').split(','))
         server_nonce = params['r'].encode('utf-8')
@@ -109,18 +107,18 @@ class ScramClient:
         self.server_key = self.hmac(self.salted_password, b'Server Key')
         self.server_signature = self.hmac(self.server_key, self.auth_message)
 
-    def hmac(self, key, msg):
+    def hmac(self, key, msg) -> None:
         return hmac.new(key, msg, digestmod=self.hashfunc).digest()
 
-    def create_salted_password(self, salt, iterations):
+    def create_salted_password(self, salt, iterations) -> None:
         self.salted_password = hashlib.pbkdf2_hmac(
             self.hashname, self.password, salt, iterations
         )
 
-    def final_message(self):
+    def final_message(self) -> None:
         return b'c=biws,r=' + self.nonce + b',p=' + base64.b64encode(self.client_proof)
 
-    def process_server_final_message(self, server_final_message):
+    def process_server_final_message(self, server_final_message) -> None:
         params = dict(pair.split('=', 1) for pair in server_final_message.decode('utf-8').split(','))
         if self.server_signature != base64.b64decode(params['v'].encode('utf-8')):
             raise ValueError("Server sent wrong signature!")

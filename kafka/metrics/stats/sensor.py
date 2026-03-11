@@ -18,7 +18,7 @@ class Sensor(object):
                  '_last_record_time')
 
     def __init__(self, registry, name, parents, config,
-                 inactive_sensor_expiration_time_seconds):
+                 inactive_sensor_expiration_time_seconds) -> None:
         if not name:
             raise ValueError('name must be non-empty')
         self._lock = threading.RLock()
@@ -33,7 +33,7 @@ class Sensor(object):
         self._last_record_time = time.time() * 1000
         self._check_forest(set())
 
-    def _check_forest(self, sensors):
+    def _check_forest(self, sensors) -> None:
         """Validate that this sensor doesn't end up referencing itself."""
         if self in sensors:
             raise ValueError('Circular dependency in sensors: %s is its own'
@@ -43,7 +43,7 @@ class Sensor(object):
             parent._check_forest(sensors)
 
     @property
-    def name(self):
+    def name(self) -> None:
         """
         The name this sensor is registered with.
         This name will be unique among all registered sensors.
@@ -51,10 +51,10 @@ class Sensor(object):
         return self._name
 
     @property
-    def metrics(self):
+    def metrics(self) -> None:
         return tuple(self._metrics)
 
-    def record(self, value=1.0, time_ms=None):
+    def record(self, value=1.0, time_ms=None) -> None:
         """
         Record a value at a known time.
         Arguments:
@@ -77,7 +77,7 @@ class Sensor(object):
         for parent in self._parents:
             parent.record(value, time_ms)
 
-    def _check_quotas(self, time_ms):
+    def _check_quotas(self, time_ms) -> None:
         """
         Check if we have violated our quota for any metric that
         has a configured quota
@@ -92,7 +92,7 @@ class Sensor(object):
                                                value,
                                                metric.config.quota.bound))
 
-    def add_compound(self, compound_stat, config=None):
+    def add_compound(self, compound_stat, config=None) -> None:
         """
         Register a compound statistic with this sensor which
         yields multiple measurable quantities (like a histogram)
@@ -112,7 +112,7 @@ class Sensor(object):
             self._registry.register_metric(metric)
             self._metrics.append(metric)
 
-    def add(self, metric_name, stat, config=None):
+    def add(self, metric_name, stat, config=None) -> None:
         """
         Register a metric with this sensor
 
@@ -128,7 +128,7 @@ class Sensor(object):
             self._metrics.append(metric)
             self._stats.append(stat)
 
-    def has_expired(self):
+    def has_expired(self) -> None:
         """
         Return True if the Sensor is eligible for removal due to inactivity.
         """

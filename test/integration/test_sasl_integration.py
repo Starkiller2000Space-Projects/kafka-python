@@ -1,12 +1,12 @@
 import logging
-import uuid
 import time
+import uuid
+from test.testutil import assert_message_count, env_kafka_version, random_string, special_to_underscore
 
 import pytest
 
 from kafka.admin import NewTopic
 from kafka.protocol.metadata import MetadataRequest_v1
-from test.testutil import assert_message_count, env_kafka_version, random_string, special_to_underscore
 
 
 @pytest.fixture(
@@ -24,20 +24,20 @@ from test.testutil import assert_message_count, env_kafka_version, random_string
         ),
     ]
 )
-def sasl_kafka(request, kafka_broker_factory):
+def sasl_kafka(request, kafka_broker_factory) -> None:
     sasl_kafka = kafka_broker_factory(transport="SASL_PLAINTEXT", sasl_mechanism=request.param)
     yield sasl_kafka
     sasl_kafka.child.dump_logs()
 
 
-def test_admin(request, sasl_kafka):
+def test_admin(request, sasl_kafka) -> None:
     topic_name = special_to_underscore(request.node.name + random_string(4))
     admin, = sasl_kafka.get_admin_clients(1)
     admin.create_topics([NewTopic(topic_name, 1, 1)])
     assert topic_name in sasl_kafka.get_topic_names()
 
 
-def test_produce_and_consume(request, sasl_kafka):
+def test_produce_and_consume(request, sasl_kafka) -> None:
     topic_name = special_to_underscore(request.node.name + random_string(4))
     sasl_kafka.create_topics([topic_name], num_partitions=2)
     producer, = sasl_kafka.get_producers(1)
@@ -64,7 +64,7 @@ def test_produce_and_consume(request, sasl_kafka):
     assert_message_count(messages[1], 50)
 
 
-def test_client(request, sasl_kafka):
+def test_client(request, sasl_kafka) -> None:
     topic_name = special_to_underscore(request.node.name + random_string(4))
     sasl_kafka.create_topics([topic_name], num_partitions=1)
 

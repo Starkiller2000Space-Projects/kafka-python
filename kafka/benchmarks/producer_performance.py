@@ -13,7 +13,7 @@ from kafka import KafkaProducer
 
 class ProducerPerformance(object):
     @staticmethod
-    def run(args):
+    def run(args) -> None:
         try:
             props = {}
             for prop in args.producer_config:
@@ -49,7 +49,7 @@ class ProducerPerformance(object):
             print('-> OK!')
             print()
 
-            def _benchmark():
+            def _benchmark() -> None:
                 results = []
                 for i in range(args.num_records):
                     results.append(producer.send(topic=args.topic, value=record))
@@ -80,14 +80,14 @@ class ProducerPerformance(object):
 
 
 class StatsReporter(threading.Thread):
-    def __init__(self, interval, producer, event=None, raw_metrics=False):
+    def __init__(self, interval, producer, event=None, raw_metrics=False) -> None:
         super(StatsReporter, self).__init__()
         self.interval = interval
         self.producer = producer
         self.event = event
         self.raw_metrics = raw_metrics
 
-    def print_stats(self):
+    def print_stats(self) -> None:
         metrics = self.producer.metrics()
         if not metrics:
             return
@@ -101,17 +101,17 @@ class StatsReporter(threading.Thread):
                   ' {records-per-request-avg} records/req'
                   .format(**metrics['producer-metrics']))
 
-    def print_final(self):
+    def print_final(self) -> None:
         self.print_stats()
 
-    def run(self):
+    def run(self) -> None:
         while self.event and not self.event.wait(self.interval):
             self.print_stats()
         else:
             self.print_final()
 
 
-def get_args_parser():
+def get_args_parser() -> None:
     parser = argparse.ArgumentParser(
         description='This tool is used to verify the producer performance.')
 

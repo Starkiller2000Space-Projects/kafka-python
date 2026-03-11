@@ -22,7 +22,7 @@ class KafkaProtocol(object):
             Currently only used to check for 0.8.2 protocol quirks, but
             may be used for more in the future.
     """
-    def __init__(self, client_id=None, api_version=None, ident=''):
+    def __init__(self, client_id=None, api_version=None, ident='') -> None:
         self._ident = ident
         if client_id is None:
             client_id = self._gen_client_id()
@@ -35,14 +35,14 @@ class KafkaProtocol(object):
         self.in_flight_requests = collections.deque()
         self.bytes_to_send = []
 
-    def _next_correlation_id(self):
+    def _next_correlation_id(self) -> None:
         self._correlation_id = (self._correlation_id + 1) % 2**31
         return self._correlation_id
 
-    def _gen_client_id(self):
+    def _gen_client_id(self) -> None:
         return 'kafka-python' + __version__
 
-    def send_request(self, request, correlation_id=None):
+    def send_request(self, request, correlation_id=None) -> None:
         """Encode and queue a kafka api request for sending.
 
         Arguments:
@@ -68,7 +68,7 @@ class KafkaProtocol(object):
             self.in_flight_requests.append(ifr)
         return correlation_id
 
-    def send_bytes(self):
+    def send_bytes(self) -> None:
         """Retrieve all pending bytes to send on the network"""
         data = b''.join(self.bytes_to_send)
         self.bytes_to_send = []
@@ -76,7 +76,7 @@ class KafkaProtocol(object):
             log.debug('%s Send: %r', self._ident, data)
         return data
 
-    def receive_bytes(self, data):
+    def receive_bytes(self, data) -> None:
         """Process bytes received from the network.
 
         Arguments:
@@ -135,7 +135,7 @@ class KafkaProtocol(object):
                 self._reset_buffer()
         return responses
 
-    def _process_response(self, read_buffer):
+    def _process_response(self, read_buffer) -> None:
         if not self.in_flight_requests:
             raise Errors.CorrelationIdError('No in-flight-request found for server response')
         (correlation_id, request) = self.in_flight_requests.popleft()
@@ -174,7 +174,7 @@ class KafkaProtocol(object):
 
         return (correlation_id, response)
 
-    def _reset_buffer(self):
+    def _reset_buffer(self) -> None:
         self._receiving = False
         self._header.seek(0)
         self._rbuffer = None

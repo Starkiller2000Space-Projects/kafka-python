@@ -2,6 +2,7 @@ import collections
 import logging
 import threading
 import time
+from test.testutil import env_kafka_version, random_string
 
 import pytest
 
@@ -10,15 +11,13 @@ from kafka.consumer.group import KafkaConsumer
 from kafka.coordinator.base import MemberState
 from kafka.structs import TopicPartition
 
-from test.testutil import env_kafka_version, random_string
 
-
-def get_connect_str(kafka_broker):
+def get_connect_str(kafka_broker) -> None:
     return kafka_broker.host + ':' + str(kafka_broker.port)
 
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
-def test_consumer(kafka_broker, topic):
+def test_consumer(kafka_broker, topic) -> None:
     # The `topic` fixture is included because
     # 0.8.2 brokers need a topic to function well
     consumer = KafkaConsumer(bootstrap_servers=get_connect_str(kafka_broker))
@@ -30,7 +29,7 @@ def test_consumer(kafka_broker, topic):
 
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
-def test_consumer_topics(kafka_broker, topic):
+def test_consumer_topics(kafka_broker, topic) -> None:
     consumer = KafkaConsumer(bootstrap_servers=get_connect_str(kafka_broker))
     # Necessary to drive the IO
     consumer.poll(timeout_ms=500)
@@ -40,7 +39,7 @@ def test_consumer_topics(kafka_broker, topic):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 9), reason='Unsupported Kafka Version')
-def test_group(kafka_broker, topic):
+def test_group(kafka_broker, topic) -> None:
     num_partitions = 4
     connect_str = get_connect_str(kafka_broker)
     consumers = {}
@@ -48,7 +47,7 @@ def test_group(kafka_broker, topic):
     threads = {}
     messages = collections.defaultdict(lambda: collections.defaultdict(list))
     group_id = 'test-group-' + random_string(6)
-    def consumer_thread(i):
+    def consumer_thread(i) -> None:
         assert i not in consumers
         assert i not in stop
         stop[i] = threading.Event()
@@ -149,7 +148,7 @@ def test_group(kafka_broker, topic):
 
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
-def test_paused(kafka_broker, topic):
+def test_paused(kafka_broker, topic) -> None:
     consumer = KafkaConsumer(bootstrap_servers=get_connect_str(kafka_broker))
     topics = [TopicPartition(topic, 1)]
     consumer.assign(topics)
@@ -168,7 +167,7 @@ def test_paused(kafka_broker, topic):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 9), reason='Unsupported Kafka Version')
-def test_heartbeat_thread(kafka_broker, topic):
+def test_heartbeat_thread(kafka_broker, topic) -> None:
     group_id = 'test-group-' + random_string(6)
     consumer = KafkaConsumer(topic,
                              bootstrap_servers=get_connect_str(kafka_broker),

@@ -3,7 +3,7 @@ import pytest
 from kafka.partitioner import DefaultPartitioner, murmur2
 
 
-def test_default_partitioner():
+def test_default_partitioner() -> None:
     partitioner = DefaultPartitioner()
     all_partitions = available = list(range(100))
     # partitioner should return the same partition for the same key
@@ -23,14 +23,14 @@ def test_default_partitioner():
     (b'', 681), (b'a', 524), (b'ab', 434), (b'abc', 107), (b'123456789', 566),
     (b'\x00 ', 742)
 ])
-def test_murmur2_java_compatibility(bytes_payload, partition_number):
+def test_murmur2_java_compatibility(bytes_payload, partition_number) -> None:
     partitioner = DefaultPartitioner()
     all_partitions = available = list(range(1000))
     # compare with output from Kafka's org.apache.kafka.clients.producer.Partitioner
     assert partitioner(bytes_payload, all_partitions, available) == partition_number
 
 
-def test_murmur2_not_ascii():
+def test_murmur2_not_ascii() -> None:
     # Verify no regression of murmur2() bug encoding py2 bytes that don't ascii encode
     murmur2(b'\xa4')
     murmur2(b'\x81' * 1000)

@@ -7,17 +7,16 @@ from kafka.sasl.plain import SaslMechanismPlain
 from kafka.sasl.scram import SaslMechanismScram
 from kafka.sasl.sspi import SaslMechanismSSPI
 
-
 SASL_MECHANISMS = {}
 
 
-def register_sasl_mechanism(name, klass, overwrite=False):
+def register_sasl_mechanism(name, klass, overwrite=False) -> None:
     if not overwrite and name in SASL_MECHANISMS:
         raise ValueError('Sasl mechanism %s already defined!' % name)
     SASL_MECHANISMS[name] = klass
 
 
-def get_sasl_mechanism(name):
+def get_sasl_mechanism(name) -> None:
     return SASL_MECHANISMS[name]
 
 

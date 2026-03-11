@@ -9,5 +9,5 @@ from kafka.protocol.types import BitField
     (set([0, 1, 5, 10, 31]),),
     (set(range(32)),),
 ])
-def test_bit_field(test_set):
+def test_bit_field(test_set) -> None:
     assert BitField.decode(io.BytesIO(BitField.encode(test_set))) == test_set

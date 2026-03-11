@@ -1,11 +1,11 @@
 class TestPackage:
-    def test_top_level_namespace(self):
+    def test_top_level_namespace(self) -> None:
         import kafka as kafka1
         assert kafka1.KafkaConsumer.__name__ == "KafkaConsumer"
         assert kafka1.consumer.__name__ == "kafka.consumer"
         assert kafka1.codec.__name__ == "kafka.codec"
 
-    def test_submodule_namespace(self):
+    def test_submodule_namespace(self) -> None:
         import kafka.client_async as client1
         assert client1.__name__ == "kafka.client_async"
 

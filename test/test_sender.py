@@ -7,32 +7,32 @@ from unittest.mock import call
 
 import pytest
 
+import kafka.errors as Errors
 from kafka.client_async import KafkaClient
 from kafka.cluster import ClusterMetadata
-import kafka.errors as Errors
-from kafka.protocol.broker_api_versions import BROKER_API_VERSIONS
-from kafka.producer.kafka import KafkaProducer
-from kafka.protocol.produce import ProduceRequest
 from kafka.producer.future import FutureRecordMetadata
+from kafka.producer.kafka import KafkaProducer
 from kafka.producer.producer_batch import ProducerBatch
 from kafka.producer.record_accumulator import RecordAccumulator
 from kafka.producer.sender import PartitionResponse, Sender
 from kafka.producer.transaction_manager import TransactionManager
+from kafka.protocol.broker_api_versions import BROKER_API_VERSIONS
+from kafka.protocol.produce import ProduceRequest
 from kafka.record.memory_records import MemoryRecordsBuilder
 from kafka.structs import TopicPartition
 
 
 @pytest.fixture
-def accumulator():
+def accumulator() -> None:
     return RecordAccumulator()
 
 
 @pytest.fixture
-def sender(client, accumulator):
+def sender(client, accumulator) -> None:
     return Sender(client, client.cluster, accumulator)
 
 
-def producer_batch(topic='foo', partition=0, magic=2):
+def producer_batch(topic='foo', partition=0, magic=2) -> None:
     tp = TopicPartition(topic, partition)
     records = MemoryRecordsBuilder(
         magic=magic, compression_type=0, batch_size=100000)
@@ -43,7 +43,7 @@ def producer_batch(topic='foo', partition=0, magic=2):
 
 
 @pytest.fixture
-def transaction_manager():
+def transaction_manager() -> None:
     return TransactionManager(
         transactional_id=None,
         transaction_timeout_ms=60000,
@@ -58,7 +58,7 @@ def transaction_manager():
     ((0, 9), 1),
     ((0, 8, 0), 0)
 ])
-def test_produce_request(sender, api_version, produce_version):
+def test_produce_request(sender, api_version, produce_version) -> None:
     sender._client._api_versions = BROKER_API_VERSIONS[api_version]
     magic = KafkaProducer.max_usable_produce_magic(api_version)
     batch = producer_batch(magic=magic)
@@ -69,7 +69,7 @@ def test_produce_request(sender, api_version, produce_version):
 @pytest.mark.parametrize(("api_version", "produce_version"), [
     ((2, 1), 7),
 ])
-def test_create_produce_requests(sender, api_version, produce_version):
+def test_create_produce_requests(sender, api_version, produce_version) -> None:
     sender._client._api_versions = BROKER_API_VERSIONS[api_version]
     tp = TopicPartition('foo', 0)
     magic = KafkaProducer.max_usable_produce_magic(api_version)
@@ -83,7 +83,7 @@ def test_create_produce_requests(sender, api_version, produce_version):
         assert isinstance(produce_requests_by_node[node], ProduceRequest[produce_version])
 
 
-def test_complete_batch_success(sender):
+def test_complete_batch_success(sender) -> None:
     batch = producer_batch()
     assert not batch.produce_future.is_done
 
@@ -95,7 +95,7 @@ def test_complete_batch_success(sender):
     assert batch.produce_future.value == (0, 123, None)
 
 
-def test_complete_batch_transaction(sender, transaction_manager):
+def test_complete_batch_transaction(sender, transaction_manager) -> None:
     sender._transaction_manager = transaction_manager
     batch = producer_batch()
     assert sender._transaction_manager.sequence_number(batch.topic_partition) == 0
@@ -124,7 +124,7 @@ def test_complete_batch_transaction(sender, transaction_manager):
     (Errors.ClusterAuthorizationFailedError, False),
     (Errors.TransactionalIdAuthorizationFailedError, False),
 ])
-def test_complete_batch_error(sender, error, refresh_metadata):
+def test_complete_batch_error(sender, error, refresh_metadata) -> None:
     sender._client.cluster._last_successful_refresh_ms = (time.time() - 10) * 1000
     sender._client.cluster._need_update = False
     sender.config['retries'] = 0
@@ -158,7 +158,7 @@ def test_complete_batch_error(sender, error, refresh_metadata):
     (Errors.ClusterAuthorizationFailedError, False),
     (Errors.TransactionalIdAuthorizationFailedError, False),
 ])
-def test_complete_batch_retry(sender, accumulator, mocker, error, retry):
+def test_complete_batch_retry(sender, accumulator, mocker, error, retry) -> None:
     sender.config['retries'] = 1
     mocker.patch.object(accumulator, 'reenqueue')
     batch = producer_batch()
@@ -178,7 +178,7 @@ def test_complete_batch_retry(sender, accumulator, mocker, error, retry):
         assert isinstance(future.exception, error)
 
 
-def test_complete_batch_producer_id_changed_no_retry(sender, accumulator, transaction_manager, mocker):
+def test_complete_batch_producer_id_changed_no_retry(sender, accumulator, transaction_manager, mocker) -> None:
     sender._transaction_manager = transaction_manager
     sender.config['retries'] = 1
     mocker.patch.object(accumulator, 'reenqueue')
@@ -196,7 +196,7 @@ def test_complete_batch_producer_id_changed_no_retry(sender, accumulator, transa
     assert isinstance(future.exception, error)
 
 
-def test_fail_batch(sender, accumulator, transaction_manager, mocker):
+def test_fail_batch(sender, accumulator, transaction_manager, mocker) -> None:
     sender._transaction_manager = transaction_manager
     batch = producer_batch()
     mocker.patch.object(batch, 'done')
@@ -206,7 +206,7 @@ def test_fail_batch(sender, accumulator, transaction_manager, mocker):
     batch.done.assert_called_with(top_level_exception=error(None), record_exceptions_fn=mocker.ANY)
 
 
-def test_out_of_order_sequence_number_reset_producer_id(sender, accumulator, transaction_manager, mocker):
+def test_out_of_order_sequence_number_reset_producer_id(sender, accumulator, transaction_manager, mocker) -> None:
     sender._transaction_manager = transaction_manager
     assert transaction_manager.transactional_id is None # this test is for idempotent producer only
     mocker.patch.object(TransactionManager, 'reset_producer_id')
@@ -219,11 +219,11 @@ def test_out_of_order_sequence_number_reset_producer_id(sender, accumulator, tra
     batch.done.assert_called_with(top_level_exception=error(None), record_exceptions_fn=mocker.ANY)
 
 
-def test_handle_produce_response():
+def test_handle_produce_response() -> None:
     pass
 
 
-def test_failed_produce(sender, mocker):
+def test_failed_produce(sender, mocker) -> None:
     mocker.patch.object(sender, '_complete_batch')
     mock_batches = ['foo', 'bar', 'fizzbuzz']
     sender._failed_produce(mock_batches, 0, 'error')
@@ -234,15 +234,15 @@ def test_failed_produce(sender, mocker):
     ])
 
 
-def test_maybe_wait_for_producer_id():
+def test_maybe_wait_for_producer_id() -> None:
     pass
 
 
-def test_run_once():
+def test_run_once() -> None:
     pass
 
 
-def test__send_producer_data_expiry_time_reset(sender, accumulator, mocker):
+def test__send_producer_data_expiry_time_reset(sender, accumulator, mocker) -> None:
     now = time.time()
     tp = TopicPartition('foo', 0)
     mocker.patch.object(sender, '_failed_produce')
@@ -255,7 +255,7 @@ def test__send_producer_data_expiry_time_reset(sender, accumulator, mocker):
     assert poll_timeout_ms > 0
 
 
-def test__record_exceptions_fn(sender):
+def test__record_exceptions_fn(sender) -> None:
     record_exceptions_fn = sender._record_exceptions_fn(Errors.KafkaError('top-level'), [(0, 'err-0'), (3, 'err-3')], 'message')
     assert record_exceptions_fn(0) == Errors.InvalidRecordError('err-0')
     assert record_exceptions_fn(1) == Errors.KafkaError('Failed to append record because it was part of a batch which had one more more invalid records')

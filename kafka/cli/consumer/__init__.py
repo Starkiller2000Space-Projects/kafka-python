@@ -1,11 +1,13 @@
 import argparse
 import logging
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
 
 
-def main_parser():
+def main_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog='python -m kafka.consumer',
         description='Kafka console consumer',
@@ -36,8 +38,9 @@ def main_parser():
 _LOGGING_LEVELS = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
 
 
-def build_kwargs(props):
-    kwargs = {}
+def build_kwargs(props: Iterable[str]) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {}
+    v: Any
     for prop in props or []:
         k, v = prop.split('=')
         try:
@@ -54,7 +57,7 @@ def build_kwargs(props):
     return kwargs
 
 
-def run_cli(args=None):
+def run_cli(args: Sequence[str] | None = None) -> int | None:
     parser = main_parser()
     config = parser.parse_args(args)
     if config.log_level:
@@ -85,3 +88,4 @@ def run_cli(args=None):
         return 1
     finally:
         consumer.close()
+    return 0

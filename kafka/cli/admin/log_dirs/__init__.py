@@ -6,7 +6,7 @@ from .describe import DescribeLogDirs
 class LogDirsSubCommand:
 
     @classmethod
-    def add_subparser(cls, subparsers):
+    def add_subparser(cls, subparsers) -> None:
         parser = subparsers.add_parser('log-dirs', help='Manage Kafka Topic/Partition Log Directories')
         commands = parser.add_subparsers()
         for cmd in [DescribeLogDirs]:

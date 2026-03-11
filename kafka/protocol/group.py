@@ -4,7 +4,6 @@ from kafka.protocol.api import Request, Response
 from kafka.protocol.struct import Struct
 from kafka.protocol.types import Array, Bytes, Int16, Int32, Schema, String
 
-
 DEFAULT_GENERATION_ID = -1
 UNKNOWN_MEMBER_ID = ''
 

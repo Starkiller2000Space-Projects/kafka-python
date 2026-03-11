@@ -1,5 +1,5 @@
 from kafka.protocol.api import Request, Response
-from kafka.protocol.types import Int16, Int32, Int64, String, Array, Schema, Bytes
+from kafka.protocol.types import Array, Bytes, Int16, Int32, Int64, Schema, String
 
 
 class ProduceResponse_v0(Response):
@@ -124,7 +124,7 @@ class ProduceResponse_v8(Response):
 class ProduceRequest(Request):
     API_KEY = 0
 
-    def expect_response(self):
+    def expect_response(self) -> None:
         if self.required_acks == 0: # pylint: disable=no-member
             return False
         return True

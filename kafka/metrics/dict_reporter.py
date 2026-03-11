@@ -11,12 +11,12 @@ class DictReporter(AbstractMetricsReporter):
 
     Store all metrics in a two level dictionary of category > name > metric.
     """
-    def __init__(self, prefix=''):
+    def __init__(self, prefix='') -> None:
         self._lock = threading.Lock()
         self._prefix = prefix if prefix else ''  # never allow None
         self._store = {}
 
-    def snapshot(self):
+    def snapshot(self) -> None:
         """
         Return a nested dictionary snapshot of all metrics and their
         values at this time. Example:
@@ -32,18 +32,18 @@ class DictReporter(AbstractMetricsReporter):
                     for category, metrics in
                     list(self._store.items()))
 
-    def init(self, metrics):
+    def init(self, metrics) -> None:
         for metric in metrics:
             self.metric_change(metric)
 
-    def metric_change(self, metric):
+    def metric_change(self, metric) -> None:
         with self._lock:
             category = self.get_category(metric)
             if category not in self._store:
                 self._store[category] = {}
             self._store[category][metric.metric_name.name] = metric
 
-    def metric_removal(self, metric):
+    def metric_removal(self, metric) -> None:
         with self._lock:
             category = self.get_category(metric)
             metrics = self._store.get(category, {})
@@ -52,7 +52,7 @@ class DictReporter(AbstractMetricsReporter):
                 self._store.pop(category, None)
             return removed
 
-    def get_category(self, metric):
+    def get_category(self, metric) -> None:
         """
         Return a string category for the metric.
 
@@ -74,8 +74,8 @@ class DictReporter(AbstractMetricsReporter):
         return '.'.join(x for x in
                         [self._prefix, metric.metric_name.group, tags] if x)
 
-    def configure(self, configs):
+    def configure(self, configs) -> None:
         pass
 
-    def close(self):
+    def close(self) -> None:
         pass

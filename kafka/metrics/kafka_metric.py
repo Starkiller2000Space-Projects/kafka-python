@@ -5,7 +5,7 @@ class KafkaMetric(object):
     __slots__ = ('_metric_name', '_measurable', '_config')
 
     # NOTE java constructor takes a lock instance
-    def __init__(self, metric_name, measurable, config):
+    def __init__(self, metric_name, measurable, config) -> None:
         if not metric_name:
             raise ValueError('metric_name must be non-empty')
         if not measurable:
@@ -15,22 +15,22 @@ class KafkaMetric(object):
         self._config = config
 
     @property
-    def metric_name(self):
+    def metric_name(self) -> None:
         return self._metric_name
 
     @property
-    def measurable(self):
+    def measurable(self) -> None:
         return self._measurable
 
     @property
-    def config(self):
+    def config(self) -> None:
         return self._config
 
     @config.setter
-    def config(self, config):
+    def config(self, config) -> None:
         self._config = config
 
-    def value(self, time_ms=None):
+    def value(self, time_ms=None) -> None:
         if time_ms is None:
             time_ms = time.time() * 1000
         return self._measurable.measure(self._config, time_ms)

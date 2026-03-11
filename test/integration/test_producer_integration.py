@@ -1,15 +1,15 @@
-from contextlib import contextmanager
 import platform
 import time
+from contextlib import contextmanager
+from test.testutil import env_kafka_version, maybe_skip_unsupported_compression, random_string
 
 import pytest
 
-from kafka import KafkaAdminClient, KafkaConsumer, KafkaProducer, TopicPartition, OffsetAndMetadata
-from test.testutil import env_kafka_version, random_string, maybe_skip_unsupported_compression
+from kafka import KafkaAdminClient, KafkaConsumer, KafkaProducer, OffsetAndMetadata, TopicPartition
 
 
 @contextmanager
-def producer_factory(**kwargs):
+def producer_factory(**kwargs) -> None:
     producer = KafkaProducer(**kwargs)
     try:
         yield producer
@@ -18,7 +18,7 @@ def producer_factory(**kwargs):
 
 
 @contextmanager
-def consumer_factory(**kwargs):
+def consumer_factory(**kwargs) -> None:
     consumer = KafkaConsumer(**kwargs)
     try:
         yield consumer
@@ -27,7 +27,7 @@ def consumer_factory(**kwargs):
 
 
 @contextmanager
-def admin_factory(**kwargs):
+def admin_factory(**kwargs) -> None:
     admin = KafkaAdminClient(**kwargs)
     try:
         yield admin
@@ -37,7 +37,7 @@ def admin_factory(**kwargs):
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
 @pytest.mark.parametrize("compression", [None, 'gzip', 'snappy', 'lz4', 'zstd'])
-def test_end_to_end(kafka_broker, compression):
+def test_end_to_end(kafka_broker, compression) -> None:
     maybe_skip_unsupported_compression(compression)
     if compression == 'lz4':
         if env_kafka_version() < (0, 8, 2):
@@ -86,7 +86,7 @@ def test_end_to_end(kafka_broker, compression):
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
 @pytest.mark.parametrize("compression", [None, 'gzip', 'snappy', 'lz4', 'zstd'])
-def test_kafka_producer_proper_record_metadata(kafka_broker, compression):
+def test_kafka_producer_proper_record_metadata(kafka_broker, compression) -> None:
     maybe_skip_unsupported_compression(compression)
     if compression == 'zstd' and env_kafka_version() < (2, 1, 0):
         pytest.skip('zstd requires 2.1.0 or more')
@@ -143,7 +143,7 @@ def test_kafka_producer_proper_record_metadata(kafka_broker, compression):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Idempotent producer requires broker >=0.11")
-def test_idempotent_producer(kafka_broker):
+def test_idempotent_producer(kafka_broker) -> None:
     connect_str = ':'.join([kafka_broker.host, str(kafka_broker.port)])
     with producer_factory(bootstrap_servers=connect_str, enable_idempotence=True) as producer:
         for _ in range(10):
@@ -151,7 +151,7 @@ def test_idempotent_producer(kafka_broker):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Idempotent producer requires broker >=0.11")
-def test_transactional_producer_messages(kafka_broker):
+def test_transactional_producer_messages(kafka_broker) -> None:
     connect_str = ':'.join([kafka_broker.host, str(kafka_broker.port)])
     with producer_factory(bootstrap_servers=connect_str, transactional_id='testing') as producer:
         producer.init_transactions()
@@ -183,7 +183,7 @@ def test_transactional_producer_messages(kafka_broker):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Idempotent producer requires broker >=0.11")
-def test_transactional_producer_offsets(kafka_broker):
+def test_transactional_producer_offsets(kafka_broker) -> None:
     connect_str = ':'.join([kafka_broker.host, str(kafka_broker.port)])
     # Setting leader_epoch only supported in 2.1+
     if env_kafka_version() >= (2, 1):

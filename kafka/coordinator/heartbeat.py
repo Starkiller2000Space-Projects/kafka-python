@@ -16,7 +16,7 @@ class Heartbeat(object):
         'retry_backoff_ms': 100,
     }
 
-    def __init__(self, **configs):
+    def __init__(self, **configs) -> None:
         self.config = copy.copy(self.DEFAULT_CONFIG)
         for key in self.config:
             if key in configs:
@@ -37,20 +37,20 @@ class Heartbeat(object):
         self.last_reset = time.time()
         self.heartbeat_failed = None
 
-    def poll(self):
+    def poll(self) -> None:
         self.last_poll = time.time()
 
-    def sent_heartbeat(self):
+    def sent_heartbeat(self) -> None:
         self.last_send = time.time()
         self.heartbeat_failed = False
 
-    def fail_heartbeat(self):
+    def fail_heartbeat(self) -> None:
         self.heartbeat_failed = True
 
-    def received_heartbeat(self):
+    def received_heartbeat(self) -> None:
         self.last_receive = time.time()
 
-    def time_to_next_heartbeat(self):
+    def time_to_next_heartbeat(self) -> None:
         """Returns seconds (float) remaining before next heartbeat should be sent"""
         time_since_last_heartbeat = time.time() - max(self.last_send, self.last_reset)
         if self.heartbeat_failed:
@@ -59,22 +59,22 @@ class Heartbeat(object):
             delay_to_next_heartbeat = self.config['heartbeat_interval_ms'] / 1000
         return max(0, delay_to_next_heartbeat - time_since_last_heartbeat)
 
-    def should_heartbeat(self):
+    def should_heartbeat(self) -> None:
         return self.time_to_next_heartbeat() == 0
 
-    def session_timeout_expired(self):
+    def session_timeout_expired(self) -> None:
         last_recv = max(self.last_receive, self.last_reset)
         return (time.time() - last_recv) > (self.config['session_timeout_ms'] / 1000)
 
-    def reset_timeouts(self):
+    def reset_timeouts(self) -> None:
         self.last_reset = time.time()
         self.last_poll = time.time()
         self.heartbeat_failed = False
 
-    def poll_timeout_expired(self):
+    def poll_timeout_expired(self) -> None:
         return (time.time() - self.last_poll) > (self.config['max_poll_interval_ms'] / 1000)
 
-    def __str__(self):
+    def __str__(self) -> None:
         return ("<Heartbeat group_id={group_id}"
                 " heartbeat_interval_ms={heartbeat_interval_ms}"
                 " session_timeout_ms={session_timeout_ms}"

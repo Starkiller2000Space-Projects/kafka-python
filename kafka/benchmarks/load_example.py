@@ -10,14 +10,14 @@ from kafka import KafkaConsumer, KafkaProducer
 
 class Producer(threading.Thread):
 
-    def __init__(self, bootstrap_servers, topic, stop_event, msg_size):
+    def __init__(self, bootstrap_servers: str | list[str], topic: str, stop_event: threading.Event, msg_size: int) -> None:
         super(Producer, self).__init__()
         self.bootstrap_servers = bootstrap_servers
         self.topic = topic
         self.stop_event = stop_event
         self.big_msg = b'1' * msg_size
 
-    def run(self):
+    def run(self) -> None:
         producer = KafkaProducer(bootstrap_servers=self.bootstrap_servers)
         self.sent = 0
 
@@ -29,14 +29,14 @@ class Producer(threading.Thread):
 
 
 class Consumer(threading.Thread):
-    def __init__(self, bootstrap_servers, topic, stop_event, msg_size):
+    def __init__(self, bootstrap_servers: str | list[str], topic: str, stop_event: threading.Event, msg_size: int) -> None:
         super(Consumer, self).__init__()
         self.bootstrap_servers = bootstrap_servers
         self.topic = topic
         self.stop_event = stop_event
         self.msg_size = msg_size
 
-    def run(self):
+    def run(self) -> None:
         consumer = KafkaConsumer(bootstrap_servers=self.bootstrap_servers,
                                  auto_offset_reset='earliest')
         consumer.subscribe([self.topic])
@@ -55,7 +55,7 @@ class Consumer(threading.Thread):
         consumer.close()
 
 
-def get_args_parser():
+def get_args_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='This tool is used to demonstrate consumer and producer load.')
 
@@ -81,17 +81,17 @@ def get_args_parser():
     return parser
 
 
-def main(args):
+def main(args: argparse.Namespace) -> None:
     if args.log_level:
         logging.basicConfig(
             format='%(asctime)s.%(msecs)s:%(name)s:%(thread)d:%(levelname)s:%(process)d:%(message)s',
             level=getattr(logging, args.log_level))
     producer_stop = threading.Event()
     consumer_stop = threading.Event()
-    threads = [
+    threads: tuple[Producer, Consumer] = (
         Producer(args.bootstrap_servers, args.topic, producer_stop, args.msg_size),
         Consumer(args.bootstrap_servers, args.topic, consumer_stop, args.msg_size)
-    ]
+    )
 
     for t in threads:
         t.start()

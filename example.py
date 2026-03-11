@@ -7,14 +7,14 @@ from kafka.admin import NewTopic
 
 
 class Producer(threading.Thread):
-    def __init__(self):
+    def __init__(self) -> None:
         threading.Thread.__init__(self)
         self.stop_event = threading.Event()
 
-    def stop(self):
+    def stop(self) -> None:
         self.stop_event.set()
 
-    def run(self):
+    def run(self) -> None:
         producer = KafkaProducer(bootstrap_servers='localhost:9092')
 
         while not self.stop_event.is_set():
@@ -26,14 +26,14 @@ class Producer(threading.Thread):
 
 
 class Consumer(threading.Thread):
-    def __init__(self):
+    def __init__(self) -> None:
         threading.Thread.__init__(self)
         self.stop_event = threading.Event()
 
-    def stop(self):
+    def stop(self) -> None:
         self.stop_event.set()
 
-    def run(self):
+    def run(self) -> None:
         consumer = KafkaConsumer(bootstrap_servers='localhost:9092',
                                  auto_offset_reset='earliest',
                                  consumer_timeout_ms=1000)
@@ -48,7 +48,7 @@ class Consumer(threading.Thread):
         consumer.close()
 
 
-def main():
+def main() -> None:
     # Create 'my-topic' Kafka topic
     try:
         admin = KafkaAdminClient(bootstrap_servers='localhost:9092')

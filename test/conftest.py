@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.fixture
-def metrics():
+def metrics() -> None:
     from kafka.metrics import Metrics
 
     metrics = Metrics()
@@ -13,7 +13,7 @@ def metrics():
 
 
 @pytest.fixture
-def conn(mocker):
+def conn(mocker) -> None:
     """Return a connection mocker fixture"""
     from kafka.conn import ConnectionStates
     from kafka.future import Future
@@ -28,7 +28,7 @@ def conn(mocker):
     conn.connection_delay.return_value = 0
     conn.blacked_out.return_value = False
     conn.next_ifr_request_timeout_ms.return_value = float('inf')
-    def _set_conn_state(state):
+    def _set_conn_state(state) -> None:
         conn.state = state
         return state
     conn._set_conn_state = _set_conn_state
@@ -42,7 +42,7 @@ def conn(mocker):
 
 
 @pytest.fixture
-def client(conn, mocker):
+def client(conn, mocker) -> None:
     from kafka import KafkaClient
 
     cli = KafkaClient(api_version=(0, 9))

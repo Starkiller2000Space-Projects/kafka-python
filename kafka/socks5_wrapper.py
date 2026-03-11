@@ -27,7 +27,7 @@ class Socks5Wrapper:
     authentication.
     """
 
-    def __init__(self, proxy_url, afi):
+    def __init__(self, proxy_url, afi) -> None:
         self._buffer_in = b''
         self._buffer_out = b''
         self._proxy_url = urlparse(proxy_url)
@@ -40,12 +40,12 @@ class Socks5Wrapper:
         self._proxy_addr = random.choice(proxy_addrs)
 
     @classmethod
-    def is_inet_4_or_6(cls, gai):
+    def is_inet_4_or_6(cls, gai) -> None:
         """Given a getaddrinfo struct, return True iff ipv4 or ipv6"""
         return gai[0] in (socket.AF_INET, socket.AF_INET6)
 
     @classmethod
-    def dns_lookup(cls, host, port, afi=socket.AF_UNSPEC):
+    def dns_lookup(cls, host, port, afi=socket.AF_UNSPEC) -> None:
         """Returns a list of getaddrinfo structs, optionally filtered to an afi (ipv4 / ipv6)"""
         # XXX: all DNS functions in Python are blocking. If we really
         # want to be non-blocking here, we need to use a 3rd-party
@@ -61,15 +61,15 @@ class Socks5Wrapper:
             return []
 
     @classmethod
-    def use_remote_lookup(cls, proxy_url):
+    def use_remote_lookup(cls, proxy_url) -> None:
         if proxy_url is None:
             return False
         return urlparse(proxy_url).scheme == 'socks5h'
 
-    def _use_remote_lookup(self):
+    def _use_remote_lookup(self) -> None:
         return self._proxy_url.scheme == 'socks5h'
 
-    def socket(self, family, sock_type):
+    def socket(self, family, sock_type) -> None:
         """Open and record a socket.
 
         Returns the actual underlying socket
@@ -80,7 +80,7 @@ class Socks5Wrapper:
         self._sock = socket.socket(afi, sock_type)
         return self._sock
 
-    def _flush_buf(self):
+    def _flush_buf(self) -> None:
         """Send out all data that is stored in the outgoing buffer.
 
         It is expected that the caller handles error handling, including non-blocking
@@ -90,7 +90,7 @@ class Socks5Wrapper:
             sent_bytes = self._sock.send(self._buffer_out)
             self._buffer_out = self._buffer_out[sent_bytes:]
 
-    def _peek_buf(self, datalen):
+    def _peek_buf(self, datalen) -> None:
         """Ensure local inbound buffer has enough data, and return that data without
         consuming the local buffer
 
@@ -106,7 +106,7 @@ class Socks5Wrapper:
 
         return self._buffer_in[:datalen]
 
-    def _read_buf(self, datalen):
+    def _read_buf(self, datalen) -> None:
         """Read and consume bytes from socket connection
 
         It's expected that the caller handles e.g. blocking exceptions"""
@@ -115,7 +115,7 @@ class Socks5Wrapper:
             self._buffer_in = self._buffer_in[len(buf):]
         return buf
 
-    def connect_ex(self, addr):
+    def connect_ex(self, addr) -> None:
         """Runs a state machine through connection to authentication to
         proxy connection request.
 

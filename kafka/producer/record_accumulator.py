@@ -9,26 +9,25 @@ from kafka.producer.producer_batch import ProducerBatch
 from kafka.record.memory_records import MemoryRecordsBuilder
 from kafka.structs import TopicPartition
 
-
 log = logging.getLogger(__name__)
 
 
 class AtomicInteger(object):
-    def __init__(self, val=0):
+    def __init__(self, val=0) -> None:
         self._lock = threading.Lock()
         self._val = val
 
-    def increment(self):
+    def increment(self) -> None:
         with self._lock:
             self._val += 1
             return self._val
 
-    def decrement(self):
+    def decrement(self) -> None:
         with self._lock:
             self._val -= 1
             return self._val
 
-    def get(self):
+    def get(self) -> None:
         return self._val
 
 
@@ -73,7 +72,7 @@ class RecordAccumulator(object):
         'message_version': 2,
     }
 
-    def __init__(self, **configs):
+    def __init__(self, **configs) -> None:
         self.config = copy.copy(self.DEFAULT_CONFIG)
         for key in self.config:
             if key in configs:
@@ -96,21 +95,21 @@ class RecordAccumulator(object):
             raise Errors.KafkaConfigurationError("Must set delivery_timeout_ms higher than linger_ms + request_timeout_ms")
 
     @property
-    def delivery_timeout_ms(self):
+    def delivery_timeout_ms(self) -> None:
         return self.config['delivery_timeout_ms']
 
     @property
-    def next_expiry_time_ms(self):
+    def next_expiry_time_ms(self) -> None:
         return self._next_batch_expiry_time_ms
 
-    def _tp_lock(self, tp):
+    def _tp_lock(self, tp) -> None:
         if tp not in self._tp_locks:
             with self._tp_locks[None]:
                 if tp not in self._tp_locks:
                     self._tp_locks[tp] = threading.Lock()
         return self._tp_locks[tp]
 
-    def append(self, tp, timestamp_ms, key, value, headers, now=None):
+    def append(self, tp, timestamp_ms, key, value, headers, now=None) -> None:
         """Add a record to the accumulator, return the append result.
 
         The append result will contain the future metadata, and flag for
@@ -180,13 +179,13 @@ class RecordAccumulator(object):
         finally:
             self._appends_in_progress.decrement()
 
-    def reset_next_batch_expiry_time(self):
+    def reset_next_batch_expiry_time(self) -> None:
         self._next_batch_expiry_time_ms = float('inf')
 
-    def maybe_update_next_batch_expiry_time(self, batch):
+    def maybe_update_next_batch_expiry_time(self, batch) -> None:
         self._next_batch_expiry_time_ms = min(self._next_batch_expiry_time_ms, batch.created * 1000 + self.delivery_timeout_ms)
 
-    def expired_batches(self, now=None):
+    def expired_batches(self, now=None) -> None:
         """Get a list of batches which have been sitting in the accumulator too long and need to be expired."""
         expired_batches = []
         for tp in list(self._batches.keys()):
@@ -206,7 +205,7 @@ class RecordAccumulator(object):
                         break
         return expired_batches
 
-    def reenqueue(self, batch, now=None):
+    def reenqueue(self, batch, now=None) -> None:
         """
         Re-enqueue the given record batch in the accumulator. In Sender._complete_batch method, we check
         whether the batch has reached delivery_timeout_ms or not. Hence we do not do the delivery timeout check here.
@@ -216,7 +215,7 @@ class RecordAccumulator(object):
             dq = self._batches[batch.topic_partition]
             dq.appendleft(batch)
 
-    def ready(self, cluster, now=None):
+    def ready(self, cluster, now=None) -> None:
         """
         Get a list of nodes whose partitions are ready to be sent, and the
         earliest time at which any non-sendable partition will be ready;
@@ -296,7 +295,7 @@ class RecordAccumulator(object):
 
         return ready_nodes, next_ready_check, unknown_leaders_exist
 
-    def has_undrained(self):
+    def has_undrained(self) -> None:
         """Check whether there are any batches which haven't been drained"""
         for tp in list(self._batches.keys()):
             with self._tp_lock(tp):
@@ -305,7 +304,7 @@ class RecordAccumulator(object):
                     return True
         return False
 
-    def _should_stop_drain_batches_for_partition(self, first, tp):
+    def _should_stop_drain_batches_for_partition(self, first, tp) -> None:
         if self._transaction_manager:
             if not self._transaction_manager.is_send_to_partition_allowed(tp):
                 return True
@@ -315,7 +314,7 @@ class RecordAccumulator(object):
                 return True
         return False
 
-    def drain_batches_for_one_node(self, cluster, node_id, max_size, now=None):
+    def drain_batches_for_one_node(self, cluster, node_id, max_size, now=None) -> None:
         now = time.time() if now is None else now
         size = 0
         ready = []
@@ -387,7 +386,7 @@ class RecordAccumulator(object):
                     batch.drained = now
         return ready
 
-    def drain(self, cluster, nodes, max_size, now=None):
+    def drain(self, cluster, nodes, max_size, now=None) -> None:
         """
         Drain all the data for the given nodes and collate them into a list of
         batches that will fit within the specified size on a per-node basis.
@@ -411,22 +410,22 @@ class RecordAccumulator(object):
             batches[node_id] = self.drain_batches_for_one_node(cluster, node_id, max_size, now=now)
         return batches
 
-    def deallocate(self, batch):
+    def deallocate(self, batch) -> None:
         """Deallocate the record batch."""
         self._incomplete.remove(batch)
 
-    def flush_in_progress(self):
+    def flush_in_progress(self) -> None:
         """Are there any threads currently waiting on a flush?"""
         return self._flushes_in_progress.get() > 0
 
-    def begin_flush(self):
+    def begin_flush(self) -> None:
         """
         Initiate the flushing of data from the accumulator...this makes all
         requests immediately ready
         """
         self._flushes_in_progress.increment()
 
-    def await_flush_completion(self, timeout=None):
+    def await_flush_completion(self, timeout=None) -> None:
         """
         Mark all partitions as ready to send and block until the send is complete
         """
@@ -445,10 +444,10 @@ class RecordAccumulator(object):
             self._flushes_in_progress.decrement()
 
     @property
-    def has_incomplete(self):
+    def has_incomplete(self) -> None:
         return bool(self._incomplete)
 
-    def abort_incomplete_batches(self):
+    def abort_incomplete_batches(self) -> None:
         """
         This function is only called when sender is closed forcefully. It will fail all the
         incomplete batches and return.
@@ -468,7 +467,7 @@ class RecordAccumulator(object):
         self._abort_batches(error)
         self._batches.clear()
 
-    def _abort_batches(self, error):
+    def _abort_batches(self, error) -> None:
         """Go through incomplete batches and abort them."""
         for batch in self._incomplete.all():
             tp = batch.topic_partition
@@ -479,7 +478,7 @@ class RecordAccumulator(object):
             batch.abort(error)
             self.deallocate(batch)
 
-    def abort_undrained_batches(self, error):
+    def abort_undrained_batches(self, error) -> None:
         for batch in self._incomplete.all():
             tp = batch.topic_partition
             with self._tp_lock(tp):
@@ -492,7 +491,7 @@ class RecordAccumulator(object):
                 batch.abort(error)
                 self.deallocate(batch)
 
-    def close(self):
+    def close(self) -> None:
         """Close this accumulator and force all the record buffers to be drained."""
         self._closed = True
 
@@ -500,26 +499,26 @@ class RecordAccumulator(object):
 class IncompleteProducerBatches(object):
     """A threadsafe helper class to hold ProducerBatches that haven't been ack'd yet"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._incomplete = set()
         self._lock = threading.Lock()
 
-    def add(self, batch):
+    def add(self, batch) -> None:
         with self._lock:
             self._incomplete.add(batch)
 
-    def remove(self, batch):
+    def remove(self, batch) -> None:
         with self._lock:
             try:
                 self._incomplete.remove(batch)
             except KeyError:
                 pass
 
-    def all(self):
+    def all(self) -> None:
         with self._lock:
             return list(self._incomplete)
 
-    def __bool__(self):
+    def __bool__(self) -> None:
         return bool(self._incomplete)
 
 

@@ -21,15 +21,15 @@ class ConfigResource(object):
             resource_type,
             name,
             configs=None
-    ):
+    ) -> None:
         if not isinstance(resource_type, (ConfigResourceType)):
             resource_type = ConfigResourceType[str(resource_type).upper()] # pylint: disable-msg=unsubscriptable-object
         self.resource_type = resource_type
         self.name = name
         self.configs = configs
 
-    def __str__(self):
+    def __str__(self) -> None:
         return "ConfigResource %s=%s" % (self.resource_type, self.name)
 
-    def __repr__(self):
+    def __repr__(self) -> None:
         return "ConfigResource(%s, %s, %s)" % (self.resource_type, self.name, self.configs)

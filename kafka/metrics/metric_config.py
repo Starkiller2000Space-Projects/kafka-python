@@ -6,7 +6,7 @@ class MetricConfig(object):
     __slots__ = ('quota', '_samples', 'event_window', 'time_window_ms', 'tags')
 
     def __init__(self, quota=None, samples=2, event_window=sys.maxsize,
-                 time_window_ms=30 * 1000, tags=None):
+                 time_window_ms=30 * 1000, tags=None) -> None:
         """
         Arguments:
             quota (Quota, optional): Upper or lower bound of a value.
@@ -23,11 +23,11 @@ class MetricConfig(object):
         self.tags = tags if tags else {}
 
     @property
-    def samples(self):
+    def samples(self) -> None:
         return self._samples
 
     @samples.setter
-    def samples(self, value):
+    def samples(self, value) -> None:
         if value < 1:
             raise ValueError('The number of samples must be at least 1.')
         self._samples = value

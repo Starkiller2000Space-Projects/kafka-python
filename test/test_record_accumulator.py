@@ -9,17 +9,17 @@ from kafka.structs import TopicPartition
 
 
 @pytest.fixture
-def tp():
+def tp() -> None:
     return TopicPartition('foo', 0)
 
 @pytest.fixture
-def cluster(tp, mocker):
+def cluster(tp, mocker) -> None:
     metadata = ClusterMetadata()
     mocker.patch.object(metadata, 'leader_for_partition', return_value=0)
     mocker.patch.object(metadata, 'partitions_for_broker', return_value=[tp])
     return metadata
 
-def test_linger(tp, cluster):
+def test_linger(tp, cluster) -> None:
     now = 0
     accum = RecordAccumulator(linger_ms=10)
     accum.append(tp, 0, b'key', b'value', [], now=now)
@@ -41,10 +41,10 @@ def test_linger(tp, cluster):
     assert records[0].key == b'key', 'Keys should match'
     assert records[0].value == b'value', 'Values should match'
 
-def _advance_now_ms(now, ms):
+def _advance_now_ms(now, ms) -> None:
     return now + ms / 1000 + 1/10000 # add extra .1 ms to each advance to avoid rounding issues when converting back to seconds
 
-def _do_expire_batch_single(cluster, tp, delivery_timeout_ms):
+def _do_expire_batch_single(cluster, tp, delivery_timeout_ms) -> None:
     now = 0
     linger_ms = 300
     accum = RecordAccumulator(linger_ms=linger_ms, delivery_timeout_ms=delivery_timeout_ms, request_timeout_ms=(delivery_timeout_ms-linger_ms-100))
@@ -78,13 +78,13 @@ def _do_expire_batch_single(cluster, tp, delivery_timeout_ms):
         ready, _next_ready_check, _unknown_leaders_exist = accum.ready(cluster, now=now)
         assert len(ready) == 0, "No partitions should be ready."
 
-def test_expired_batch_single(cluster, tp):
+def test_expired_batch_single(cluster, tp) -> None:
     _do_expire_batch_single(cluster, tp, 3200)
 
-def test_expired_batch_single_max_value(cluster, tp):
+def test_expired_batch_single_max_value(cluster, tp) -> None:
     _do_expire_batch_single(cluster, tp, 2147483647)
 
-def _expected_num_appends(batch_size):
+def _expected_num_appends(batch_size) -> None:
     size = DefaultRecordBatchBuilder.header_size_in_bytes()
     offset_delta = 0
     while True:
@@ -94,7 +94,7 @@ def _expected_num_appends(batch_size):
         offset_delta += 1
         size += record_size
 
-def test_expired_batches(cluster, tp):
+def test_expired_batches(cluster, tp) -> None:
     now = 0
     retry_backoff_ms = 100
     linger_ms = 30

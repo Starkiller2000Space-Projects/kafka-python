@@ -4,14 +4,16 @@ import re
 import socket
 import time
 
-from kafka.errors import KafkaConfigurationError, UnsupportedVersionError
+from typing_extensions import Unpack
 
 from kafka.client_async import KafkaClient, selectors
 from kafka.consumer.fetcher import Fetcher
 from kafka.consumer.subscription_state import SubscriptionState
-from kafka.coordinator.consumer import ConsumerCoordinator
+from kafka.consumer.types import KafkaConsumerParams
 from kafka.coordinator.assignors.range import RangePartitionAssignor
 from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
+from kafka.coordinator.consumer import ConsumerCoordinator
+from kafka.errors import KafkaConfigurationError, UnsupportedVersionError
 from kafka.metrics import MetricConfig, Metrics
 from kafka.protocol.list_offsets import OffsetResetStrategy
 from kafka.structs import OffsetAndMetadata, TopicPartition
@@ -276,7 +278,7 @@ class KafkaConsumer(object):
         Configuration parameters are described in more detail at
         https://kafka.apache.org/documentation/#consumerconfigs
     """
-    DEFAULT_CONFIG = {
+    DEFAULT_CONFIG: KafkaConsumerParams = {
         'bootstrap_servers': 'localhost',
         'client_id': 'kafka-python-' + __version__,
         'group_id': None,
@@ -343,7 +345,7 @@ class KafkaConsumer(object):
     }
     DEFAULT_SESSION_TIMEOUT_MS_0_9 = 30000
 
-    def __init__(self, *topics, **configs):
+    def __init__(self, *topics: str, **configs: Unpack[KafkaConsumerParams]) -> None:
         # Only check for extra config keys in top-level class
         extra_configs = set(configs).difference(self.DEFAULT_CONFIG)
         if extra_configs:
@@ -432,7 +434,7 @@ class KafkaConsumer(object):
             self._subscription.subscribe(topics=topics)
             self._client.set_topics(topics)
 
-    def _validate_group_instance_id(self, group_instance_id):
+    def _validate_group_instance_id(self, group_instance_id) -> None:
         if not group_instance_id or not isinstance(group_instance_id, str):
             raise KafkaConfigurationError("group_instance_id must be non-empty string")
         if group_instance_id in (".", ".."):
@@ -442,11 +444,11 @@ class KafkaConsumer(object):
         if not re.match(r'^[A-Za-z0-9\.\_\-]+$', group_instance_id):
             raise KafkaConfigurationError("group_instance_id is illegal: it contains a character other than ASCII alphanumerics, '.', '_' and '-'")
 
-    def bootstrap_connected(self):
+    def bootstrap_connected(self) -> None:
         """Return True if the bootstrap is connected."""
         return self._client.bootstrap_connected()
 
-    def assign(self, partitions):
+    def assign(self, partitions) -> None:
         """Manually assign a list of TopicPartitions to this consumer.
 
         Arguments:
@@ -481,7 +483,7 @@ class KafkaConsumer(object):
             self._client.set_topics([tp.topic for tp in partitions])
             log.debug("Subscribed to partition(s): %s", partitions)
 
-    def assignment(self):
+    def assignment(self) -> None:
         """Get the TopicPartitions currently assigned to this consumer.
 
         If partitions were directly assigned using
@@ -497,7 +499,7 @@ class KafkaConsumer(object):
         """
         return self._subscription.assigned_partitions()
 
-    def close(self, autocommit=True, timeout_ms=None):
+    def close(self, autocommit=True, timeout_ms=None) -> None:
         """Close the consumer, waiting indefinitely for any needed cleanup.
 
         Keyword Arguments:
@@ -525,7 +527,7 @@ class KafkaConsumer(object):
             pass
         log.debug("The KafkaConsumer has closed.")
 
-    def commit_async(self, offsets=None, callback=None):
+    def commit_async(self, offsets=None, callback=None) -> None:
         """Commit offsets to kafka asynchronously, optionally firing callback.
 
         This commits offsets only to Kafka. The offsets committed using this API
@@ -559,7 +561,7 @@ class KafkaConsumer(object):
             offsets, callback=callback)
         return future
 
-    def commit(self, offsets=None, timeout_ms=None):
+    def commit(self, offsets=None, timeout_ms=None) -> None:
         """Commit offsets to kafka, blocking until success or error.
 
         This commits offsets only to Kafka. The offsets committed using this API
@@ -585,7 +587,7 @@ class KafkaConsumer(object):
             offsets = self._subscription.all_consumed_offsets()
         self._coordinator.commit_offsets_sync(offsets, timeout_ms=timeout_ms)
 
-    def committed(self, partition, metadata=False, timeout_ms=None):
+    def committed(self, partition, metadata=False, timeout_ms=None) -> None:
         """Get the last committed offset for the given partition.
 
         This offset will be used as the position for the consumer
@@ -615,7 +617,7 @@ class KafkaConsumer(object):
             return None
         return committed[partition] if metadata else committed[partition].offset
 
-    def _fetch_all_topic_metadata(self):
+    def _fetch_all_topic_metadata(self) -> None:
         """A blocking call that fetches topic metadata for all topics in the
         cluster that the user is authorized to view.
         """
@@ -629,7 +631,7 @@ class KafkaConsumer(object):
         self._client.poll(future=future)
         cluster.need_all_topic_metadata = stash
 
-    def topics(self):
+    def topics(self) -> None:
         """Get all topics the user is authorized to view.
         This will always issue a remote call to the cluster to fetch the latest
         information.
@@ -640,7 +642,7 @@ class KafkaConsumer(object):
         self._fetch_all_topic_metadata()
         return self._client.cluster.topics()
 
-    def partitions_for_topic(self, topic):
+    def partitions_for_topic(self, topic) -> None:
         """This method first checks the local metadata cache for information
         about the topic. If the topic is not found (either because the topic
         does not exist, the user is not authorized to view the topic, or the
@@ -660,7 +662,7 @@ class KafkaConsumer(object):
             partitions = cluster.partitions_for_topic(topic)
         return partitions or set()
 
-    def poll(self, timeout_ms=0, max_records=None, update_offsets=True):
+    def poll(self, timeout_ms=0, max_records=None, update_offsets=True) -> None:
         """Fetch data from assigned topics / partitions.
 
         Records are fetched and returned in batches by topic-partition.
@@ -707,7 +709,7 @@ class KafkaConsumer(object):
                 break
         return {}
 
-    def _poll_once(self, timer, max_records, update_offsets=True):
+    def _poll_once(self, timer, max_records, update_offsets=True) -> None:
         """Do one round of polling. In addition to checking for new data, this does
         any needed heart-beating, auto-commits, and offset updates.
 
@@ -759,7 +761,7 @@ class KafkaConsumer(object):
         records, _ = self._fetcher.fetched_records(max_records, update_offsets=update_offsets)
         return records
 
-    def position(self, partition, timeout_ms=None):
+    def position(self, partition, timeout_ms=None) -> None:
         """Get the offset of the next record that will be fetched
 
         Arguments:
@@ -782,7 +784,7 @@ class KafkaConsumer(object):
         if position is not None:
             return position.offset
 
-    def highwater(self, partition):
+    def highwater(self, partition) -> None:
         """Last known highwater offset for a partition.
 
         A highwater offset is the offset that will be assigned to the next
@@ -806,7 +808,7 @@ class KafkaConsumer(object):
         assert self._subscription.is_assigned(partition), 'Partition is not assigned'
         return self._subscription.assignment[partition].highwater
 
-    def pause(self, *partitions):
+    def pause(self, *partitions) -> None:
         """Suspend fetching from the requested partitions.
 
         Future calls to :meth:`~kafka.KafkaConsumer.poll` will not return any
@@ -828,7 +830,7 @@ class KafkaConsumer(object):
         # we expect pauses to get handled automatically and therefore
         # we do not need to reset the full iterator (forcing a full refetch)
 
-    def paused(self):
+    def paused(self) -> None:
         """Get the partitions that were previously paused using
         :meth:`~kafka.KafkaConsumer.pause`.
 
@@ -837,7 +839,7 @@ class KafkaConsumer(object):
         """
         return self._subscription.paused_partitions()
 
-    def resume(self, *partitions):
+    def resume(self, *partitions) -> None:
         """Resume fetching from the specified (paused) partitions.
 
         Arguments:
@@ -849,7 +851,7 @@ class KafkaConsumer(object):
             log.debug("Resuming partition %s", partition)
             self._subscription.resume(partition)
 
-    def seek(self, partition, offset):
+    def seek(self, partition, offset) -> None:
         """Manually specify the fetch offset for a TopicPartition.
 
         Overrides the fetch offsets that the consumer will use on the next
@@ -876,7 +878,7 @@ class KafkaConsumer(object):
         self._subscription.assignment[partition].seek(offset)
         self._iterator = None
 
-    def seek_to_beginning(self, *partitions):
+    def seek_to_beginning(self, *partitions) -> None:
         """Seek to the oldest available offset for partitions.
 
         Arguments:
@@ -901,7 +903,7 @@ class KafkaConsumer(object):
             self._subscription.request_offset_reset(tp, OffsetResetStrategy.EARLIEST)
         self._iterator = None
 
-    def seek_to_end(self, *partitions):
+    def seek_to_end(self, *partitions) -> None:
         """Seek to the most recent available offset for partitions.
 
         Arguments:
@@ -983,7 +985,7 @@ class KafkaConsumer(object):
             self._client.set_topics(self._subscription.group_subscription())
             log.debug("Subscribed to topic(s): %s", topics)
 
-    def subscription(self):
+    def subscription(self) -> None:
         """Get the current topic subscription.
 
         Returns:
@@ -993,7 +995,7 @@ class KafkaConsumer(object):
             return None
         return self._subscription.subscription.copy()
 
-    def unsubscribe(self):
+    def unsubscribe(self) -> None:
         """Unsubscribe from all topics and clear all assigned partitions."""
         # make sure the offsets of topic partitions the consumer is unsubscribing from
         # are committed since there will be no following rebalance
@@ -1006,7 +1008,7 @@ class KafkaConsumer(object):
         log.debug("Unsubscribed all topics or patterns and assigned partitions")
         self._iterator = None
 
-    def metrics(self, raw=False):
+    def metrics(self, raw: bool = False) -> dict | None:
         """Get metrics on consumer performance.
 
         This is ported from the Java Consumer, for details see:
@@ -1030,7 +1032,7 @@ class KafkaConsumer(object):
             metrics[k.group][k.name] = v.value()
         return metrics
 
-    def offsets_for_times(self, timestamps):
+    def offsets_for_times(self, timestamps) -> None:
         """Look up the offsets for the given partitions by timestamp. The
         returned offset for each partition is the earliest offset whose
         timestamp is greater than or equal to the given timestamp in the
@@ -1076,7 +1078,7 @@ class KafkaConsumer(object):
         return self._fetcher.offsets_by_times(
             timestamps, self.config['request_timeout_ms'])
 
-    def beginning_offsets(self, partitions):
+    def beginning_offsets(self, partitions) -> None:
         """Get the first offset for the given partitions.
 
         This method does not change the current consumer position of the
@@ -1102,7 +1104,7 @@ class KafkaConsumer(object):
             partitions, self.config['request_timeout_ms'])
         return offsets
 
-    def end_offsets(self, partitions):
+    def end_offsets(self, partitions) -> None:
         """Get the last offset for the given partitions. The last offset of a
         partition is the offset of the upcoming message, i.e. the offset of the
         last available message + 1.
@@ -1129,7 +1131,7 @@ class KafkaConsumer(object):
             partitions, self.config['request_timeout_ms'])
         return offsets
 
-    def _use_consumer_group(self):
+    def _use_consumer_group(self) -> None:
         """Return True iff this consumer can/should join a broker-coordinated group."""
         if self.config['api_version'] < (0, 9):
             return False
@@ -1139,7 +1141,7 @@ class KafkaConsumer(object):
             return False
         return True
 
-    def _update_fetch_positions(self, timeout_ms=None):
+    def _update_fetch_positions(self, timeout_ms=None) -> None:
         """Set the fetch position to the committed position (if there is one)
         or reset it using the offset reset policy the user has configured.
 
@@ -1175,7 +1177,7 @@ class KafkaConsumer(object):
         # partitions which are awaiting reset.
         return not self._fetcher.reset_offsets_if_needed()
 
-    def _message_generator_v2(self):
+    def _message_generator_v2(self) -> None:
         timeout_ms = 1000 * max(0, self._consumer_timeout - time.time())
         record_map = self.poll(timeout_ms=timeout_ms, update_offsets=False)
         for tp, records in record_map.items():
@@ -1197,7 +1199,7 @@ class KafkaConsumer(object):
     def __iter__(self):  # pylint: disable=non-iterator-returned
         return self
 
-    def __next__(self):
+    def __next__(self) -> None:
         if self._closed:
             raise StopIteration('KafkaConsumer closed')
         self._set_consumer_timeout()
@@ -1210,7 +1212,7 @@ class KafkaConsumer(object):
                 self._iterator = None
         raise StopIteration()
 
-    def _set_consumer_timeout(self):
+    def _set_consumer_timeout(self) -> None:
         # consumer_timeout_ms can be used to stop iteration early
         if self.config['consumer_timeout_ms'] >= 0:
             self._consumer_timeout = time.time() + (

@@ -20,11 +20,16 @@
 # used to construct the correct class for Batch itself.
 
 import struct
+from collections.abc import Sequence
+from typing import Literal
+
+from typing_extensions import Self
 
 from kafka.errors import CorruptRecordError, IllegalStateError, UnsupportedVersionError
 from kafka.record.abc import ABCRecords
+from kafka.record.default_records import (ABCRecordBatchBuilder, DefaultRecordBatch, DefaultRecordBatchBuilder,
+                                          DefaultRecordMetadata)
 from kafka.record.legacy_records import LegacyRecordBatch, LegacyRecordBatchBuilder
-from kafka.record.default_records import DefaultRecordBatch, DefaultRecordBatchBuilder
 
 
 class MemoryRecords(ABCRecords):
@@ -38,18 +43,18 @@ class MemoryRecords(ABCRecords):
 
     __slots__ = ("_buffer", "_pos", "_next_slice", "_remaining_bytes")
 
-    def __init__(self, bytes_data):
+    def __init__(self, bytes_data: Sequence[bytes]) -> None:
         self._buffer = bytes_data
         self._pos = 0
         # We keep one slice ahead so `has_next` will return very fast
-        self._next_slice = None
-        self._remaining_bytes = None
+        self._next_slice: memoryview[int] | None = None
+        self._remaining_bytes: int | None = None
         self._cache_next()
 
-    def size_in_bytes(self):
+    def size_in_bytes(self) -> int:
         return len(self._buffer)
 
-    def valid_bytes(self):
+    def valid_bytes(self) -> None:
         # We need to read the whole buffer to get the valid_bytes.
         # NOTE: in Fetcher we do the call after iteration, so should be fast
         if self._remaining_bytes is None:
@@ -64,7 +69,7 @@ class MemoryRecords(ABCRecords):
 
     # NOTE: we cache offsets here as kwargs for a bit more speed, as cPython
     # will use LOAD_FAST opcode in this case
-    def _cache_next(self, len_offset=LENGTH_OFFSET, log_overhead=LOG_OVERHEAD):
+    def _cache_next(self, len_offset: int = LENGTH_OFFSET, log_overhead: int = LOG_OVERHEAD) -> None:
         buffer = self._buffer
         buffer_len = len(buffer)
         pos = self._pos
@@ -88,12 +93,12 @@ class MemoryRecords(ABCRecords):
         self._next_slice = memoryview(buffer)[pos: slice_end]
         self._pos = slice_end
 
-    def has_next(self):
+    def has_next(self) -> bool:
         return self._next_slice is not None
 
     # NOTE: same cache for LOAD_FAST as above
-    def next_batch(self, _min_slice=MIN_SLICE,
-                   _magic_offset=MAGIC_OFFSET):
+    def next_batch(self, _min_slice: int = MIN_SLICE,
+                   _magic_offset: int = MAGIC_OFFSET) -> DefaultRecordBatch:
         next_slice = self._next_slice
         if next_slice is None:
             return None
@@ -108,10 +113,10 @@ class MemoryRecords(ABCRecords):
         else:
             return DefaultRecordBatch(next_slice)
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
+    def __next__(self) -> DefaultRecordBatch:
         if not self.has_next():
             raise StopIteration
         return self.next_batch()
@@ -124,8 +129,8 @@ class MemoryRecordsBuilder(object):
     __slots__ = ("_builder", "_batch_size", "_buffer", "_next_offset", "_closed",
                  "_magic", "_bytes_written", "_producer_id", "_producer_epoch")
 
-    def __init__(self, magic, compression_type, batch_size, offset=0,
-                 transactional=False, producer_id=-1, producer_epoch=-1, base_sequence=-1):
+    def __init__(self, magic: Literal[0, 1, 2], compression_type: Literal[0, 1, 2, 3, 4], batch_size: int, offset: int = 0,
+                 transactional: bool = False, producer_id: int = -1, producer_epoch: int = -1, base_sequence: int = -1) -> None:
         assert magic in [0, 1, 2], "Not supported magic"
         assert compression_type in [0, 1, 2, 3, 4], "Not valid compression type"
         if magic >= 2:
@@ -133,7 +138,7 @@ class MemoryRecordsBuilder(object):
             assert producer_id == -1 or producer_epoch != -1, "Invalid negative producer epoch"
             assert producer_id == -1 or base_sequence != -1, "Invalid negative sequence number used"
 
-            self._builder = DefaultRecordBatchBuilder(
+            self._builder: ABCRecordBatchBuilder | None = DefaultRecordBatchBuilder(
                 magic=magic, compression_type=compression_type,
                 is_transactional=transactional, producer_id=producer_id,
                 producer_epoch=producer_epoch, base_sequence=base_sequence,
@@ -154,11 +159,11 @@ class MemoryRecordsBuilder(object):
         self._magic = magic
         self._bytes_written = 0
 
-    def skip(self, offsets_to_skip):
+    def skip(self, offsets_to_skip: int) -> None:
         # Exposed for testing compacted records
         self._next_offset += offsets_to_skip
 
-    def append(self, timestamp, key, value, headers=[]):
+    def append(self, timestamp: int, key: bytes, value: bytes, headers: list[tuple[str, bytes]]=[]) -> DefaultRecordMetadata:
         """ Append a message to the buffer.
 
         Returns: RecordMetadata or None if unable to append
@@ -175,7 +180,7 @@ class MemoryRecordsBuilder(object):
         self._next_offset += 1
         return metadata
 
-    def set_producer_state(self, producer_id, producer_epoch, base_sequence, is_transactional):
+    def set_producer_state(self, producer_id, producer_epoch, base_sequence, is_transactional) -> None:
         if self._magic < 2:
             raise UnsupportedVersionError('Producer State requires Message format v2+')
         elif self._closed:
@@ -188,18 +193,18 @@ class MemoryRecordsBuilder(object):
         self._producer_id = producer_id
 
     @property
-    def producer_id(self):
+    def producer_id(self) -> None:
         return self._producer_id
 
     @property
-    def producer_epoch(self):
+    def producer_epoch(self) -> None:
         return self._producer_epoch
 
-    def records(self):
+    def records(self) -> None:
         assert self._closed
         return MemoryRecords(self._buffer)
 
-    def close(self):
+    def close(self) -> None:
         # This method may be called multiple times on the same batch
         # i.e., on retries
         # we need to make sure we only close it out once
@@ -214,25 +219,25 @@ class MemoryRecordsBuilder(object):
             self._builder = None
         self._closed = True
 
-    def size_in_bytes(self):
+    def size_in_bytes(self) -> int:
         if not self._closed:
             return self._builder.size()
         else:
             return len(self._buffer)
 
-    def compression_rate(self):
+    def compression_rate(self) -> float:
         assert self._closed
         return self.size_in_bytes() / self._bytes_written
 
-    def is_full(self):
+    def is_full(self) -> bool:
         if self._closed:
             return True
         else:
             return self._builder.size() >= self._batch_size
 
-    def next_offset(self):
+    def next_offset(self) -> int:
         return self._next_offset
 
-    def buffer(self):
+    def buffer(self) -> bytes:
         assert self._closed
         return self._buffer

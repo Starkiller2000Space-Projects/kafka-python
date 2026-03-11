@@ -6,10 +6,10 @@ import pytest
 
 from kafka import KafkaProducer
 from kafka.cluster import ClusterMetadata
-from kafka.producer.transaction_manager import TransactionManager, ProducerIdAndEpoch
+from kafka.producer.transaction_manager import ProducerIdAndEpoch, TransactionManager
 
 
-def test_kafka_producer_thread_close():
+def test_kafka_producer_thread_close() -> None:
     threads = threading.active_count()
     producer = KafkaProducer(api_version=(2, 1)) # set api_version explicitly to avoid auto-detection
     assert threading.active_count() == threads + 1
@@ -17,7 +17,7 @@ def test_kafka_producer_thread_close():
     assert threading.active_count() == threads
 
 
-def test_idempotent_producer_reset_producer_id():
+def test_idempotent_producer_reset_producer_id() -> None:
     transaction_manager = TransactionManager(
         transactional_id=None,
         transaction_timeout_ms=1000,

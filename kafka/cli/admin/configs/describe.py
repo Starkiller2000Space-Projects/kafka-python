@@ -4,14 +4,14 @@ from kafka.admin.config_resource import ConfigResource
 class DescribeConfigs:
 
     @classmethod
-    def add_subparser(cls, subparsers):
+    def add_subparser(cls, subparsers) -> None:
         parser = subparsers.add_parser('describe', help='Describe Kafka Configs')
         parser.add_argument('-t', '--topic', type=str, action='append', dest='topics', default=[])
         parser.add_argument('-b', '--broker', type=str, action='append', dest='brokers', default=[])
         parser.set_defaults(command=cls.command)
 
     @classmethod
-    def command(cls, client, args):
+    def command(cls, client, args) -> None:
         resources = []
         for topic in args.topics:
             resources.append(ConfigResource('TOPIC', topic))

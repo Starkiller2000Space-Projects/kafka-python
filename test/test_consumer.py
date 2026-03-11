@@ -1,25 +1,25 @@
 import pytest
 
 from kafka import KafkaConsumer, TopicPartition
-from kafka.errors import KafkaConfigurationError, IllegalStateError
+from kafka.errors import IllegalStateError, KafkaConfigurationError
 
 
-def test_session_timeout_larger_than_request_timeout_raises():
+def test_session_timeout_larger_than_request_timeout_raises() -> None:
     with pytest.raises(KafkaConfigurationError):
         KafkaConsumer(bootstrap_servers='localhost:9092', api_version=(0, 9), group_id='foo', session_timeout_ms=50000, request_timeout_ms=40000)
 
 
-def test_fetch_max_wait_larger_than_request_timeout_raises():
+def test_fetch_max_wait_larger_than_request_timeout_raises() -> None:
     with pytest.raises(KafkaConfigurationError):
         KafkaConsumer(bootstrap_servers='localhost:9092', fetch_max_wait_ms=50000, request_timeout_ms=40000)
 
 
-def test_request_timeout_larger_than_connections_max_idle_ms_raises():
+def test_request_timeout_larger_than_connections_max_idle_ms_raises() -> None:
     with pytest.raises(KafkaConfigurationError):
         KafkaConsumer(bootstrap_servers='localhost:9092', api_version=(0, 9), request_timeout_ms=50000, connections_max_idle_ms=40000)
 
 
-def test_subscription_copy():
+def test_subscription_copy() -> None:
     consumer = KafkaConsumer('foo', api_version=(0, 10, 0))
     sub = consumer.subscription()
     assert sub is not consumer.subscription()
@@ -28,7 +28,7 @@ def test_subscription_copy():
     assert consumer.subscription() == set(['foo'])
 
 
-def test_assign():
+def test_assign() -> None:
     # Consumer w/ subscription to topic 'foo'
     consumer = KafkaConsumer('foo', api_version=(0, 10, 0))
     assert consumer.assignment() == set()

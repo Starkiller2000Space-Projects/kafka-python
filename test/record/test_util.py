@@ -1,7 +1,8 @@
 import struct
-import pytest
-from kafka.record import util
 
+import pytest
+
+from kafka.record import util
 
 varint_data = [
     (b"\x00", 0),
@@ -47,14 +48,14 @@ varint_data = [
 
 
 @pytest.mark.parametrize("encoded, decoded", varint_data)
-def test_encode_varint(encoded, decoded):
+def test_encode_varint(encoded, decoded) -> None:
     res = bytearray()
     util.encode_varint(decoded, res.append)
     assert res == encoded
 
 
 @pytest.mark.parametrize("encoded, decoded", varint_data)
-def test_decode_varint(encoded, decoded):
+def test_decode_varint(encoded, decoded) -> None:
     # We add a bit of bytes around just to check position is calculated
     # correctly
     value, pos = util.decode_varint(
@@ -64,13 +65,13 @@ def test_decode_varint(encoded, decoded):
 
 
 @pytest.mark.parametrize("encoded, decoded", varint_data)
-def test_size_of_varint(encoded, decoded):
+def test_size_of_varint(encoded, decoded) -> None:
     assert util.size_of_varint(decoded) == len(encoded)
 
 
 @pytest.mark.parametrize("crc32_func", [util.crc32c_c, util.crc32c_py])
-def test_crc32c(crc32_func):
-    def make_crc(data):
+def test_crc32c(crc32_func) -> None:
+    def make_crc(data) -> None:
         crc = crc32_func(data)
         return struct.pack(">I", crc)
     assert make_crc(b"") == b"\x00\x00\x00\x00"

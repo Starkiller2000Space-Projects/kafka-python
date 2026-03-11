@@ -22,7 +22,7 @@ from kafka.protocol.types import UnsignedVarInt32, VarInt32, VarInt64
     (2147483647, [0xFF, 0xFF, 0xFF, 0xFF, 0x07]),
     (-2147483648, [0x80, 0x80, 0x80, 0x80, 0x08]),
 ])
-def test_unsigned_varint_serde(value, expected_encoded):
+def test_unsigned_varint_serde(value, expected_encoded) -> None:
     value &= 0xffffffff
     encoded = UnsignedVarInt32.encode(value)
     assert encoded == b''.join(struct.pack('>B', x) for x in expected_encoded)
@@ -52,7 +52,7 @@ def test_unsigned_varint_serde(value, expected_encoded):
     (2147483647, [0xFE, 0xFF, 0xFF, 0xFF, 0x0F]),
     (-2147483648, [0xFF, 0xFF, 0xFF, 0xFF, 0x0F]),
 ])
-def test_signed_varint_serde(value, expected_encoded):
+def test_signed_varint_serde(value, expected_encoded) -> None:
     encoded = VarInt32.encode(value)
     assert encoded == b''.join(struct.pack('>B', x) for x in expected_encoded)
     assert value == VarInt32.decode(io.BytesIO(encoded))
@@ -103,7 +103,7 @@ def test_signed_varint_serde(value, expected_encoded):
     (9223372036854775807, [0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01]),
     (-9223372036854775808, [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01]),
 ])
-def test_signed_varlong_serde(value, expected_encoded):
+def test_signed_varlong_serde(value, expected_encoded) -> None:
     encoded = VarInt64.encode(value)
     assert encoded == b''.join(struct.pack('>B', x) for x in expected_encoded)
     assert value == VarInt64.decode(io.BytesIO(encoded))

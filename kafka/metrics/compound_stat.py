@@ -9,7 +9,7 @@ class AbstractCompoundStat(AbstractStat, metaclass=abc.ABCMeta):
     data structure feeds many metrics. This is the example for a
     histogram which has many associated percentiles.
     """
-    def stats(self):
+    def stats(self) -> None:
         """
         Return list of NamedMeasurable
         """
@@ -19,14 +19,14 @@ class AbstractCompoundStat(AbstractStat, metaclass=abc.ABCMeta):
 class NamedMeasurable(object):
     __slots__ = ('_name', '_stat')
 
-    def __init__(self, metric_name, measurable_stat):
+    def __init__(self, metric_name, measurable_stat) -> None:
         self._name = metric_name
         self._stat = measurable_stat
 
     @property
-    def name(self):
+    def name(self) -> None:
         return self._name
 
     @property
-    def stat(self):
+    def stat(self) -> None:
         return self._stat

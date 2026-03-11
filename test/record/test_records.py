@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-import pytest
-from kafka.record import MemoryRecords, MemoryRecordsBuilder
-from kafka.errors import CorruptRecordError
-
 from test.testutil import maybe_skip_unsupported_compression
+
+import pytest
+
+from kafka.errors import CorruptRecordError
+from kafka.record import MemoryRecords, MemoryRecordsBuilder
 
 # This is real live data from Kafka 11 broker
 record_batch_data_v2 = [
@@ -71,7 +72,7 @@ control_batch_data_v2 = [
 ]
 
 
-def test_memory_records_v2():
+def test_memory_records_v2() -> None:
     data_bytes = b"".join(record_batch_data_v2) + b"\x00" * 4
     records = MemoryRecords(data_bytes)
 
@@ -103,7 +104,7 @@ def test_memory_records_v2():
     assert records.next_batch() is None
 
 
-def test_memory_records_v1():
+def test_memory_records_v1() -> None:
     data_bytes = b"".join(record_batch_data_v1) + b"\x00" * 4
     records = MemoryRecords(data_bytes)
 
@@ -129,7 +130,7 @@ def test_memory_records_v1():
     assert records.next_batch() is None
 
 
-def test_memory_records_v0():
+def test_memory_records_v0() -> None:
     data_bytes = b"".join(record_batch_data_v0)
     records = MemoryRecords(data_bytes + b"\x00" * 4)
 
@@ -157,7 +158,7 @@ def test_memory_records_v0():
     assert records.next_batch() is None
 
 
-def test_memory_records_corrupt():
+def test_memory_records_corrupt() -> None:
     records = MemoryRecords(b"")
     assert records.size_in_bytes() == 0
     assert records.valid_bytes() == 0
@@ -179,7 +180,7 @@ def test_memory_records_corrupt():
 
 @pytest.mark.parametrize("compression_type", [0, 1, 2, 3])
 @pytest.mark.parametrize("magic", [0, 1, 2])
-def test_memory_records_builder(magic, compression_type):
+def test_memory_records_builder(magic, compression_type) -> None:
     maybe_skip_unsupported_compression(compression_type)
     builder = MemoryRecordsBuilder(
         magic=magic, compression_type=compression_type, batch_size=1024 * 10)
@@ -227,7 +228,7 @@ def test_memory_records_builder(magic, compression_type):
 
 @pytest.mark.parametrize("compression_type", [0, 1, 2, 3])
 @pytest.mark.parametrize("magic", [0, 1, 2])
-def test_memory_records_builder_full(magic, compression_type):
+def test_memory_records_builder_full(magic, compression_type) -> None:
     builder = MemoryRecordsBuilder(
         magic=magic, compression_type=compression_type, batch_size=1024 * 10)
 
@@ -243,7 +244,7 @@ def test_memory_records_builder_full(magic, compression_type):
     assert builder.next_offset() == 1
 
 
-def test_control_record_v2():
+def test_control_record_v2() -> None:
     data_bytes = b"".join(control_batch_data_v2)
     records = MemoryRecords(data_bytes)
 

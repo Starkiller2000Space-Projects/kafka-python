@@ -10,7 +10,7 @@ from kafka.errors import KafkaTimeoutError
 class Timer:
     __slots__ = ('_start_at', '_expire_at', '_timeout_ms', '_error_message')
 
-    def __init__(self, timeout_ms, error_message=None, start_at=None):
+    def __init__(self, timeout_ms, error_message=None, start_at=None) -> None:
         self._timeout_ms = timeout_ms
         self._start_at = start_at or time.time()
         if timeout_ms is not None:
@@ -20,11 +20,11 @@ class Timer:
         self._error_message = error_message
 
     @property
-    def expired(self):
+    def expired(self) -> None:
         return time.time() >= self._expire_at
 
     @property
-    def timeout_ms(self):
+    def timeout_ms(self) -> None:
         if self._timeout_ms is None:
             return None
         elif self._expire_at == float('inf'):
@@ -36,21 +36,21 @@ class Timer:
             return int(remaining * 1000)
 
     @property
-    def elapsed_ms(self):
+    def elapsed_ms(self) -> None:
         return int(1000 * (time.time() - self._start_at))
 
-    def maybe_raise(self):
+    def maybe_raise(self) -> None:
         if self.expired:
             raise KafkaTimeoutError(self._error_message)
 
-    def __str__(self):
+    def __str__(self) -> None:
         return "Timer(%s ms remaining)" % (self.timeout_ms)
 
 # Taken from: https://github.com/apache/kafka/blob/39eb31feaeebfb184d98cc5d94da9148c2319d81/clients/src/main/java/org/apache/kafka/common/internals/Topic.java#L29
 TOPIC_MAX_LENGTH = 249
 TOPIC_LEGAL_CHARS = re.compile('^[a-zA-Z0-9._-]+$')
 
-def ensure_valid_topic_name(topic):
+def ensure_valid_topic_name(topic) -> None:
     """ Ensures that the topic name is valid according to the kafka source. """
 
     # See Kafka Source:
@@ -78,7 +78,7 @@ class WeakMethod(object):
 
         object_dot_method: A bound instance method (i.e. 'object.method').
     """
-    def __init__(self, object_dot_method):
+    def __init__(self, object_dot_method) -> None:
         try:
             self.target = weakref.ref(object_dot_method.__self__)
         except AttributeError:
@@ -90,16 +90,16 @@ class WeakMethod(object):
             self.method = weakref.ref(object_dot_method.im_func)
         self._method_id = id(self.method())
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> None:
         """
         Calls the method on target with args and kwargs.
         """
         return self.method()(self.target(), *args, **kwargs)
 
-    def __hash__(self):
+    def __hash__(self) -> None:
         return hash(self.target) ^ hash(self.method)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> None:
         if not isinstance(other, WeakMethod):
             return False
         return self._target_id == other._target_id and self._method_id == other._method_id
@@ -113,8 +113,8 @@ class Dict(dict):
     pass
 
 
-def synchronized(func):
-    def wrapper(self, *args, **kwargs):
+def synchronized(func) -> None:
+    def wrapper(self, *args, **kwargs) -> None:
         with self._lock:
             return func(self, *args, **kwargs)
     functools.update_wrapper(wrapper, func)

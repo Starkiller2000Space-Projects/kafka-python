@@ -1,5 +1,5 @@
 from kafka.protocol.api import Request, Response
-from kafka.protocol.types import Array, Boolean, Int16, Int32, Schema, String, BitField
+from kafka.protocol.types import Array, BitField, Boolean, Int16, Int32, Schema, String
 
 
 class MetadataResponse_v0(Response):

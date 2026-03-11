@@ -4,7 +4,7 @@ import abc
 class AbstractMeasurable(object):
     """A measurable quantity that can be registered as a metric"""
     @abc.abstractmethod
-    def measure(self, config, now):
+    def measure(self, config, now) -> None:
         """
         Measure this quantity and return the result
 
@@ -20,8 +20,8 @@ class AbstractMeasurable(object):
 
 
 class AnonMeasurable(AbstractMeasurable):
-    def __init__(self, measure_fn):
+    def __init__(self, measure_fn) -> None:
         self._measure_fn = measure_fn
 
-    def measure(self, config, now):
+    def measure(self, config, now) -> None:
         return float(self._measure_fn(config, now))

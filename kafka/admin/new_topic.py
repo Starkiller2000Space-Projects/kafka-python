@@ -18,7 +18,7 @@ class NewTopic(object):
             replication_factor=-1,
             replica_assignments=None,
             topic_configs=None,
-    ):
+    ) -> None:
         self.name = name
         self.num_partitions = num_partitions
         self.replication_factor = replication_factor

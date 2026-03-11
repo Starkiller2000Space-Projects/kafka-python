@@ -1,1 +1,1 @@
-from kafka.serializer.abstract import Serializer, Deserializer
+from kafka.serializer.abstract import Deserializer, Serializer

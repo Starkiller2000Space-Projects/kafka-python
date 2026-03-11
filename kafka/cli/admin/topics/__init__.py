@@ -9,7 +9,7 @@ from .list import ListTopics
 class TopicsSubCommand:
 
     @classmethod
-    def add_subparser(cls, subparsers):
+    def add_subparser(cls, subparsers) -> None:
         parser = subparsers.add_parser('topics', help='List/Describe/Create/Delete Kafka Topics')
         commands = parser.add_subparsers()
         for cmd in [ListTopics, DescribeTopics, CreateTopic, DeleteTopic]:

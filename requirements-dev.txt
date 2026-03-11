@@ -3,6 +3,7 @@ crc32c
 docker-py
 flake8
 lz4
+mypy
 py
 pylint
 pyperf

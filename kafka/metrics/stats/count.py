@@ -7,11 +7,11 @@ class Count(AbstractSampledStat):
     """
     __slots__ = ('_initial_value', '_samples', '_current')
 
-    def __init__(self):
+    def __init__(self) -> None:
         super(Count, self).__init__(0.0)
 
-    def update(self, sample, config, value, now):
+    def update(self, sample, config, value, now) -> None:
         sample.value += 1.0
 
-    def combine(self, samples, config, now):
+    def combine(self, samples, config, now) -> None:
         return float(sum(sample.value for sample in samples))

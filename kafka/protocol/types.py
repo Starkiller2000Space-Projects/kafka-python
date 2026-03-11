@@ -1,11 +1,11 @@
 import struct
-from struct import error
 import uuid
+from struct import error
 
 from kafka.protocol.abstract import AbstractType
 
 
-def _pack(f, value):
+def _pack(f, value) -> None:
     try:
         return f(value)
     except error as e:
@@ -14,7 +14,7 @@ def _pack(f, value):
                         .format(value, f, e))
 
 
-def _unpack(f, data):
+def _unpack(f, data) -> None:
     try:
         (value,) = f(data)
         return value
@@ -29,11 +29,11 @@ class Int8(AbstractType):
     _unpack = struct.Struct('>b').unpack
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         return _pack(cls._pack, value)
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         return _unpack(cls._unpack, data.read(1))
 
 
@@ -42,11 +42,11 @@ class Int16(AbstractType):
     _unpack = struct.Struct('>h').unpack
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         return _pack(cls._pack, value)
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         return _unpack(cls._unpack, data.read(2))
 
 
@@ -55,11 +55,11 @@ class Int32(AbstractType):
     _unpack = struct.Struct('>i').unpack
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         return _pack(cls._pack, value)
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         return _unpack(cls._unpack, data.read(4))
 
 
@@ -68,11 +68,11 @@ class Int64(AbstractType):
     _unpack = struct.Struct('>q').unpack
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         return _pack(cls._pack, value)
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         return _unpack(cls._unpack, data.read(8))
 
 
@@ -81,11 +81,11 @@ class Float64(AbstractType):
     _unpack = struct.Struct('>d').unpack
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         return _pack(cls._pack, value)
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         return _unpack(cls._unpack, data.read(8))
 
 
@@ -93,27 +93,27 @@ class UUID(AbstractType):
     ZERO_UUID = uuid.UUID(int=0)
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         if isinstance(value, uuid.UUID):
             return value.bytes
         return uuid.UUID(value).bytes
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         return uuid.UUID(bytes=data.read(16))
 
 
 class String(AbstractType):
-    def __init__(self, encoding='utf-8'):
+    def __init__(self, encoding='utf-8') -> None:
         self.encoding = encoding
 
-    def encode(self, value):
+    def encode(self, value) -> None:
         if value is None:
             return Int16.encode(-1)
         value = str(value).encode(self.encoding)
         return Int16.encode(len(value)) + value
 
-    def decode(self, data):
+    def decode(self, data) -> None:
         length = Int16.decode(data)
         if length < 0:
             return None
@@ -125,14 +125,14 @@ class String(AbstractType):
 
 class Bytes(AbstractType):
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         if value is None:
             return Int32.encode(-1)
         else:
             return Int32.encode(len(value)) + value
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         length = Int32.decode(data)
         if length < 0:
             return None
@@ -142,7 +142,7 @@ class Bytes(AbstractType):
         return value
 
     @classmethod
-    def repr(cls, value):
+    def repr(cls, value) -> None:
         return repr(value[:100] + b'...' if value is not None and len(value) > 100 else value)
 
 
@@ -151,22 +151,22 @@ class Boolean(AbstractType):
     _unpack = struct.Struct('>?').unpack
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         return _pack(cls._pack, value)
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         return _unpack(cls._unpack, data.read(1))
 
 
 class Schema(AbstractType):
-    def __init__(self, *fields):
+    def __init__(self, *fields) -> None:
         if fields:
             self.names, self.fields = zip(*fields)
         else:
             self.names, self.fields = (), ()
 
-    def encode(self, item):
+    def encode(self, item) -> None:
         if len(item) != len(self.fields):
             raise ValueError('Item field count does not match Schema')
         return b''.join([
@@ -174,13 +174,13 @@ class Schema(AbstractType):
             for i, field in enumerate(self.fields)
         ])
 
-    def decode(self, data):
+    def decode(self, data) -> None:
         return tuple([field.decode(data) for field in self.fields])
 
-    def __len__(self):
+    def __len__(self) -> None:
         return len(self.fields)
 
-    def repr(self, value):
+    def repr(self, value) -> None:
         key_vals = []
         try:
             for i in range(len(self)):
@@ -195,7 +195,7 @@ class Schema(AbstractType):
 
 
 class Array(AbstractType):
-    def __init__(self, *array_of):
+    def __init__(self, *array_of) -> None:
         if len(array_of) > 1:
             self.array_of = Schema(*array_of)
         elif len(array_of) == 1 and (isinstance(array_of[0], AbstractType) or
@@ -204,7 +204,7 @@ class Array(AbstractType):
         else:
             raise ValueError('Array instantiated with no array_of type')
 
-    def encode(self, items):
+    def encode(self, items) -> None:
         if items is None:
             return Int32.encode(-1)
         encoded_items = [self.array_of.encode(item) for item in items]
@@ -213,13 +213,13 @@ class Array(AbstractType):
             encoded_items
         )
 
-    def decode(self, data):
+    def decode(self, data) -> None:
         length = Int32.decode(data)
         if length == -1:
             return None
         return [self.array_of.decode(data) for _ in range(length)]
 
-    def repr(self, list_of_items):
+    def repr(self, list_of_items) -> None:
         if list_of_items is None:
             return 'NULL'
         return '[' + ', '.join([self.array_of.repr(item) for item in list_of_items]) + ']'
@@ -227,18 +227,18 @@ class Array(AbstractType):
 
 class UnsignedVarInt32(AbstractType):
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         value = VarInt32.decode(data)
         return (value << 1) ^ (value >> 31)
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         return VarInt32.encode((value >> 1) ^ -(value & 1))
 
 
 class VarInt32(AbstractType):
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         value, i = 0, 0
         while True:
             b, = struct.unpack('B', data.read(1))
@@ -252,7 +252,7 @@ class VarInt32(AbstractType):
         return (value >> 1) ^ -(value & 1)
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         # bring it in line with the java binary repr
         value = (value << 1) ^ (value >> 31)
         value &= 0xffffffff
@@ -267,7 +267,7 @@ class VarInt32(AbstractType):
 
 class VarInt64(AbstractType):
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         value, i = 0, 0
         while True:
             b, = struct.unpack('B', data.read(1))
@@ -281,7 +281,7 @@ class VarInt64(AbstractType):
         return (value >> 1) ^ -(value & 1)
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         # bring it in line with the java binary repr
         value = (value << 1) ^ (value >> 63)
         value &= 0xffffffffffffffff
@@ -295,7 +295,7 @@ class VarInt64(AbstractType):
 
 
 class CompactString(String):
-    def decode(self, data):
+    def decode(self, data) -> None:
         length = UnsignedVarInt32.decode(data) - 1
         if length < 0:
             return None
@@ -304,7 +304,7 @@ class CompactString(String):
             raise ValueError('Buffer underrun decoding string')
         return value.decode(self.encoding)
 
-    def encode(self, value):
+    def encode(self, value) -> None:
         if value is None:
             return UnsignedVarInt32.encode(0)
         value = str(value).encode(self.encoding)
@@ -313,7 +313,7 @@ class CompactString(String):
 
 class TaggedFields(AbstractType):
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         num_fields = UnsignedVarInt32.decode(data)
         ret = {}
         if not num_fields:
@@ -330,7 +330,7 @@ class TaggedFields(AbstractType):
         return ret
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         ret = UnsignedVarInt32.encode(len(value))
         for k, v in value.items():
             # do we allow for other data types ?? It could get complicated really fast
@@ -343,7 +343,7 @@ class TaggedFields(AbstractType):
 
 class CompactBytes(AbstractType):
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         length = UnsignedVarInt32.decode(data) - 1
         if length < 0:
             return None
@@ -353,7 +353,7 @@ class CompactBytes(AbstractType):
         return value
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value) -> None:
         if value is None:
             return UnsignedVarInt32.encode(0)
         else:
@@ -361,7 +361,7 @@ class CompactBytes(AbstractType):
 
 
 class CompactArray(Array):
-    def encode(self, items):
+    def encode(self, items) -> None:
         if items is None:
             return UnsignedVarInt32.encode(0)
         return b''.join(
@@ -369,7 +369,7 @@ class CompactArray(Array):
             [self.array_of.encode(item) for item in items]
         )
 
-    def decode(self, data):
+    def decode(self, data) -> None:
         length = UnsignedVarInt32.decode(data) - 1
         if length == -1:
             return None
@@ -378,18 +378,18 @@ class CompactArray(Array):
 
 class BitField(AbstractType):
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         return cls.from_32_bit_field(Int32.decode(data))
 
     @classmethod
-    def encode(cls, vals):
+    def encode(cls, vals) -> None:
         # to_32_bit_field returns unsigned val, so we need to
         # encode >I to avoid crash if/when byte 31 is set
         # (note that decode as signed still works fine)
         return struct.Struct('>I').pack(cls.to_32_bit_field(vals))
 
     @classmethod
-    def to_32_bit_field(cls, vals):
+    def to_32_bit_field(cls, vals) -> None:
         value = 0
         for b in vals:
             assert 0 <= b < 32
@@ -397,7 +397,7 @@ class BitField(AbstractType):
         return value
 
     @classmethod
-    def from_32_bit_field(cls, value):
+    def from_32_bit_field(cls, value) -> None:
         result = set()
         count = 0
         while value != 0:

@@ -3,10 +3,10 @@ import struct
 
 import pytest
 
-from kafka.protocol.types import CompactString, CompactArray, CompactBytes
+from kafka.protocol.types import CompactArray, CompactBytes, CompactString
 
 
-def test_compact_data_structs():
+def test_compact_data_structs() -> None:
     cs = CompactString()
     encoded = cs.encode(None)
     assert encoded == struct.pack('B', 0)

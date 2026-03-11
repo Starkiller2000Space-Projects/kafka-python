@@ -16,25 +16,25 @@ log = logging.getLogger(__name__)
 
 
 class ExternalService(object):
-    def __init__(self, host, port):
+    def __init__(self, host, port) -> None:
         log.info("Using already running service at %s:%d", host, port)
         self.host = host
         self.port = port
 
-    def open(self):
+    def open(self) -> None:
         pass
 
-    def close(self):
+    def close(self) -> None:
         pass
 
-    def dump_logs(self):
+    def dump_logs(self) -> None:
         pass
 
-    def wait_for(self, pattern, timeout=30):
+    def wait_for(self, pattern, timeout=30) -> None:
         pass
 
 class SpawnedService(threading.Thread):
-    def __init__(self, args=None, env=None):
+    def __init__(self, args=None, env=None) -> None:
         super(SpawnedService, self).__init__()
 
         if args is None:
@@ -54,7 +54,7 @@ class SpawnedService(threading.Thread):
         for key, value in self.env.items():
             log.debug("  {key}={value}".format(key=key, value=value))
 
-    def _spawn(self):
+    def _spawn(self) -> None:
         if self.alive or (self.child and self.child.poll() is None):
             return
 
@@ -67,7 +67,7 @@ class SpawnedService(threading.Thread):
             stderr=subprocess.PIPE)
         self.alive = self.child.poll() is None
 
-    def _despawn(self):
+    def _despawn(self) -> None:
         if self.child.poll() is None:
             self.child.terminate()
         self.alive = False
@@ -80,7 +80,7 @@ class SpawnedService(threading.Thread):
             self.child.kill()
 
     # via threading.Thread
-    def run(self):
+    def run(self) -> None:
         self._spawn()
         while True:
             try:
@@ -109,11 +109,11 @@ class SpawnedService(threading.Thread):
                 self._despawn()
                 break
 
-    def dump_logs(self):
+    def dump_logs(self) -> None:
         sys.stderr.write('\n'.join(self.captured_stderr))
         sys.stdout.write('\n'.join(self.captured_stdout))
 
-    def wait_for(self, pattern, timeout=30):
+    def wait_for(self, pattern, timeout=30) -> None:
         start = time.time()
         while True:
             if not self.is_alive():
@@ -133,6 +133,6 @@ class SpawnedService(threading.Thread):
                 return True
             time.sleep(0.1)
 
-    def stop(self):
+    def stop(self) -> None:
         self.should_die.set()
         self.join()

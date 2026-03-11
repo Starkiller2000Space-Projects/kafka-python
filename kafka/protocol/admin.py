@@ -1,7 +1,8 @@
 from enum import IntEnum
 
 from kafka.protocol.api import Request, Response
-from kafka.protocol.types import Array, Boolean, Bytes, Int8, Int16, Int32, Int64, Schema, String, Float64, CompactString, CompactArray, TaggedFields, BitField
+from kafka.protocol.types import (Array, BitField, Boolean, Bytes, CompactArray, CompactString, Float64, Int8, Int16,
+                                  Int32, Int64, Schema, String, TaggedFields)
 
 
 class CreateTopicsResponse_v0(Response):

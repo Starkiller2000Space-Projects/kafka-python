@@ -6,7 +6,7 @@ from kafka.cluster import ClusterMetadata, collect_hosts
 from kafka.protocol.metadata import MetadataResponse
 
 
-def test_empty_broker_list():
+def test_empty_broker_list() -> None:
     cluster = ClusterMetadata()
     assert len(cluster.brokers()) == 0
 
@@ -21,7 +21,7 @@ def test_empty_broker_list():
     assert len(cluster.brokers()) == 2
 
 
-def test_metadata_v0():
+def test_metadata_v0() -> None:
     cluster = ClusterMetadata()
     cluster.update_metadata(MetadataResponse[0](
         [(0, 'foo', 12), (1, 'bar', 34)],
@@ -33,7 +33,7 @@ def test_metadata_v0():
     assert cluster._partitions['topic-1'][0].leader_epoch == -1
 
 
-def test_metadata_v1():
+def test_metadata_v1() -> None:
     cluster = ClusterMetadata()
     cluster.update_metadata(MetadataResponse[1](
         [(0, 'foo', 12, 'rack-1'), (1, 'bar', 34, 'rack-2')],
@@ -46,7 +46,7 @@ def test_metadata_v1():
     assert cluster._partitions['topic-1'][0].leader_epoch == -1
 
 
-def test_metadata_v2():
+def test_metadata_v2() -> None:
     cluster = ClusterMetadata()
     cluster.update_metadata(MetadataResponse[2](
         [(0, 'foo', 12, 'rack-1'), (1, 'bar', 34, 'rack-2')],
@@ -60,7 +60,7 @@ def test_metadata_v2():
     assert cluster._partitions['topic-1'][0].leader_epoch == -1
 
 
-def test_metadata_v3():
+def test_metadata_v3() -> None:
     cluster = ClusterMetadata()
     cluster.update_metadata(MetadataResponse[3](
         0, # throttle_time_ms
@@ -75,7 +75,7 @@ def test_metadata_v3():
     assert cluster._partitions['topic-1'][0].leader_epoch == -1
 
 
-def test_metadata_v4():
+def test_metadata_v4() -> None:
     cluster = ClusterMetadata()
     cluster.update_metadata(MetadataResponse[4](
         0, # throttle_time_ms
@@ -90,7 +90,7 @@ def test_metadata_v4():
     assert cluster._partitions['topic-1'][0].leader_epoch == -1
 
 
-def test_metadata_v5():
+def test_metadata_v5() -> None:
     cluster = ClusterMetadata()
     cluster.update_metadata(MetadataResponse[5](
         0, # throttle_time_ms
@@ -105,7 +105,7 @@ def test_metadata_v5():
     assert cluster._partitions['topic-1'][0].leader_epoch == -1
 
 
-def test_metadata_v6():
+def test_metadata_v6() -> None:
     cluster = ClusterMetadata()
     cluster.update_metadata(MetadataResponse[6](
         0, # throttle_time_ms
@@ -120,7 +120,7 @@ def test_metadata_v6():
     assert cluster._partitions['topic-1'][0].leader_epoch == -1
 
 
-def test_metadata_v7():
+def test_metadata_v7() -> None:
     cluster = ClusterMetadata()
     cluster.update_metadata(MetadataResponse[7](
         0, # throttle_time_ms
@@ -135,7 +135,7 @@ def test_metadata_v7():
     assert cluster._partitions['topic-1'][0].leader_epoch == 0
 
 
-def test_unauthorized_topic():
+def test_unauthorized_topic() -> None:
     cluster = ClusterMetadata()
     assert len(cluster.brokers()) == 0
 
@@ -150,7 +150,7 @@ def test_unauthorized_topic():
     assert 'unauthorized-topic' in cluster.unauthorized_topics
 
 
-def test_collect_hosts__happy_path():
+def test_collect_hosts__happy_path() -> None:
     hosts = "127.0.0.1:1234,127.0.0.1"
     results = collect_hosts(hosts)
     assert set(results) == set([
@@ -159,7 +159,7 @@ def test_collect_hosts__happy_path():
     ])
 
 
-def test_collect_hosts__ipv6():
+def test_collect_hosts__ipv6() -> None:
     hosts = "[localhost]:1234,[2001:1000:2000::1],[2001:1000:2000::1]:1234"
     results = collect_hosts(hosts)
     assert set(results) == set([
@@ -169,7 +169,7 @@ def test_collect_hosts__ipv6():
     ])
 
 
-def test_collect_hosts__string_list():
+def test_collect_hosts__string_list() -> None:
     hosts = [
         'localhost:1234',
         'localhost',
@@ -189,7 +189,7 @@ def test_collect_hosts__string_list():
     ])
 
 
-def test_collect_hosts__with_spaces():
+def test_collect_hosts__with_spaces() -> None:
     hosts = "localhost:1234, localhost"
     results = collect_hosts(hosts)
     assert set(results) == set([
@@ -198,7 +198,7 @@ def test_collect_hosts__with_spaces():
     ])
 
 
-def test_collect_hosts__protocol():
+def test_collect_hosts__protocol() -> None:
     hosts = "SASL_SSL://foo.bar:1234,SASL_SSL://fizz.buzz:5678"
     results = collect_hosts(hosts)
     assert set(results) == set([

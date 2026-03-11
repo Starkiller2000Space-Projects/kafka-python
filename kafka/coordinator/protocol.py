@@ -18,7 +18,7 @@ class ConsumerProtocolMemberAssignment_v0(Struct):
             ('partitions', Array(Int32)))),
         ('user_data', Bytes))
 
-    def partitions(self):
+    def partitions(self) -> None:
         return [TopicPartition(topic, partition)
                 for topic, partitions in self.assignment # pylint: disable-msg=no-member
                 for partition in partitions]

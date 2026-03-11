@@ -20,39 +20,39 @@ class AbstractSampledStat(AbstractMeasurableStat, metaclass=abc.ABCMeta):
     """
     __slots__ = ('_initial_value', '_samples', '_current')
 
-    def __init__(self, initial_value):
+    def __init__(self, initial_value) -> None:
         self._initial_value = initial_value
         self._samples = []
         self._current = 0
 
     @abc.abstractmethod
-    def update(self, sample, config, value, time_ms):
+    def update(self, sample, config, value, time_ms) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def combine(self, samples, config, now):
+    def combine(self, samples, config, now) -> None:
         raise NotImplementedError
 
-    def record(self, config, value, time_ms):
+    def record(self, config, value, time_ms) -> None:
         sample = self.current(time_ms)
         if sample.is_complete(time_ms, config):
             sample = self._advance(config, time_ms)
         self.update(sample, config, float(value), time_ms)
         sample.event_count += 1
 
-    def new_sample(self, time_ms):
+    def new_sample(self, time_ms) -> None:
         return self.Sample(self._initial_value, time_ms)
 
-    def measure(self, config, now):
+    def measure(self, config, now) -> None:
         self.purge_obsolete_samples(config, now)
         return float(self.combine(self._samples, config, now))
 
-    def current(self, time_ms):
+    def current(self, time_ms) -> None:
         if not self._samples:
             self._samples.append(self.new_sample(time_ms))
         return self._samples[self._current]
 
-    def oldest(self, now):
+    def oldest(self, now) -> None:
         if not self._samples:
             self._samples.append(self.new_sample(now))
         oldest = self._samples[0]
@@ -61,7 +61,7 @@ class AbstractSampledStat(AbstractMeasurableStat, metaclass=abc.ABCMeta):
                 oldest = sample
         return oldest
 
-    def purge_obsolete_samples(self, config, now):
+    def purge_obsolete_samples(self, config, now) -> None:
         """
         Timeout any windows that have expired in the absence of any events
         """
@@ -70,7 +70,7 @@ class AbstractSampledStat(AbstractMeasurableStat, metaclass=abc.ABCMeta):
             if now - sample.last_window_ms >= expire_age:
                 sample.reset(now)
 
-    def _advance(self, config, time_ms):
+    def _advance(self, config, time_ms) -> None:
         self._current = (self._current + 1) % config.samples
         if self._current >= len(self._samples):
             sample = self.new_sample(time_ms)
@@ -83,17 +83,17 @@ class AbstractSampledStat(AbstractMeasurableStat, metaclass=abc.ABCMeta):
 
     class Sample(object):
 
-        def __init__(self, initial_value, now):
+        def __init__(self, initial_value, now) -> None:
             self.initial_value = initial_value
             self.event_count = 0
             self.last_window_ms = now
             self.value = initial_value
 
-        def reset(self, now):
+        def reset(self, now) -> None:
             self.event_count = 0
             self.last_window_ms = now
             self.value = self.initial_value
 
-        def is_complete(self, time_ms, config):
+        def is_complete(self, time_ms, config) -> None:
             return (time_ms - self.last_window_ms >= config.time_window_ms or
                     self.event_count >= config.event_window)

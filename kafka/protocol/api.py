@@ -1,7 +1,7 @@
 import abc
 
 from kafka.protocol.struct import Struct
-from kafka.protocol.types import Int16, Int32, String, Schema, Array, TaggedFields
+from kafka.protocol.types import Array, Int16, Int32, Schema, String, TaggedFields
 
 
 class RequestHeader(Struct):
@@ -12,7 +12,7 @@ class RequestHeader(Struct):
         ('client_id', String('utf-8'))
     )
 
-    def __init__(self, request, correlation_id=0, client_id='kafka-python'):
+    def __init__(self, request, correlation_id=0, client_id='kafka-python') -> None:
         super(RequestHeader, self).__init__(
             request.API_KEY, request.API_VERSION, correlation_id, client_id
         )
@@ -28,7 +28,7 @@ class RequestHeaderV2(Struct):
         ('tags', TaggedFields),
     )
 
-    def __init__(self, request, correlation_id=0, client_id='kafka-python', tags=None):
+    def __init__(self, request, correlation_id=0, client_id='kafka-python', tags=None) -> None:
         super(RequestHeaderV2, self).__init__(
             request.API_KEY, request.API_VERSION, correlation_id, client_id, tags or {}
         )
@@ -51,28 +51,28 @@ class Request(Struct, metaclass=abc.ABCMeta):
     FLEXIBLE_VERSION = False
 
     @abc.abstractproperty
-    def API_KEY(self):
+    def API_KEY(self) -> None:
         """Integer identifier for api request"""
         pass
 
     @abc.abstractproperty
-    def API_VERSION(self):
+    def API_VERSION(self) -> None:
         """Integer of api request version"""
         pass
 
     @abc.abstractproperty
-    def RESPONSE_TYPE(self):
+    def RESPONSE_TYPE(self) -> None:
         """The Response class associated with the api request"""
         pass
 
-    def expect_response(self):
+    def expect_response(self) -> None:
         """Override this method if an api request does not always generate a response"""
         return True
 
-    def to_object(self):
+    def to_object(self) -> None:
         return _to_object(self.SCHEMA, self)
 
-    def build_header(self, correlation_id, client_id):
+    def build_header(self, correlation_id, client_id) -> None:
         if self.FLEXIBLE_VERSION:
             return RequestHeaderV2(self, correlation_id=correlation_id, client_id=client_id)
         return RequestHeader(self, correlation_id=correlation_id, client_id=client_id)
@@ -82,26 +82,26 @@ class Response(Struct, metaclass=abc.ABCMeta):
     FLEXIBLE_VERSION = False
 
     @abc.abstractproperty
-    def API_KEY(self):
+    def API_KEY(self) -> None:
         """Integer identifier for api request/response"""
         pass
 
     @abc.abstractproperty
-    def API_VERSION(self):
+    def API_VERSION(self) -> None:
         """Integer of api request/response version"""
         pass
 
-    def to_object(self):
+    def to_object(self) -> None:
         return _to_object(self.SCHEMA, self)
 
     @classmethod
-    def parse_header(cls, read_buffer):
+    def parse_header(cls, read_buffer) -> None:
         if cls.FLEXIBLE_VERSION:
             return ResponseHeaderV2.decode(read_buffer)
         return ResponseHeader.decode(read_buffer)
 
 
-def _to_object(schema, data):
+def _to_object(schema, data) -> None:
     obj = {}
     for idx, (name, _type) in enumerate(zip(schema.names, schema.fields)):
         if isinstance(data, Struct):

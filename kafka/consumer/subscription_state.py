@@ -1,16 +1,17 @@
 import abc
-from collections import OrderedDict
-from collections.abc import Sequence
-from enum import IntEnum
 import logging
 import random
 import re
 import threading
 import time
+from collections import OrderedDict
+from collections.abc import Sequence
+from enum import IntEnum
+from typing import Literal
 
 import kafka.errors as Errors
 from kafka.protocol.list_offsets import OffsetResetStrategy
-from kafka.structs import OffsetAndMetadata
+from kafka.structs import OffsetAndMetadata, TopicPartition
 from kafka.util import ensure_valid_topic_name, synchronized
 
 log = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ class SubscriptionState(object):
         " (2) subscribe to topics matching a regex pattern,"
         " (3) assign itself specific topic-partitions.")
 
-    def __init__(self, offset_reset_strategy='earliest'):
+    def __init__(self, offset_reset_strategy: Literal['earliest', 'latest'] = 'earliest') -> None:
         """Initialize a SubscriptionState instance
 
         Keyword Arguments:
@@ -65,9 +66,9 @@ class SubscriptionState(object):
             offset_reset_strategy = OffsetResetStrategy.NONE
         self._default_offset_reset_strategy = offset_reset_strategy
 
-        self.subscription = None # set() or None
+        self.subscription: set | None = None
         self.subscription_type = SubscriptionType.NONE
-        self.subscribed_pattern = None # regex str or None
+        self.subscribed_pattern: re.Pattern | str | None = None
         self._group_subscription = set()
         self._user_assignment = set()
         self.assignment = OrderedDict()
@@ -75,7 +76,7 @@ class SubscriptionState(object):
         self.listeners = []
         self._lock = threading.RLock()
 
-    def _set_subscription_type(self, subscription_type):
+    def _set_subscription_type(self, subscription_type: SubscriptionType) -> None:
         if not isinstance(subscription_type, SubscriptionType):
             raise ValueError('SubscriptionType enum required')
         if self.subscription_type == SubscriptionType.NONE:
@@ -84,7 +85,7 @@ class SubscriptionState(object):
             raise Errors.IllegalStateError(self._SUBSCRIPTION_EXCEPTION_MESSAGE)
 
     @synchronized
-    def subscribe(self, topics=(), pattern=None, listener=None):
+    def subscribe(self, topics: Sequence[str] = (), pattern: str | None = None, listener: 'ConsumerRebalanceListener' = None):
         """Subscribe to a list of topics, or a topic regex pattern.
 
         Partitions will be dynamically assigned via a group coordinator.
@@ -139,7 +140,7 @@ class SubscriptionState(object):
         self.rebalance_listener = listener
 
     @synchronized
-    def change_subscription(self, topics):
+    def change_subscription(self, topics: Sequence[str]) -> None:
         """Change the topic subscription.
 
         Arguments:
@@ -171,7 +172,7 @@ class SubscriptionState(object):
         self._group_subscription.update(topics)
 
     @synchronized
-    def group_subscribe(self, topics):
+    def group_subscribe(self, topics: Sequence[str]) -> None:
         """Add topics to the current group subscription.
 
         This is used by the group leader to ensure that it receives metadata
@@ -185,7 +186,7 @@ class SubscriptionState(object):
         self._group_subscription.update(topics)
 
     @synchronized
-    def reset_group_subscription(self):
+    def reset_group_subscription(self) -> None:
         """Reset the group's subscription to only contain topics subscribed by this consumer."""
         if not self.partitions_auto_assigned():
             raise Errors.IllegalStateError(self._SUBSCRIPTION_EXCEPTION_MESSAGE)
@@ -193,7 +194,7 @@ class SubscriptionState(object):
         self._group_subscription.intersection_update(self.subscription)
 
     @synchronized
-    def assign_from_user(self, partitions):
+    def assign_from_user(self, partitions: list['TopicPartitionState']) -> None:
         """Manually assign a list of TopicPartitions to this consumer.
 
         This interface does not allow for incremental assignment and will
@@ -218,7 +219,7 @@ class SubscriptionState(object):
                                   for partition in partitions})
 
     @synchronized
-    def assign_from_subscribed(self, assignments):
+    def assign_from_subscribed(self, assignments: list[TopicPartition]) -> None:
         """Update the assignment to the specified partitions
 
         This method is called by the coordinator to dynamically assign
@@ -241,7 +242,7 @@ class SubscriptionState(object):
         self._set_assignment({partition: TopicPartitionState() for partition in assignments}, randomize=True)
         log.info("Updated partition assignment: %s", assignments)
 
-    def _set_assignment(self, partition_states, randomize=False):
+    def _set_assignment(self, partition_states: list[TopicPartition], randomize: bool = False) -> None:
         """Batch partition assignment by topic (self.assignment is OrderedDict)"""
         self.assignment.clear()
         topics = [tp.topic for tp in partition_states]
@@ -255,7 +256,7 @@ class SubscriptionState(object):
                 self.assignment[tp] = partition_states[tp]
 
     @synchronized
-    def unsubscribe(self):
+    def unsubscribe(self) -> None:
         """Clear all topic subscriptions and partition assignments"""
         self.subscription = None
         self._user_assignment.clear()
@@ -264,7 +265,7 @@ class SubscriptionState(object):
         self.subscription_type = SubscriptionType.NONE
 
     @synchronized
-    def group_subscription(self):
+    def group_subscription(self) -> None:
         """Get the topic subscription for the group.
 
         For the leader, this will include the union of all member subscriptions.
@@ -280,7 +281,7 @@ class SubscriptionState(object):
         return self._group_subscription
 
     @synchronized
-    def seek(self, partition, offset):
+    def seek(self, partition, offset) -> None:
         """Manually specify the fetch offset for a TopicPartition.
 
         Overrides the fetch offsets that the consumer will use on the next
@@ -298,18 +299,18 @@ class SubscriptionState(object):
         self.assignment[partition].seek(offset)
 
     @synchronized
-    def assigned_partitions(self):
+    def assigned_partitions(self) -> None:
         """Return set of TopicPartitions in current assignment."""
         return set(self.assignment.keys())
 
     @synchronized
-    def paused_partitions(self):
+    def paused_partitions(self) -> None:
         """Return current set of paused TopicPartitions."""
         return set(partition for partition in self.assignment
                    if self.is_paused(partition))
 
     @synchronized
-    def fetchable_partitions(self):
+    def fetchable_partitions(self) -> None:
         """Return ordered list of TopicPartitions that should be Fetched."""
         fetchable = list()
         for partition, state in self.assignment.items():
@@ -318,12 +319,12 @@ class SubscriptionState(object):
         return fetchable
 
     @synchronized
-    def partitions_auto_assigned(self):
+    def partitions_auto_assigned(self) -> None:
         """Return True unless user supplied partitions manually."""
         return self.subscription_type in (SubscriptionType.AUTO_TOPICS, SubscriptionType.AUTO_PATTERN)
 
     @synchronized
-    def all_consumed_offsets(self):
+    def all_consumed_offsets(self) -> None:
         """Returns consumed offsets as {TopicPartition: OffsetAndMetadata}"""
         all_consumed = {}
         for partition, state in self.assignment.items():
@@ -332,7 +333,7 @@ class SubscriptionState(object):
         return all_consumed
 
     @synchronized
-    def request_offset_reset(self, partition, offset_reset_strategy=None):
+    def request_offset_reset(self, partition, offset_reset_strategy=None) -> None:
         """Mark partition for offset reset using specified or default strategy.
 
         Arguments:
@@ -344,28 +345,28 @@ class SubscriptionState(object):
         self.assignment[partition].reset(offset_reset_strategy)
 
     @synchronized
-    def set_reset_pending(self, partitions, next_allowed_reset_time):
+    def set_reset_pending(self, partitions, next_allowed_reset_time) -> None:
         for partition in partitions:
             self.assignment[partition].set_reset_pending(next_allowed_reset_time)
 
     @synchronized
-    def has_default_offset_reset_policy(self):
+    def has_default_offset_reset_policy(self) -> None:
         """Return True if default offset reset policy is Earliest or Latest"""
         return self._default_offset_reset_strategy != OffsetResetStrategy.NONE
 
     @synchronized
-    def is_offset_reset_needed(self, partition):
+    def is_offset_reset_needed(self, partition) -> None:
         return self.assignment[partition].awaiting_reset
 
     @synchronized
-    def has_all_fetch_positions(self):
+    def has_all_fetch_positions(self) -> None:
         for state in self.assignment.values():
             if not state.has_valid_position:
                 return False
         return True
 
     @synchronized
-    def missing_fetch_positions(self):
+    def missing_fetch_positions(self) -> None:
         missing = set()
         for partition, state in self.assignment.items():
             if state.is_missing_position():
@@ -373,11 +374,11 @@ class SubscriptionState(object):
         return missing
 
     @synchronized
-    def has_valid_position(self, partition):
+    def has_valid_position(self, partition) -> None:
         return partition in self.assignment and self.assignment[partition].has_valid_position
 
     @synchronized
-    def reset_missing_positions(self):
+    def reset_missing_positions(self) -> None:
         partitions_with_no_offsets = set()
         for tp, state in self.assignment.items():
             if state.is_missing_position():
@@ -390,7 +391,7 @@ class SubscriptionState(object):
             raise Errors.NoOffsetForPartitionError(partitions_with_no_offsets)
 
     @synchronized
-    def partitions_needing_reset(self):
+    def partitions_needing_reset(self) -> None:
         partitions = set()
         for tp, state in self.assignment.items():
             if state.awaiting_reset and state.is_reset_allowed():
@@ -398,32 +399,32 @@ class SubscriptionState(object):
         return partitions
 
     @synchronized
-    def is_assigned(self, partition):
+    def is_assigned(self, partition) -> None:
         return partition in self.assignment
 
     @synchronized
-    def is_paused(self, partition):
+    def is_paused(self, partition) -> None:
         return partition in self.assignment and self.assignment[partition].paused
 
     @synchronized
-    def is_fetchable(self, partition):
+    def is_fetchable(self, partition) -> None:
         return partition in self.assignment and self.assignment[partition].is_fetchable()
 
     @synchronized
-    def pause(self, partition):
+    def pause(self, partition) -> None:
         self.assignment[partition].pause()
 
     @synchronized
-    def resume(self, partition):
+    def resume(self, partition) -> None:
         self.assignment[partition].resume()
 
     @synchronized
-    def reset_failed(self, partitions, next_retry_time):
+    def reset_failed(self, partitions, next_retry_time) -> None:
         for partition in partitions:
             self.assignment[partition].reset_failed(next_retry_time)
 
     @synchronized
-    def move_partition_to_end(self, partition):
+    def move_partition_to_end(self, partition) -> None:
         if partition in self.assignment:
             try:
                 self.assignment.move_to_end(partition)
@@ -432,12 +433,12 @@ class SubscriptionState(object):
                 self.assignment[partition] = state
 
     @synchronized
-    def position(self, partition):
+    def position(self, partition) -> None:
         return self.assignment[partition].position
 
 
 class TopicPartitionState(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.paused = False # whether this partition has been paused by the user
         self.reset_strategy = None # the reset strategy if awaiting_reset is set
         self._position = None # OffsetAndMetadata exposed to the user
@@ -445,55 +446,55 @@ class TopicPartitionState(object):
         self.drop_pending_record_batch = False
         self.next_allowed_retry_time = None
 
-    def _set_position(self, offset):
+    def _set_position(self, offset) -> None:
         assert self.has_valid_position, 'Valid position required'
         assert isinstance(offset, OffsetAndMetadata)
         self._position = offset
 
-    def _get_position(self):
+    def _get_position(self) -> None:
         return self._position
 
     position = property(_get_position, _set_position, None, "last position")
 
-    def reset(self, strategy):
+    def reset(self, strategy) -> None:
         assert strategy is not None
         self.reset_strategy = strategy
         self._position = None
         self.next_allowed_retry_time = None
 
-    def is_reset_allowed(self):
+    def is_reset_allowed(self) -> None:
         return self.next_allowed_retry_time is None or self.next_allowed_retry_time < time.time()
 
     @property
-    def awaiting_reset(self):
+    def awaiting_reset(self) -> None:
         return self.reset_strategy is not None
 
-    def set_reset_pending(self, next_allowed_retry_time):
+    def set_reset_pending(self, next_allowed_retry_time) -> None:
         self.next_allowed_retry_time = next_allowed_retry_time
 
-    def reset_failed(self, next_allowed_retry_time):
+    def reset_failed(self, next_allowed_retry_time) -> None:
         self.next_allowed_retry_time = next_allowed_retry_time
 
     @property
-    def has_valid_position(self):
+    def has_valid_position(self) -> None:
         return self._position is not None
 
-    def is_missing_position(self):
+    def is_missing_position(self) -> None:
         return not self.has_valid_position and not self.awaiting_reset
 
-    def seek(self, offset):
+    def seek(self, offset) -> None:
         self._position = offset if isinstance(offset, OffsetAndMetadata) else OffsetAndMetadata(offset, '', -1)
         self.reset_strategy = None
         self.drop_pending_record_batch = True
         self.next_allowed_retry_time = None
 
-    def pause(self):
+    def pause(self) -> None:
         self.paused = True
 
-    def resume(self):
+    def resume(self) -> None:
         self.paused = False
 
-    def is_fetchable(self):
+    def is_fetchable(self) -> None:
         return not self.paused and self.has_valid_position
 
 
@@ -539,7 +540,7 @@ class ConsumerRebalanceListener(object, metaclass=abc.ABCMeta):
     called to load the state.
     """
     @abc.abstractmethod
-    def on_partitions_revoked(self, revoked):
+    def on_partitions_revoked(self, revoked) -> None:
         """
         A callback method the user can implement to provide handling of offset
         commits to a customized store on the start of a rebalance operation.
@@ -558,7 +559,7 @@ class ConsumerRebalanceListener(object, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def on_partitions_assigned(self, assigned):
+    def on_partitions_assigned(self, assigned) -> None:
         """
         A callback method the user can implement to provide handling of
         customized offsets on completion of a successful partition

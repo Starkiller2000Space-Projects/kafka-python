@@ -18,7 +18,9 @@ setup:
 	pip install -Ue .
 
 lint:
+	mypy kafka
 	pylint --recursive=y --errors-only kafka test
+	isort --check --diff .
 
 test: build-integration
 	pytest $(PYTESTS)

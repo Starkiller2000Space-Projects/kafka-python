@@ -1,19 +1,18 @@
 import logging
 import time
-from unittest.mock import patch, ANY
+from test.testutil import Timer, assert_message_count, env_kafka_version, random_string
+from unittest.mock import ANY, patch
 
 import pytest
 
 import kafka.codec
 from kafka.errors import KafkaTimeoutError, UnsupportedCodecError, UnsupportedVersionError
-from kafka.structs import TopicPartition, OffsetAndTimestamp
-
-from test.testutil import Timer, assert_message_count, env_kafka_version, random_string
+from kafka.structs import OffsetAndTimestamp, TopicPartition
 
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
 @pytest.mark.skipif(env_kafka_version()[:2] > (2, 6, 0), reason="KAFKA_VERSION newer than max inferred version")
-def test_kafka_version_infer(kafka_consumer_factory):
+def test_kafka_version_infer(kafka_consumer_factory) -> None:
     consumer = kafka_consumer_factory()
     actual_ver_major_minor = env_kafka_version()[:2]
     client = consumer._client
@@ -24,7 +23,7 @@ def test_kafka_version_infer(kafka_consumer_factory):
 
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
-def test_kafka_consumer(kafka_consumer_factory, send_messages):
+def test_kafka_consumer(kafka_consumer_factory, send_messages) -> None:
     """Test KafkaConsumer"""
     consumer = kafka_consumer_factory(auto_offset_reset='earliest', consumer_timeout_ms=2000)
     send_messages(range(0, 100), partition=0)
@@ -44,7 +43,7 @@ def test_kafka_consumer(kafka_consumer_factory, send_messages):
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
 def test_kafka_consumer_unsupported_encoding(
-        topic, kafka_producer_factory, kafka_consumer_factory):
+        topic, kafka_producer_factory, kafka_consumer_factory) -> None:
     # Send a compressed message
     producer = kafka_producer_factory(compression_type="gzip")
     fut = producer.send(topic, b"simple message" * 200)
@@ -61,7 +60,7 @@ def test_kafka_consumer_unsupported_encoding(
 
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
-def test_kafka_consumer__blocking(kafka_consumer_factory, topic, send_messages):
+def test_kafka_consumer__blocking(kafka_consumer_factory, topic, send_messages) -> None:
     TIMEOUT_MS = 500
     consumer = kafka_consumer_factory(auto_offset_reset='earliest',
                                       enable_auto_commit=False,
@@ -100,7 +99,7 @@ def test_kafka_consumer__blocking(kafka_consumer_factory, topic, send_messages):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 8, 1), reason="Requires KAFKA_VERSION >= 0.8.1")
-def test_kafka_consumer__offset_commit_resume(kafka_consumer_factory, send_messages):
+def test_kafka_consumer__offset_commit_resume(kafka_consumer_factory, send_messages) -> None:
     GROUP_ID = random_string(10)
 
     send_messages(range(0, 100), partition=0)
@@ -144,7 +143,7 @@ def test_kafka_consumer__offset_commit_resume(kafka_consumer_factory, send_messa
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 10, 1), reason="Requires KAFKA_VERSION >= 0.10.1")
-def test_kafka_consumer_max_bytes_simple(kafka_consumer_factory, topic, send_messages):
+def test_kafka_consumer_max_bytes_simple(kafka_consumer_factory, topic, send_messages) -> None:
     send_messages(range(100, 200), partition=0)
     send_messages(range(200, 300), partition=1)
 
@@ -163,7 +162,7 @@ def test_kafka_consumer_max_bytes_simple(kafka_consumer_factory, topic, send_mes
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 10, 1), reason="Requires KAFKA_VERSION >= 0.10.1")
-def test_kafka_consumer_max_bytes_one_msg(kafka_consumer_factory, send_messages):
+def test_kafka_consumer_max_bytes_one_msg(kafka_consumer_factory, send_messages) -> None:
     # We send to only 1 partition so we don't have parallel requests to 2
     # nodes for data.
     send_messages(range(100, 200))
@@ -189,7 +188,7 @@ def test_kafka_consumer_max_bytes_one_msg(kafka_consumer_factory, send_messages)
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 10, 1), reason="Requires KAFKA_VERSION >= 0.10.1")
-def test_kafka_consumer_offsets_for_time(topic, kafka_consumer, kafka_producer):
+def test_kafka_consumer_offsets_for_time(topic, kafka_consumer, kafka_producer) -> None:
     late_time = int(time.time()) * 1000
     middle_time = late_time - 1000
     early_time = late_time - 2000
@@ -238,7 +237,7 @@ def test_kafka_consumer_offsets_for_time(topic, kafka_consumer, kafka_producer):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 10, 1), reason="Requires KAFKA_VERSION >= 0.10.1")
-def test_kafka_consumer_offsets_search_many_partitions(kafka_consumer, kafka_producer, topic):
+def test_kafka_consumer_offsets_search_many_partitions(kafka_consumer, kafka_producer, topic) -> None:
     tp0 = TopicPartition(topic, 0)
     tp1 = TopicPartition(topic, 1)
 
@@ -278,7 +277,7 @@ def test_kafka_consumer_offsets_search_many_partitions(kafka_consumer, kafka_pro
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
 @pytest.mark.skipif(env_kafka_version() >= (0, 10, 1), reason="Requires KAFKA_VERSION < 0.10.1")
-def test_kafka_consumer_offsets_for_time_old(kafka_consumer, topic):
+def test_kafka_consumer_offsets_for_time_old(kafka_consumer, topic) -> None:
     consumer = kafka_consumer
     tp = TopicPartition(topic, 0)
 
@@ -287,7 +286,7 @@ def test_kafka_consumer_offsets_for_time_old(kafka_consumer, topic):
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 10, 1), reason="Requires KAFKA_VERSION >= 0.10.1")
-def test_kafka_consumer_offsets_for_times_errors(kafka_consumer_factory, topic):
+def test_kafka_consumer_offsets_for_times_errors(kafka_consumer_factory, topic) -> None:
     consumer = kafka_consumer_factory(fetch_max_wait_ms=200,
                                       request_timeout_ms=500)
     tp = TopicPartition(topic, 0)
@@ -301,7 +300,7 @@ def test_kafka_consumer_offsets_for_times_errors(kafka_consumer_factory, topic):
 
 
 @pytest.mark.skipif(not env_kafka_version(), reason="No KAFKA_VERSION set")
-def test_kafka_consumer_position_after_seek_to_end(kafka_consumer_factory, topic, send_messages):
+def test_kafka_consumer_position_after_seek_to_end(kafka_consumer_factory, topic, send_messages) -> None:
     send_messages(range(0, 10), partition=0)
 
     # Start a consumer with manual partition assignment.

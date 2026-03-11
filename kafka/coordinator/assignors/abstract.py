@@ -11,12 +11,12 @@ class AbstractPartitionAssignor(object):
     """
 
     @abc.abstractproperty
-    def name(self):
+    def name(self) -> None:
         """.name should be a string identifying the assignor"""
         pass
 
     @abc.abstractmethod
-    def assign(self, cluster, members):
+    def assign(self, cluster, members) -> None:
         """Perform group assignment given cluster metadata and member subscriptions
 
         Arguments:
@@ -31,7 +31,7 @@ class AbstractPartitionAssignor(object):
         pass
 
     @abc.abstractmethod
-    def metadata(self, topics):
+    def metadata(self, topics) -> None:
         """Generate ProtocolMetadata to be submitted via JoinGroupRequest.
 
         Arguments:
@@ -43,7 +43,7 @@ class AbstractPartitionAssignor(object):
         pass
 
     @abc.abstractmethod
-    def on_assignment(self, assignment):
+    def on_assignment(self, assignment) -> None:
         """Callback that runs on each assignment.
 
         This method can be used to update internal state, if any, of the

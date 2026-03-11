@@ -44,15 +44,12 @@
 import struct
 import time
 
+import kafka.codec as codecs
+from kafka.codec import (gzip_decode, gzip_encode, lz4_decode, lz4_decode_old_kafka, lz4_encode, lz4_encode_old_kafka,
+                         snappy_decode, snappy_encode)
+from kafka.errors import CorruptRecordError, UnsupportedCodecError
 from kafka.record.abc import ABCRecord, ABCRecordBatch, ABCRecordBatchBuilder
 from kafka.record.util import calc_crc32
-
-from kafka.codec import (
-    gzip_encode, snappy_encode, lz4_encode, lz4_encode_old_kafka,
-    gzip_decode, snappy_decode, lz4_decode, lz4_decode_old_kafka,
-)
-import kafka.codec as codecs
-from kafka.errors import CorruptRecordError, UnsupportedCodecError
 
 
 class LegacyRecordBase(object):
@@ -115,7 +112,7 @@ class LegacyRecordBase(object):
 
     NO_TIMESTAMP = -1
 
-    def _assert_has_codec(self, compression_type):
+    def _assert_has_codec(self, compression_type) -> None:
         if compression_type == self.CODEC_GZIP:
             checker, name = codecs.has_gzip, "gzip"
         elif compression_type == self.CODEC_SNAPPY:
@@ -135,7 +132,7 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
     __slots__ = ("_buffer", "_magic", "_offset", "_length", "_crc", "_timestamp",
                  "_attributes", "_decompressed")
 
-    def __init__(self, buffer, magic):
+    def __init__(self, buffer, magic) -> None:
         self._buffer = memoryview(buffer)
         self._magic = magic
 
@@ -151,15 +148,15 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
         self._decompressed = False
 
     @property
-    def base_offset(self):
+    def base_offset(self) -> None:
         return self._offset
 
     @property
-    def size_in_bytes(self):
+    def size_in_bytes(self) -> None:
         return self._length + self.LOG_OVERHEAD
 
     @property
-    def timestamp_type(self):
+    def timestamp_type(self) -> None:
         """0 for CreateTime; 1 for LogAppendTime; None if unsupported.
 
         Value is determined by broker; produced messages should always set to 0
@@ -173,18 +170,18 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
             return 0
 
     @property
-    def compression_type(self):
+    def compression_type(self) -> None:
         return self._attributes & self.CODEC_MASK
 
     @property
-    def magic(self):
+    def magic(self) -> None:
         return self._magic
 
-    def validate_crc(self):
+    def validate_crc(self) -> None:
         crc = calc_crc32(self._buffer[self.MAGIC_OFFSET:])
         return self._crc == crc
 
-    def _decompress(self, key_offset):
+    def _decompress(self, key_offset) -> None:
         # Copy of `_read_key_value`, but uses memoryview
         pos = key_offset
         key_size = struct.unpack_from(">i", self._buffer, pos)[0]
@@ -211,7 +208,7 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
                 uncompressed = lz4_decode(data.tobytes())
         return uncompressed  # pylint: disable=E0606
 
-    def _read_header(self, pos):
+    def _read_header(self, pos) -> None:
         if self._magic == 0:
             offset, length, crc, magic_read, attrs = \
                 self.HEADER_STRUCT_V0.unpack_from(self._buffer, pos)
@@ -221,7 +218,7 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
                 self.HEADER_STRUCT_V1.unpack_from(self._buffer, pos)
         return offset, length, crc, magic_read, attrs, timestamp
 
-    def _read_all_headers(self):
+    def _read_all_headers(self) -> None:
         pos = 0
         msgs = []
         buffer_len = len(self._buffer)
@@ -231,7 +228,7 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
             pos += self.LOG_OVERHEAD + header[1]  # length
         return msgs
 
-    def _read_key_value(self, pos):
+    def _read_key_value(self, pos) -> None:
         key_size = struct.unpack_from(">i", self._buffer, pos)[0]
         pos += self.KEY_LENGTH
         if key_size == -1:
@@ -248,10 +245,10 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
             value = self._buffer[pos:pos + value_size].tobytes()
         return key, value
 
-    def _crc_bytes(self, msg_pos, length):
+    def _crc_bytes(self, msg_pos, length) -> None:
         return self._buffer[msg_pos + self.MAGIC_OFFSET:msg_pos + self.LOG_OVERHEAD + length]
 
-    def __iter__(self):
+    def __iter__(self) -> None:
         if self._magic == 1:
             key_offset = self.KEY_OFFSET_V1
         else:
@@ -307,7 +304,7 @@ class LegacyRecord(ABCRecord):
     __slots__ = ("_magic", "_offset", "_timestamp", "_timestamp_type", "_key", "_value",
                  "_crc", "_crc_bytes")
 
-    def __init__(self, magic, offset, timestamp, timestamp_type, key, value, crc, crc_bytes):
+    def __init__(self, magic, offset, timestamp, timestamp_type, key, value, crc, crc_bytes) -> None:
         self._magic = magic
         self._offset = offset
         self._timestamp = timestamp
@@ -318,54 +315,54 @@ class LegacyRecord(ABCRecord):
         self._crc_bytes = crc_bytes
 
     @property
-    def magic(self):
+    def magic(self) -> None:
         return self._magic
 
     @property
-    def offset(self):
+    def offset(self) -> None:
         return self._offset
 
     @property
-    def timestamp(self):
+    def timestamp(self) -> None:
         """ Epoch milliseconds
         """
         return self._timestamp
 
     @property
-    def timestamp_type(self):
+    def timestamp_type(self) -> None:
         """ CREATE_TIME(0) or APPEND_TIME(1)
         """
         return self._timestamp_type
 
     @property
-    def key(self):
+    def key(self) -> None:
         """ Bytes key or None
         """
         return self._key
 
     @property
-    def value(self):
+    def value(self) -> None:
         """ Bytes value or None
         """
         return self._value
 
     @property
-    def headers(self):
+    def headers(self) -> None:
         return []
 
     @property
-    def checksum(self):
+    def checksum(self) -> None:
         return self._crc
 
-    def validate_crc(self):
+    def validate_crc(self) -> None:
         crc = calc_crc32(self._crc_bytes)
         return self._crc == crc
 
     @property
-    def size_in_bytes(self):
+    def size_in_bytes(self) -> None:
         return LegacyRecordBatchBuilder.estimate_size_in_bytes(self._magic, None, self._key, self._value)
 
-    def __repr__(self):
+    def __repr__(self) -> None:
         return (
             "LegacyRecord(magic={!r} offset={!r}, timestamp={!r}, timestamp_type={!r},"
             " key={!r}, value={!r}, crc={!r})".format(
@@ -378,13 +375,13 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
 
     __slots__ = ("_magic", "_compression_type", "_batch_size", "_buffer")
 
-    def __init__(self, magic, compression_type, batch_size):
+    def __init__(self, magic, compression_type, batch_size) -> None:
         self._magic = magic
         self._compression_type = compression_type
         self._batch_size = batch_size
         self._buffer = bytearray()
 
-    def append(self, offset, timestamp, key, value, headers=None):
+    def append(self, offset, timestamp, key, value, headers=None) -> None:
         """ Append message to batch.
         """
         assert not headers, "Headers not supported in v0/v1"
@@ -424,7 +421,7 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
         return LegacyRecordMetadata(offset, crc, size, timestamp)
 
     def _encode_msg(self, start_pos, offset, timestamp, key, value,
-                    attributes=0):
+                    attributes=0) -> None:
         """ Encode msg data into the `msg_buffer`, which should be allocated
             to at least the size of this message.
         """
@@ -472,7 +469,7 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
         struct.pack_into(">I", buf, start_pos + self.CRC_OFFSET, crc)
         return crc
 
-    def _maybe_compress(self):
+    def _maybe_compress(self) -> None:
         if self._compression_type:
             self._assert_has_codec(self._compression_type)
             data = bytes(self._buffer)
@@ -499,19 +496,19 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
             return True
         return False
 
-    def build(self):
+    def build(self) -> None:
         """Compress batch to be ready for send"""
         self._maybe_compress()
         return self._buffer
 
-    def size(self):
+    def size(self) -> None:
         """ Return current size of data written to buffer
         """
         return len(self._buffer)
 
     # Size calculations. Just copied Java's implementation
 
-    def size_in_bytes(self, offset, timestamp, key, value, headers=None):
+    def size_in_bytes(self, offset, timestamp, key, value, headers=None) -> None:
         """ Actual size of message to add
         """
         assert not headers, "Headers not supported in v0/v1"
@@ -519,7 +516,7 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
         return self.LOG_OVERHEAD + self.record_size(magic, key, value)
 
     @classmethod
-    def record_size(cls, magic, key, value):
+    def record_size(cls, magic, key, value) -> None:
         message_size = cls.record_overhead(magic)
         if key is not None:
             message_size += len(key)
@@ -528,7 +525,7 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
         return message_size
 
     @classmethod
-    def record_overhead(cls, magic):
+    def record_overhead(cls, magic) -> None:
         assert magic in [0, 1], "Not supported magic"
         if magic == 0:
             return cls.RECORD_OVERHEAD_V0
@@ -536,7 +533,7 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
             return cls.RECORD_OVERHEAD_V1
 
     @classmethod
-    def estimate_size_in_bytes(cls, magic, compression_type, key, value):
+    def estimate_size_in_bytes(cls, magic, compression_type, key, value) -> None:
         """ Upper bound estimate of record size.
         """
         assert magic in [0, 1], "Not supported magic"
@@ -553,29 +550,29 @@ class LegacyRecordMetadata(object):
 
     __slots__ = ("_crc", "_size", "_timestamp", "_offset")
 
-    def __init__(self, offset, crc, size, timestamp):
+    def __init__(self, offset, crc, size, timestamp) -> None:
         self._offset = offset
         self._crc = crc
         self._size = size
         self._timestamp = timestamp
 
     @property
-    def offset(self):
+    def offset(self) -> None:
         return self._offset
 
     @property
-    def crc(self):
+    def crc(self) -> None:
         return self._crc
 
     @property
-    def size(self):
+    def size(self) -> None:
         return self._size
 
     @property
-    def timestamp(self):
+    def timestamp(self) -> None:
         return self._timestamp
 
-    def __repr__(self):
+    def __repr__(self) -> None:
         return (
             "LegacyRecordMetadata(offset={!r}, crc={!r}, size={!r},"
             " timestamp={!r})".format(

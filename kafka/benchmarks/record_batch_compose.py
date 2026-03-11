@@ -3,11 +3,12 @@ import hashlib
 import itertools
 import os
 import random
+from collections.abc import Iterator
+from typing import Literal
 
 import pyperf
 
 from kafka.record.memory_records import MemoryRecordsBuilder
-
 
 DEFAULT_BATCH_SIZE = 1600 * 1024
 KEY_SIZE = 6
@@ -18,14 +19,14 @@ TIMESTAMP_RANGE = [1505824130000, 1505824140000]
 MESSAGES_PER_BATCH = 100
 
 
-def random_bytes(length):
+def random_bytes(length: int) -> bytes:
     buffer = bytearray(length)
     for i in range(length):
         buffer[i] = random.randint(0, 255)
     return bytes(buffer)
 
 
-def prepare():
+def prepare() -> Iterator[tuple[bytes, bytes, int]]:
     return iter(itertools.cycle([
         (random_bytes(KEY_SIZE),
          random_bytes(VALUE_SIZE),
@@ -35,7 +36,7 @@ def prepare():
     ]))
 
 
-def finalize(results):
+def finalize(results: list[bytes]) -> None:
     # Just some strange code to make sure PyPy does execute the main code
     # properly, without optimizing it away
     hash_val = hashlib.md5()
@@ -44,11 +45,11 @@ def finalize(results):
     print(hash_val, file=open(os.devnull, "w"))
 
 
-def func(loops, magic):
+def func(loops: int, magic: Literal[0, 1, 2]) -> float:
     # Jit can optimize out the whole function if the result is the same each
     # time, so we need some randomized input data )
     precomputed_samples = prepare()
-    results = []
+    results: list[bytes] = []
 
     # Main benchmark code.
     t0 = pyperf.perf_counter()

@@ -1,10 +1,9 @@
-from enum import IntEnum
 import logging
 import time
+from enum import IntEnum
 
 import kafka.errors as Errors
-from kafka.producer.future import FutureRecordMetadata, FutureProduceResult
-
+from kafka.producer.future import FutureProduceResult, FutureRecordMetadata
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ class FinalState(IntEnum):
 
 
 class ProducerBatch(object):
-    def __init__(self, tp, records, now=None):
+    def __init__(self, tp, records, now=None) -> None:
         now = time.time() if now is None else now
         self.max_record_size = 0
         self.created = now
@@ -31,26 +30,26 @@ class ProducerBatch(object):
         self._final_state = None
 
     @property
-    def final_state(self):
+    def final_state(self) -> None:
         return self._final_state
 
     @property
-    def record_count(self):
+    def record_count(self) -> None:
         return self.records.next_offset()
 
     @property
-    def producer_id(self):
+    def producer_id(self) -> None:
         return self.records.producer_id if self.records else None
 
     @property
-    def producer_epoch(self):
+    def producer_epoch(self) -> None:
         return self.records.producer_epoch if self.records else None
 
     @property
-    def has_sequence(self):
+    def has_sequence(self) -> None:
         return self.records.has_sequence if self.records else False
 
-    def try_append(self, timestamp_ms, key, value, headers, now=None):
+    def try_append(self, timestamp_ms, key, value, headers, now=None) -> None:
         metadata = self.records.append(timestamp_ms, key, value, headers)
         if metadata is None:
             return None
@@ -68,7 +67,7 @@ class ProducerBatch(object):
             sum(len(h_key.encode("utf-8")) + len(h_val) for h_key, h_val in headers) if headers else -1)
         return future
 
-    def abort(self, exception):
+    def abort(self, exception) -> None:
         """Abort the batch and complete the future and callbacks."""
         if self._final_state is not None:
             raise Errors.IllegalStateError("Batch has already been completed in final state: %s" % self._final_state)
@@ -77,7 +76,7 @@ class ProducerBatch(object):
         log.debug("Aborting batch for partition %s: %s", self.topic_partition, exception)
         self._complete_future(-1, -1, lambda _: exception)
 
-    def complete(self, base_offset, log_append_time):
+    def complete(self, base_offset, log_append_time) -> None:
         """Complete the batch successfully.
 
         Arguments:
@@ -89,7 +88,7 @@ class ProducerBatch(object):
         """
         return self.done(base_offset=base_offset, timestamp_ms=log_append_time)
 
-    def complete_exceptionally(self, top_level_exception, record_exceptions_fn):
+    def complete_exceptionally(self, top_level_exception, record_exceptions_fn) -> None:
         """
         Complete the batch exceptionally. The provided top-level exception will be used
         for each record future contained in the batch.
@@ -105,7 +104,7 @@ class ProducerBatch(object):
         assert callable(record_exceptions_fn)
         return self.done(top_level_exception=top_level_exception, record_exceptions_fn=record_exceptions_fn)
 
-    def done(self, base_offset=None, timestamp_ms=None, top_level_exception=None, record_exceptions_fn=None):
+    def done(self, base_offset=None, timestamp_ms=None, top_level_exception=None, record_exceptions_fn=None) -> None:
         """
         Finalize the state of a batch. Final state, once set, is immutable. This function may be called
         once or twice on a batch. It may be called twice if
@@ -145,19 +144,19 @@ class ProducerBatch(object):
             raise Errors.IllegalStateError("A %s batch must not attempt another state change to %s" % (self._final_state, final_state))
         return False
 
-    def _complete_future(self, base_offset, timestamp_ms, record_exceptions_fn):
+    def _complete_future(self, base_offset, timestamp_ms, record_exceptions_fn) -> None:
         if self.produce_future.is_done:
             raise Errors.IllegalStateError('Batch is already closed!')
         self.produce_future.success((base_offset, timestamp_ms, record_exceptions_fn))
 
-    def has_reached_delivery_timeout(self, delivery_timeout_ms, now=None):
+    def has_reached_delivery_timeout(self, delivery_timeout_ms, now=None) -> None:
         now = time.time() if now is None else now
         return delivery_timeout_ms / 1000 <= now - self.created
 
-    def in_retry(self):
+    def in_retry(self) -> None:
         return self._retry
 
-    def retry(self, now=None):
+    def retry(self, now=None) -> None:
         now = time.time() if now is None else now
         self._retry = True
         self.attempts += 1
@@ -165,13 +164,13 @@ class ProducerBatch(object):
         self.last_append = now
 
     @property
-    def is_done(self):
+    def is_done(self) -> None:
         return self.produce_future.is_done
 
-    def __str__(self):
+    def __str__(self) -> None:
         return 'ProducerBatch(topic_partition=%s, record_count=%d)' % (
             self.topic_partition, self.records.next_offset())
 
     # for heapq
-    def __lt__(self, other):
+    def __lt__(self, other) -> None:
         return self.created < other.created

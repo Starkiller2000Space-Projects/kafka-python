@@ -6,22 +6,26 @@ import os.path
 import socket
 import subprocess
 import time
-from urllib.parse import urlparse
 import uuid
+from collections.abc import Iterable
+from pathlib import Path
+from test.service import ExternalService, SpawnedService
+from test.testutil import env_kafka_version, random_string
+from typing import Any
+from urllib.parse import urlparse
 
 import py
+from typing_extensions import Self
 
-from kafka import errors, KafkaAdminClient, KafkaClient, KafkaConsumer, KafkaProducer
+from kafka import KafkaAdminClient, KafkaClient, KafkaConsumer, KafkaProducer, errors
 from kafka.errors import InvalidReplicationFactorError, KafkaTimeoutError
 from kafka.protocol.admin import CreateTopicsRequest
 from kafka.protocol.metadata import MetadataRequest
-from test.testutil import env_kafka_version, random_string
-from test.service import ExternalService, SpawnedService
 
 log = logging.getLogger(__name__)
 
 
-def get_open_port():
+def get_open_port() -> int:
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
@@ -29,7 +33,7 @@ def get_open_port():
     return port
 
 
-def gen_ssl_resources(directory):
+def gen_ssl_resources(directory: str) -> None:
     os.system("""
     cd {0}
     echo Generating SSL resources in {0}
@@ -67,38 +71,38 @@ class Fixture(object):
     kafka_root = os.environ.get("KAFKA_ROOT",
                                 os.path.join(project_root, 'servers', kafka_version, "kafka-bin"))
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.child = None
         if not os.path.isdir(self.kafka_root):
             raise FileNotFoundError(self.kafka_root)
 
     @classmethod
-    def test_resource(cls, filename):
+    def test_resource(cls, filename: str) -> str:
         path = os.path.join(cls.project_root, "servers", cls.kafka_version, "resources", filename)
         if os.path.isfile(path):
             return path
         return os.path.join(cls.project_root, "servers", "resources", "default", filename)
 
     @classmethod
-    def run_script(cls, script, *args):
+    def run_script(cls, script: str, *args: Iterable[Any]) -> None:
         result = [os.path.join(cls.kafka_root, 'bin', script)]
         result.extend([str(arg) for arg in args])
         return result
 
     @classmethod
-    def kafka_run_class_args(cls, *args):
+    def kafka_run_class_args(cls, *args: Iterable[Any]) -> list[str]:
         result = [os.path.join(cls.kafka_root, 'bin', 'kafka-run-class.sh')]
         result.extend([str(arg) for arg in args])
         return result
 
-    def kafka_run_class_env(self):
+    def kafka_run_class_env(self) -> dict[str, str]:
         env = os.environ.copy()
         env['KAFKA_LOG4J_OPTS'] = "-Dlog4j.configuration=file:%s" % \
                                   (self.test_resource("log4j.properties"),)
         return env
 
     @classmethod
-    def render_template(cls, source_file, target_file, binding):
+    def render_template(cls, source_file: str, target_file, binding: dict[str, Any]) -> None:
         log.info('Rendering %s from template %s', target_file.strpath, source_file)
         with open(source_file, "r") as handle:
             template = handle.read()
@@ -124,36 +128,36 @@ class Fixture(object):
         for key, value in binding.items():
             log.debug("  {key}={value}".format(key=key, value=value))
 
-    def dump_logs(self):
+    def dump_logs(self) -> None:
         self.child.dump_logs()
 
 
 class ZookeeperFixture(Fixture):
     @classmethod
-    def instance(cls, host=None, port=None, external=False):
+    def instance(cls, host: str | None = None, port: int | None = None, external: bool = False) -> Self:
         if host is None:
             host = "127.0.0.1"
         fixture = cls(host, port, external=external)
         fixture.open()
         return fixture
 
-    def __init__(self, host, port, external=False, tmp_dir=None):
+    def __init__(self, host: str, port: int, external: bool = False, tmp_dir: Path | None = None) -> None:
         super(ZookeeperFixture, self).__init__()
         self.host = host
         self.port = port
         self.running = external
         self.tmp_dir = tmp_dir
 
-    def kafka_run_class_env(self):
+    def kafka_run_class_env(self) -> dict[str, str]:
         env = super(ZookeeperFixture, self).kafka_run_class_env()
         env['LOG_DIR'] = self.tmp_dir.join('logs').strpath
         return env
 
-    def out(self, message):
+    def out(self, message: str) -> None:
         if len(log.handlers) > 0:
             log.info("*** Zookeeper [%s:%s]: %s", self.host, self.port or '(auto)', message)
 
-    def open(self):
+    def open(self) -> None:
         if self.running:
             return
         if self.tmp_dir is None:
@@ -201,7 +205,7 @@ class ZookeeperFixture(Fixture):
         self.out("Done!")
         atexit.register(self.close)
 
-    def close(self):
+    def close(self) -> None:
         if self.child is None:
             return
         self.out("Stopping...")
@@ -210,7 +214,7 @@ class ZookeeperFixture(Fixture):
         self.out("Done!")
         self.tmp_dir.remove()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
 
@@ -219,10 +223,10 @@ class KafkaFixture(Fixture):
     broker_password = 'alice-secret'
 
     @classmethod
-    def instance(cls, broker_id, zookeeper=None, zk_chroot=None,
-                 host="localhost", port=None, external=False,
-                 transport='PLAINTEXT', replicas=1, partitions=4,
-                 sasl_mechanism=None, auto_create_topic=True, tmp_dir=None):
+    def instance(cls, broker_id: int, zookeeper: ZookeeperFixture = None, zk_chroot: str | None = None,
+                 host: str = "localhost", port: int | None = None, external: bool = False,
+                 transport: Literal['PLAINTEXT', 'SSL', 'SASL_PLAINTEXT', 'SASL_SSL'] = 'PLAINTEXT', replicas: int = 1, partitions: int = 4,
+                 sasl_mechanism=None, auto_create_topic=True, tmp_dir=None) -> Self:
 
         # Kafka requries zookeeper prior to 4.0 release
         if env_kafka_version() < (4, 0):
@@ -248,10 +252,10 @@ class KafkaFixture(Fixture):
         fixture.open()
         return fixture
 
-    def __init__(self, host, port, broker_id, zookeeper=None, zk_chroot=None,
+    def __init__(self, host: str, port: int, broker_id: int, zookeeper=None, zk_chroot=None,
                  replicas=1, partitions=2, transport='PLAINTEXT',
                  sasl_mechanism=None, auto_create_topic=True,
-                 tmp_dir=None, external=False):
+                 tmp_dir=None, external=False) -> None:
         super(KafkaFixture, self).__init__()
 
         self.host = host
@@ -308,10 +312,10 @@ class KafkaFixture(Fixture):
         self.sasl_config = ''
         self.jaas_config = ''
 
-    def _gen_cluster_id(self):
+    def _gen_cluster_id(self) -> None:
         return base64.b64encode(uuid.uuid4().bytes).decode('utf-8').rstrip('=')
 
-    def _sasl_config(self):
+    def _sasl_config(self) -> None:
         if not self.sasl_enabled:
             return ''
 
@@ -321,7 +325,7 @@ class KafkaFixture(Fixture):
         )
         return sasl_config.format(mechanism=self.sasl_mechanism)
 
-    def _jaas_config(self):
+    def _jaas_config(self) -> None:
         if not self.sasl_enabled:
             return ''
 
@@ -339,7 +343,7 @@ class KafkaFixture(Fixture):
             raise ValueError("SASL mechanism {} currently not supported".format(self.sasl_mechanism))
         return jaas_config.format(user=self.broker_user, password=self.broker_password)
 
-    def _add_scram_user(self):
+    def _add_scram_user(self) -> None:
         self.out("Adding SCRAM credentials for user {} to zookeeper.".format(self.broker_user))
         args = self.run_script('kafka-configs.sh',
                                '--zookeeper',
@@ -364,22 +368,22 @@ class KafkaFixture(Fixture):
         self.out("User created.")
 
     @property
-    def sasl_enabled(self):
+    def sasl_enabled(self) -> None:
         return self.sasl_mechanism is not None
 
-    def bootstrap_server(self):
+    def bootstrap_server(self) -> None:
         return '%s:%d' % (self.host, self.port)
 
-    def kafka_run_class_env(self):
+    def kafka_run_class_env(self) -> None:
         env = super(KafkaFixture, self).kafka_run_class_env()
         env['LOG_DIR'] = self.tmp_dir.join('logs').strpath
         return env
 
-    def out(self, message):
+    def out(self, message) -> None:
         if len(log.handlers) > 0:
             log.info("*** Kafka [%s:%s]: %s", self.host, self.port or '(auto)', message)
 
-    def _create_zk_chroot(self):
+    def _create_zk_chroot(self) -> None:
         self.out("Creating Zookeeper chroot node...")
         args = self.run_script('zookeeper-shell.sh',
                                '%s:%d' % (self.zookeeper.host,
@@ -399,7 +403,7 @@ class KafkaFixture(Fixture):
             raise RuntimeError("Failed to create Zookeeper chroot node")
         self.out("Kafka chroot created in Zookeeper!")
 
-    def start(self):
+    def start(self) -> None:
         if self.running:
             return True
         # Configure Kafka child process
@@ -452,16 +456,16 @@ class KafkaFixture(Fixture):
         self.out("Done!")
         self.running = True
 
-    def _broker_ready(self, timeout):
+    def _broker_ready(self, timeout) -> None:
         return self.child.wait_for(self.start_pattern, timeout=timeout)
 
-    def _scram_user_present(self, timeout):
+    def _scram_user_present(self, timeout) -> None:
         # no need to wait for scram user if scram is not used
         if not self.sasl_enabled or not self.sasl_mechanism.startswith('SCRAM-SHA-'):
             return True
         return self.child.wait_for(self.scram_pattern, timeout=timeout)
 
-    def open(self):
+    def open(self) -> None:
         if self.running:
             self.out("Instance already running")
             return
@@ -506,10 +510,10 @@ class KafkaFixture(Fixture):
 
         atexit.register(self.close)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
-    def stop(self):
+    def stop(self) -> None:
         if self.external:
             return
         if not self.running:
@@ -522,18 +526,18 @@ class KafkaFixture(Fixture):
         self.running = False
         self.out("Stopped!")
 
-    def close(self):
+    def close(self) -> None:
         self.stop()
         if self.tmp_dir is not None:
             self.tmp_dir.remove()
             self.tmp_dir = None
         self.out("Done!")
 
-    def dump_logs(self):
+    def dump_logs(self) -> None:
         super(KafkaFixture, self).dump_logs()
         self.zookeeper.dump_logs()
 
-    def _format_log_dirs(self):
+    def _format_log_dirs(self) -> None:
         self.out("Formatting log dirs for kraft bootstrapping")
         args = self.run_script('kafka-storage.sh', 'format', '--standalone', '-t', self.cluster_id, '-c', self.tmp_dir.join("kafka.properties"))
         if self.sasl_enabled and self.sasl_mechanism.startswith("SCRAM-SHA"):
@@ -548,8 +552,8 @@ class KafkaFixture(Fixture):
             raise RuntimeError("Failed to format log dirs!")
         return True
 
-    def _send_request(self, request, timeout=None):
-        def _failure(error):
+    def _send_request(self, request, timeout=None) -> None:
+        def _failure(error) -> None:
             raise error
         retries = 10
         while True:
@@ -578,7 +582,7 @@ class KafkaFixture(Fixture):
                 else:
                     pass # retry
 
-    def _create_topic(self, topic_name, num_partitions=None, replication_factor=None, timeout_ms=10000):
+    def _create_topic(self, topic_name, num_partitions=None, replication_factor=None, timeout_ms=10000) -> None:
         if num_partitions is None:
             num_partitions = self.partitions
         if replication_factor is None:
@@ -599,7 +603,7 @@ class KafkaFixture(Fixture):
         else:
             self._create_topic_via_cli(topic_name, num_partitions, replication_factor)
 
-    def _create_topic_via_metadata(self, topic_name, timeout_ms=10000):
+    def _create_topic_via_metadata(self, topic_name, timeout_ms=10000) -> None:
         timeout_at = time.time() + timeout_ms / 1000
         while time.time() < timeout_at:
             response = self._send_request(MetadataRequest[0]([topic_name]), timeout_ms)
@@ -610,7 +614,7 @@ class KafkaFixture(Fixture):
         else:
             raise RuntimeError('Unable to create topic via MetadataRequest')
 
-    def _create_topic_via_admin_api(self, topic_name, num_partitions, replication_factor, timeout_ms=10000):
+    def _create_topic_via_admin_api(self, topic_name, num_partitions, replication_factor, timeout_ms=10000) -> None:
         request = CreateTopicsRequest[0]([(topic_name, num_partitions,
                                            replication_factor, [], [])], timeout_ms)
         response = self._send_request(request, timeout=timeout_ms)
@@ -619,7 +623,7 @@ class KafkaFixture(Fixture):
             if error_code != 0:
                 raise errors.for_code(error_code)
 
-    def _create_topic_via_cli(self, topic_name, num_partitions, replication_factor):
+    def _create_topic_via_cli(self, topic_name, num_partitions, replication_factor) -> None:
         args = self.run_script('kafka-topics.sh',
                                '--create',
                                '--topic', topic_name,
@@ -641,7 +645,7 @@ class KafkaFixture(Fixture):
                 self.out(stderr)
                 raise RuntimeError("Failed to create topic %s" % (topic_name,))
 
-    def _cli_connect_args(self):
+    def _cli_connect_args(self) -> None:
         if env_kafka_version() < (3, 0, 0):
             return ['--zookeeper', '%s:%s/%s' % (self.zookeeper.host, self.zookeeper.port, self.zk_chroot)]
         else:
@@ -653,7 +657,7 @@ class KafkaFixture(Fixture):
                 args.append(command_conf.strpath)
             return args
 
-    def get_topic_names(self):
+    def get_topic_names(self) -> None:
         cmd = self.run_script('kafka-topics.sh', '--list', *self._cli_connect_args())
         env = self.kafka_run_class_env()
         env.pop('KAFKA_LOG4J_OPTS')
@@ -666,11 +670,11 @@ class KafkaFixture(Fixture):
             raise RuntimeError("Failed to list topics!")
         return stdout.decode().splitlines(False)
 
-    def create_topics(self, topic_names, num_partitions=None, replication_factor=None):
+    def create_topics(self, topic_names, num_partitions=None, replication_factor=None) -> None:
         for topic_name in topic_names:
             self._create_topic(topic_name, num_partitions, replication_factor)
 
-    def _enrich_client_params(self, params, **defaults):
+    def _enrich_client_params(self, params, **defaults) -> None:
         params = params.copy()
         for key, value in defaults.items():
             params.setdefault(key, value)
@@ -684,36 +688,36 @@ class KafkaFixture(Fixture):
         return params
 
     @staticmethod
-    def _create_many_clients(cnt, cls, *args, **params):
+    def _create_many_clients(cnt, cls, *args, **params) -> None:
         client_id = params['client_id']
         for _ in range(cnt):
             params['client_id'] = '%s_%s' % (client_id, random_string(4))
             yield cls(*args, **params)
 
-    def get_clients(self, cnt=1, **params):
+    def get_clients(self, cnt=1, **params) -> None:
         params = self._enrich_client_params(params, client_id='client')
         for client in self._create_many_clients(cnt, KafkaClient, **params):
             yield client
 
-    def get_admin_clients(self, cnt, **params):
+    def get_admin_clients(self, cnt, **params) -> None:
         params = self._enrich_client_params(params, client_id='admin_client')
         for client in self._create_many_clients(cnt, KafkaAdminClient, **params):
             yield client
 
-    def get_consumers(self, cnt, topics, **params):
+    def get_consumers(self, cnt, topics, **params) -> None:
         params = self._enrich_client_params(
             params, client_id='consumer', heartbeat_interval_ms=500, auto_offset_reset='earliest'
         )
         for client in self._create_many_clients(cnt, KafkaConsumer, *topics, **params):
             yield client
 
-    def get_producers(self, cnt, **params):
+    def get_producers(self, cnt, **params) -> None:
         params = self._enrich_client_params(params, client_id='producer')
         for client in self._create_many_clients(cnt, KafkaProducer, **params):
             yield client
 
 
-def get_api_versions():
+def get_api_versions() -> None:
     logging.basicConfig(level=logging.ERROR)
     zk = ZookeeperFixture.instance()
     k = KafkaFixture.instance(0, zk)
@@ -731,7 +735,7 @@ def get_api_versions():
     zk.close()
 
 
-def run_brokers():
+def run_brokers() -> None:
     logging.basicConfig(level=logging.ERROR)
     k = KafkaFixture.instance(0)
     zk = k.zookeeper

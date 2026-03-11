@@ -9,7 +9,7 @@ from .list_offsets import ListConsumerGroupOffsets
 class ConsumerGroupsSubCommand:
 
     @classmethod
-    def add_subparser(cls, subparsers):
+    def add_subparser(cls, subparsers) -> None:
         parser = subparsers.add_parser('consumer-groups', help='Manage Kafka Consumer Groups')
         commands = parser.add_subparsers()
         for cmd in [ListConsumerGroups, DescribeConsumerGroups, ListConsumerGroupOffsets, DeleteConsumerGroups]:

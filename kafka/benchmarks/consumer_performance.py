@@ -7,15 +7,17 @@ import sys
 import threading
 import time
 import traceback
+from typing import Any
 
 from kafka import KafkaConsumer
 
 
 class ConsumerPerformance(object):
     @staticmethod
-    def run(args):
+    def run(args: argparse.Namespace) -> None:
         try:
             props = {}
+            v: Any
             for prop in args.consumer_config:
                 k, v = prop.split('=')
                 try:
@@ -72,14 +74,14 @@ class ConsumerPerformance(object):
 
 
 class StatsReporter(threading.Thread):
-    def __init__(self, interval, consumer, event=None, raw_metrics=False):
+    def __init__(self, interval: float, consumer: KafkaConsumer, event: threading.Event | None = None, raw_metrics: bool = False) -> None:
         super(StatsReporter, self).__init__()
         self.interval = interval
         self.consumer = consumer
         self.event = event
         self.raw_metrics = raw_metrics
 
-    def print_stats(self):
+    def print_stats(self) -> None:
         metrics = self.consumer.metrics()
         if self.raw_metrics:
             pprint.pprint(metrics)
@@ -93,17 +95,17 @@ class StatsReporter(threading.Thread):
                   .format(**metrics['consumer-fetch-manager-metrics']))
 
 
-    def print_final(self):
+    def print_final(self) -> None:
         self.print_stats()
 
-    def run(self):
+    def run(self) -> None:
         while self.event and not self.event.wait(self.interval):
             self.print_stats()
         else:
             self.print_final()
 
 
-def get_args_parser():
+def get_args_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='This tool is used to verify the consumer performance.')
 

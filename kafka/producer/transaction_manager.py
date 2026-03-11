@@ -1,9 +1,9 @@
-import abc 
+import abc
 import collections
-from enum import IntEnum
 import heapq
 import logging
 import threading
+from enum import IntEnum
 
 import kafka.errors as Errors
 from kafka.protocol.add_offsets_to_txn import AddOffsetsToTxnRequest
@@ -13,7 +13,6 @@ from kafka.protocol.find_coordinator import FindCoordinatorRequest
 from kafka.protocol.init_producer_id import InitProducerIdRequest
 from kafka.protocol.txn_offset_commit import TxnOffsetCommitRequest
 from kafka.structs import TopicPartition
-
 
 log = logging.getLogger(__name__)
 
@@ -26,21 +25,21 @@ NO_SEQUENCE = -1
 class ProducerIdAndEpoch(object):
     __slots__ = ('producer_id', 'epoch')
 
-    def __init__(self, producer_id, epoch):
+    def __init__(self, producer_id, epoch) -> None:
         self.producer_id = producer_id
         self.epoch = epoch
 
     @property
-    def is_valid(self):
+    def is_valid(self) -> None:
         return NO_PRODUCER_ID < self.producer_id
 
-    def match(self, batch):
+    def match(self, batch) -> None:
         return self.producer_id == batch.producer_id and self.epoch == batch.producer_epoch
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> None:
         return isinstance(other, ProducerIdAndEpoch) and self.producer_id == other.producer_id and self.epoch == other.epoch
 
-    def __str__(self):
+    def __str__(self) -> None:
         return "ProducerIdAndEpoch(producer_id={}, epoch={})".format(self.producer_id, self.epoch)
 
 
@@ -55,7 +54,7 @@ class TransactionState(IntEnum):
     FATAL_ERROR = 7
 
     @classmethod
-    def is_transition_valid(cls, source, target):
+    def is_transition_valid(cls, source, target) -> None:
         if target == cls.INITIALIZING:
             return source == cls.UNINITIALIZED
         elif target == cls.READY:
@@ -128,7 +127,7 @@ class TransactionManager(object):
         self.retry_backoff_ms = retry_backoff_ms
         self._lock = threading.Condition()
 
-    def initialize_transactions(self):
+    def initialize_transactions(self) -> None:
         with self._lock:
             self._ensure_transactional()
             self._transition_to(TransactionState.INITIALIZING)
@@ -138,20 +137,20 @@ class TransactionManager(object):
             self._enqueue_request(handler)
             return handler.result
 
-    def begin_transaction(self):
+    def begin_transaction(self) -> None:
         with self._lock:
             self._ensure_transactional()
             self._maybe_fail_with_error()
             self._transition_to(TransactionState.IN_TRANSACTION)
 
-    def begin_commit(self):
+    def begin_commit(self) -> None:
         with self._lock:
             self._ensure_transactional()
             self._maybe_fail_with_error()
             self._transition_to(TransactionState.COMMITTING_TRANSACTION)
             return self._begin_completing_transaction(True)
 
-    def begin_abort(self):
+    def begin_abort(self) -> None:
         with self._lock:
             self._ensure_transactional()
             if self._current_state != TransactionState.ABORTABLE_ERROR:
@@ -162,14 +161,14 @@ class TransactionManager(object):
             self._new_partitions_in_transaction.clear()
             return self._begin_completing_transaction(False)
 
-    def _begin_completing_transaction(self, committed):
+    def _begin_completing_transaction(self, committed) -> None:
         if self._new_partitions_in_transaction:
             self._enqueue_request(self._add_partitions_to_transaction_handler())
         handler = EndTxnHandler(self, committed)
         self._enqueue_request(handler)
         return handler.result
 
-    def send_offsets_to_transaction(self, offsets, consumer_group_id):
+    def send_offsets_to_transaction(self, offsets, consumer_group_id) -> None:
         with self._lock:
             self._ensure_transactional()
             self._maybe_fail_with_error()
@@ -181,7 +180,7 @@ class TransactionManager(object):
             self._enqueue_request(handler)
             return handler.result
 
-    def maybe_add_partition_to_transaction(self, topic_partition):
+    def maybe_add_partition_to_transaction(self, topic_partition) -> None:
         with self._lock:
             self._fail_if_not_ready_for_send()
 
@@ -191,7 +190,7 @@ class TransactionManager(object):
             log.debug("Begin adding new partition %s to transaction", topic_partition)
             self._new_partitions_in_transaction.add(topic_partition)
 
-    def _fail_if_not_ready_for_send(self):
+    def _fail_if_not_ready_for_send(self) -> None:
         with self._lock:
             if self.has_error():
                 raise Errors.KafkaError(
@@ -207,46 +206,46 @@ class TransactionManager(object):
                 if self._current_state != TransactionState.IN_TRANSACTION:
                     raise Errors.IllegalStateError("Cannot call send in state %s" % (self._current_state.name,))
 
-    def is_send_to_partition_allowed(self, tp):
+    def is_send_to_partition_allowed(self, tp) -> None:
         with self._lock:
             if self.has_fatal_error():
                 return False
             return not self.is_transactional() or tp in self._partitions_in_transaction
 
-    def has_producer_id(self, producer_id=None):
+    def has_producer_id(self, producer_id=None) -> None:
         if producer_id is None:
             return self.producer_id_and_epoch.is_valid
         else:
             return self.producer_id_and_epoch.producer_id == producer_id
 
-    def is_transactional(self):
+    def is_transactional(self) -> None:
         return self.transactional_id is not None
 
-    def has_partitions_to_add(self):
+    def has_partitions_to_add(self) -> None:
         with self._lock:
             return bool(self._new_partitions_in_transaction) or bool(self._pending_partitions_in_transaction)
 
-    def is_completing(self):
+    def is_completing(self) -> None:
         with self._lock:
             return self._current_state in (
                 TransactionState.COMMITTING_TRANSACTION,
                 TransactionState.ABORTING_TRANSACTION)
 
     @property
-    def last_error(self):
+    def last_error(self) -> None:
         return self._last_error
 
-    def has_error(self):
+    def has_error(self) -> None:
         with self._lock:
             return self._current_state in (
                 TransactionState.ABORTABLE_ERROR,
                 TransactionState.FATAL_ERROR)
 
-    def is_aborting(self):
+    def is_aborting(self) -> None:
         with self._lock:
             return self._current_state == TransactionState.ABORTING_TRANSACTION
 
-    def transition_to_abortable_error(self, exc):
+    def transition_to_abortable_error(self, exc) -> None:
         with self._lock:
             if self._current_state == TransactionState.ABORTING_TRANSACTION:
                 log.debug("Skipping transition to abortable error state since the transaction is already being "
@@ -254,31 +253,31 @@ class TransactionManager(object):
                 return
             self._transition_to(TransactionState.ABORTABLE_ERROR, error=exc)
 
-    def transition_to_fatal_error(self, exc):
+    def transition_to_fatal_error(self, exc) -> None:
         with self._lock:
             self._transition_to(TransactionState.FATAL_ERROR, error=exc)
 
-    def is_partition_added(self, partition):
+    def is_partition_added(self, partition) -> None:
         with self._lock:
             return partition in self._partitions_in_transaction
 
-    def is_partition_pending_add(self, partition):
+    def is_partition_pending_add(self, partition) -> None:
         return partition in self._new_partitions_in_transaction or partition in self._pending_partitions_in_transaction
 
-    def has_producer_id_and_epoch(self, producer_id, producer_epoch):
+    def has_producer_id_and_epoch(self, producer_id, producer_epoch) -> None:
         return (
             self.producer_id_and_epoch.producer_id == producer_id and
             self.producer_id_and_epoch.epoch == producer_epoch
         )
 
-    def set_producer_id_and_epoch(self, producer_id_and_epoch):
+    def set_producer_id_and_epoch(self, producer_id_and_epoch) -> None:
         if not isinstance(producer_id_and_epoch, ProducerIdAndEpoch):
             raise TypeError("ProducerAndIdEpoch type required")
         log.info("ProducerId set to %s with epoch %s",
                  producer_id_and_epoch.producer_id, producer_id_and_epoch.epoch)
         self.producer_id_and_epoch = producer_id_and_epoch
 
-    def reset_producer_id(self):
+    def reset_producer_id(self) -> None:
         """
         This method is used when the producer needs to reset its internal state because of an irrecoverable exception
         from the broker.
@@ -305,11 +304,11 @@ class TransactionManager(object):
             self.set_producer_id_and_epoch(ProducerIdAndEpoch(NO_PRODUCER_ID, NO_PRODUCER_EPOCH))
             self._sequence_numbers.clear()
 
-    def sequence_number(self, tp):
+    def sequence_number(self, tp) -> None:
         with self._lock:
             return self._sequence_numbers[tp]
 
-    def increment_sequence_number(self, tp, increment):
+    def increment_sequence_number(self, tp, increment) -> None:
         with self._lock:
             if tp not in self._sequence_numbers:
                 raise Errors.IllegalStateError("Attempt to increment sequence number for a partition with no current sequence.")
@@ -320,11 +319,11 @@ class TransactionManager(object):
             else:
                 self._sequence_numbers[tp] += increment
 
-    def reset_sequence_for_partition(self, tp):
+    def reset_sequence_for_partition(self, tp) -> None:
         with self._lock:
             self._sequence_numbers.pop(tp, None)
 
-    def next_request_handler(self, has_incomplete_batches):
+    def next_request_handler(self, has_incomplete_batches) -> None:
         with self._lock:
             if self._new_partitions_in_transaction:
                 self._enqueue_request(self._add_partitions_to_transaction_handler())
@@ -359,17 +358,17 @@ class TransactionManager(object):
 
             return next_request_handler
 
-    def retry(self, request):
+    def retry(self, request) -> None:
         with self._lock:
             request.set_retry()
             self._enqueue_request(request)
 
-    def authentication_failed(self, exc):
+    def authentication_failed(self, exc) -> None:
         with self._lock:
             for _, _, request in self._pending_requests:
                 request.fatal_error(exc)
 
-    def coordinator(self, coord_type):
+    def coordinator(self, coord_type) -> None:
         if coord_type == 'group':
             return self._consumer_group_coordinator
         elif coord_type == 'transaction':
@@ -377,46 +376,46 @@ class TransactionManager(object):
         else:
             raise Errors.IllegalStateError("Received an invalid coordinator type: %s" % (coord_type,))
 
-    def lookup_coordinator_for_request(self, request):
+    def lookup_coordinator_for_request(self, request) -> None:
         self._lookup_coordinator(request.coordinator_type, request.coordinator_key)
 
-    def next_in_flight_request_correlation_id(self):
+    def next_in_flight_request_correlation_id(self) -> None:
         self._in_flight_request_correlation_id += 1
         return self._in_flight_request_correlation_id
 
-    def clear_in_flight_transactional_request_correlation_id(self):
+    def clear_in_flight_transactional_request_correlation_id(self) -> None:
         self._in_flight_request_correlation_id = self.NO_INFLIGHT_REQUEST_CORRELATION_ID
 
-    def has_in_flight_transactional_request(self):
+    def has_in_flight_transactional_request(self) -> None:
         return self._in_flight_request_correlation_id != self.NO_INFLIGHT_REQUEST_CORRELATION_ID
 
-    def has_fatal_error(self):
+    def has_fatal_error(self) -> None:
         return self._current_state == TransactionState.FATAL_ERROR
 
-    def has_abortable_error(self):
+    def has_abortable_error(self) -> None:
         return self._current_state == TransactionState.ABORTABLE_ERROR
 
     # visible for testing
-    def _test_transaction_contains_partition(self, tp):
+    def _test_transaction_contains_partition(self, tp) -> None:
         with self._lock:
             return tp in self._partitions_in_transaction
 
     # visible for testing
-    def _test_has_pending_offset_commits(self):
+    def _test_has_pending_offset_commits(self) -> None:
         return bool(self._pending_txn_offset_commits)
 
     # visible for testing
-    def _test_has_ongoing_transaction(self):
+    def _test_has_ongoing_transaction(self) -> None:
         with self._lock:
             # transactions are considered ongoing once started until completion or a fatal error
             return self._current_state == TransactionState.IN_TRANSACTION or self.is_completing() or self.has_abortable_error()
 
     # visible for testing
-    def _test_is_ready(self):
+    def _test_is_ready(self) -> None:
         with self._lock:
             return self.is_transactional() and self._current_state == TransactionState.READY
 
-    def _transition_to(self, target, error=None):
+    def _transition_to(self, target, error=None) -> None:
         with self._lock:
             if not self._current_state.is_transition_valid(self._current_state, target):
                 raise Errors.KafkaError("TransactionalId %s: Invalid transition attempted from state %s to state %s" % (
@@ -435,15 +434,15 @@ class TransactionManager(object):
                 log.debug("Transition from state %s to %s", self._current_state, target)
             self._current_state = target
 
-    def _ensure_transactional(self):
+    def _ensure_transactional(self) -> None:
         if not self.is_transactional():
             raise Errors.IllegalStateError("Transactional method invoked on a non-transactional producer.")
 
-    def _maybe_fail_with_error(self):
+    def _maybe_fail_with_error(self) -> None:
         if self.has_error():
             raise Errors.KafkaError("Cannot execute transactional method because we are in an error state: %s" % (self._last_error,))
 
-    def _maybe_terminate_request_with_error(self, request_handler):
+    def _maybe_terminate_request_with_error(self, request_handler) -> None:
         if self.has_error():
             if self.has_abortable_error() and isinstance(request_handler, FindCoordinatorHandler):
                 # No harm letting the FindCoordinator request go through if we're expecting to abort
@@ -452,11 +451,11 @@ class TransactionManager(object):
             return True
         return False
 
-    def _next_pending_requests_sort_id(self):
+    def _next_pending_requests_sort_id(self) -> None:
         self._pending_requests_sort_id += 1
         return self._pending_requests_sort_id
 
-    def _enqueue_request(self, request_handler):
+    def _enqueue_request(self, request_handler) -> None:
         log.debug("Enqueuing transactional request %s", request_handler.request)
         heapq.heappush(
             self._pending_requests,
@@ -467,7 +466,7 @@ class TransactionManager(object):
             )
         )
 
-    def _lookup_coordinator(self, coord_type, coord_key):
+    def _lookup_coordinator(self, coord_type, coord_key) -> None:
         with self._lock:
             if coord_type == 'group':
                 self._consumer_group_coordinator = None
@@ -477,7 +476,7 @@ class TransactionManager(object):
                 raise Errors.IllegalStateError("Invalid coordinator type: %s" % (coord_type,))
         self._enqueue_request(FindCoordinatorHandler(self, coord_type, coord_key))
 
-    def _complete_transaction(self):
+    def _complete_transaction(self) -> None:
         with self._lock:
             self._transition_to(TransactionState.READY)
             self._transaction_started = False
@@ -485,7 +484,7 @@ class TransactionManager(object):
             self._pending_partitions_in_transaction.clear()
             self._partitions_in_transaction.clear()
 
-    def _add_partitions_to_transaction_handler(self):
+    def _add_partitions_to_transaction_handler(self) -> None:
         with self._lock:
             self._pending_partitions_in_transaction.update(self._new_partitions_in_transaction)
             self._new_partitions_in_transaction.clear()
@@ -493,15 +492,15 @@ class TransactionManager(object):
 
 
 class TransactionalRequestResult(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self._latch = threading.Event()
         self._error = None
 
-    def done(self, error=None):
+    def done(self, error=None) -> None:
         self._error = error
         self._latch.set()
 
-    def wait(self, timeout_ms=None):
+    def wait(self, timeout_ms=None) -> None:
         timeout = timeout_ms / 1000 if timeout_ms is not None else None
         success = self._latch.wait(timeout)
         if self._error:
@@ -509,24 +508,24 @@ class TransactionalRequestResult(object):
         return success
 
     @property
-    def is_done(self):
+    def is_done(self) -> None:
         return self._latch.is_set()
 
     @property
-    def succeeded(self):
+    def succeeded(self) -> None:
         return self._latch.is_set() and self._error is None
 
     @property
-    def failed(self):
+    def failed(self) -> None:
         return self._latch.is_set() and self._error is not None
 
     @property
-    def exception(self):
+    def exception(self) -> None:
         return self._error
 
 
 class TxnRequestHandler(object, metaclass=abc.ABCMeta):
-    def __init__(self, transaction_manager, result=None):
+    def __init__(self, transaction_manager, result=None) -> None:
         self.transaction_manager = transaction_manager
         self.retry_backoff_ms = transaction_manager.retry_backoff_ms
         self.request = None
@@ -534,34 +533,34 @@ class TxnRequestHandler(object, metaclass=abc.ABCMeta):
         self._is_retry = False
 
     @property
-    def transactional_id(self):
+    def transactional_id(self) -> None:
         return self.transaction_manager.transactional_id
 
     @property
-    def producer_id(self):
+    def producer_id(self) -> None:
         return self.transaction_manager.producer_id_and_epoch.producer_id
 
     @property
-    def producer_epoch(self):
+    def producer_epoch(self) -> None:
         return self.transaction_manager.producer_id_and_epoch.epoch
 
-    def fatal_error(self, exc):
+    def fatal_error(self, exc) -> None:
         self.transaction_manager.transition_to_fatal_error(exc)
         self._result.done(error=exc)
 
-    def abortable_error(self, exc):
+    def abortable_error(self, exc) -> None:
         self.transaction_manager.transition_to_abortable_error(exc)
         self._result.done(error=exc)
 
-    def fail(self, exc):
+    def fail(self, exc) -> None:
         self._result.done(error=exc)
 
-    def reenqueue(self):
+    def reenqueue(self) -> None:
         with self.transaction_manager._lock:
             self._is_retry = True
             self.transaction_manager._enqueue_request(self)
 
-    def on_complete(self, correlation_id, response_or_exc):
+    def on_complete(self, correlation_id, response_or_exc) -> None:
         if correlation_id != self.transaction_manager._in_flight_request_correlation_id:
             self.fatal_error(RuntimeError("Detected more than one in-flight transactional request."))
         else:
@@ -580,39 +579,39 @@ class TxnRequestHandler(object, metaclass=abc.ABCMeta):
             else:
                 self.fatal_error(Errors.KafkaError("Could not execute transactional request for unknown reasons: %s" % response_or_exc))
 
-    def needs_coordinator(self):
+    def needs_coordinator(self) -> None:
         return self.coordinator_type is not None
 
     @property
-    def result(self):
+    def result(self) -> None:
         return self._result
 
     @property
-    def coordinator_type(self):
+    def coordinator_type(self) -> None:
         return 'transaction'
 
     @property
-    def coordinator_key(self):
+    def coordinator_key(self) -> None:
         return self.transaction_manager.transactional_id
 
-    def set_retry(self):
+    def set_retry(self) -> None:
         self._is_retry = True
 
     @property
-    def is_retry(self):
+    def is_retry(self) -> None:
         return self._is_retry
 
     @abc.abstractmethod
-    def handle_response(self, response):
+    def handle_response(self, response) -> None:
         pass
 
     @abc.abstractproperty
-    def priority(self):
+    def priority(self) -> None:
         pass
 
 
 class InitProducerIdHandler(TxnRequestHandler):
-    def __init__(self, transaction_manager, transaction_timeout_ms):
+    def __init__(self, transaction_manager, transaction_timeout_ms) -> None:
         super(InitProducerIdHandler, self).__init__(transaction_manager)
 
         if transaction_manager._api_version >= (2, 0):
@@ -624,10 +623,10 @@ class InitProducerIdHandler(TxnRequestHandler):
             transaction_timeout_ms=transaction_timeout_ms)
 
     @property
-    def priority(self):
+    def priority(self) -> None:
         return Priority.INIT_PRODUCER_ID
 
-    def handle_response(self, response):
+    def handle_response(self, response) -> None:
         error = Errors.for_code(response.error_code)
 
         if error is Errors.NoError:
@@ -645,7 +644,7 @@ class InitProducerIdHandler(TxnRequestHandler):
             self.fatal_error(Errors.KafkaError("Unexpected error in InitProducerIdResponse: %s" % (error())))
 
 class AddPartitionsToTxnHandler(TxnRequestHandler):
-    def __init__(self, transaction_manager, topic_partitions):
+    def __init__(self, transaction_manager, topic_partitions) -> None:
         super(AddPartitionsToTxnHandler, self).__init__(transaction_manager)
 
         if transaction_manager._api_version >= (2, 7):
@@ -664,10 +663,10 @@ class AddPartitionsToTxnHandler(TxnRequestHandler):
             topics=list(topic_data.items()))
 
     @property
-    def priority(self):
+    def priority(self) -> None:
         return Priority.ADD_PARTITIONS_OR_OFFSETS
 
-    def handle_response(self, response):
+    def handle_response(self, response) -> None:
         has_partition_errors = False
         unauthorized_topics = set()
         self.retry_backoff_ms = self.transaction_manager.retry_backoff_ms
@@ -728,7 +727,7 @@ class AddPartitionsToTxnHandler(TxnRequestHandler):
             self.transaction_manager._transaction_started = True
             self._result.done()
 
-    def maybe_override_retry_backoff_ms(self):
+    def maybe_override_retry_backoff_ms(self) -> None:
         # We only want to reduce the backoff when retrying the first AddPartition which errored out due to a
         # CONCURRENT_TRANSACTIONS error since this means that the previous transaction is still completing and
         # we don't want to wait too long before trying to start the new one.
@@ -740,7 +739,7 @@ class AddPartitionsToTxnHandler(TxnRequestHandler):
 
 
 class FindCoordinatorHandler(TxnRequestHandler):
-    def __init__(self, transaction_manager, coord_type, coord_key):
+    def __init__(self, transaction_manager, coord_type, coord_key) -> None:
         super(FindCoordinatorHandler, self).__init__(transaction_manager)
 
         self._coord_type = coord_type
@@ -761,18 +760,18 @@ class FindCoordinatorHandler(TxnRequestHandler):
         )
 
     @property
-    def priority(self):
+    def priority(self) -> None:
         return Priority.FIND_COORDINATOR
 
     @property
-    def coordinator_type(self):
+    def coordinator_type(self) -> None:
         return None
 
     @property
-    def coordinator_key(self):
+    def coordinator_key(self) -> None:
         return None
 
-    def handle_response(self, response):
+    def handle_response(self, response) -> None:
         error = Errors.for_code(response.error_code)
 
         if error is Errors.NoError:
@@ -796,7 +795,7 @@ class FindCoordinatorHandler(TxnRequestHandler):
 
 
 class EndTxnHandler(TxnRequestHandler):
-    def __init__(self, transaction_manager, committed):
+    def __init__(self, transaction_manager, committed) -> None:
         super(EndTxnHandler, self).__init__(transaction_manager)
 
         if self.transaction_manager._api_version >= (2, 7):
@@ -812,10 +811,10 @@ class EndTxnHandler(TxnRequestHandler):
             committed=committed)
 
     @property
-    def priority(self):
+    def priority(self) -> None:
         return Priority.END_TXN
 
-    def handle_response(self, response):
+    def handle_response(self, response) -> None:
         error = Errors.for_code(response.error_code)
 
         if error is Errors.NoError:
@@ -837,7 +836,7 @@ class EndTxnHandler(TxnRequestHandler):
 
 
 class AddOffsetsToTxnHandler(TxnRequestHandler):
-    def __init__(self, transaction_manager, consumer_group_id, offsets):
+    def __init__(self, transaction_manager, consumer_group_id, offsets) -> None:
         super(AddOffsetsToTxnHandler, self).__init__(transaction_manager)
 
         self.consumer_group_id = consumer_group_id
@@ -855,10 +854,10 @@ class AddOffsetsToTxnHandler(TxnRequestHandler):
             group_id=consumer_group_id)
 
     @property
-    def priority(self):
+    def priority(self) -> None:
         return Priority.ADD_PARTITIONS_OR_OFFSETS
 
-    def handle_response(self, response):
+    def handle_response(self, response) -> None:
         error = Errors.for_code(response.error_code)
 
         if error is Errors.NoError:
@@ -887,14 +886,14 @@ class AddOffsetsToTxnHandler(TxnRequestHandler):
 
 
 class TxnOffsetCommitHandler(TxnRequestHandler):
-    def __init__(self, transaction_manager, consumer_group_id, offsets, result):
+    def __init__(self, transaction_manager, consumer_group_id, offsets, result) -> None:
         super(TxnOffsetCommitHandler, self).__init__(transaction_manager, result=result)
 
         self.consumer_group_id = consumer_group_id
         self.offsets = offsets
         self.request = self._build_request()
 
-    def _build_request(self):
+    def _build_request(self) -> None:
         if self.transaction_manager._api_version >= (2, 1):
             version = 2
         elif self.transaction_manager._api_version >= (2, 0):
@@ -918,18 +917,18 @@ class TxnOffsetCommitHandler(TxnRequestHandler):
             topics=list(topic_data.items()))
 
     @property
-    def priority(self):
+    def priority(self) -> None:
         return Priority.ADD_PARTITIONS_OR_OFFSETS
 
     @property
-    def coordinator_type(self):
+    def coordinator_type(self) -> None:
         return 'group'
 
     @property
-    def coordinator_key(self):
+    def coordinator_key(self) -> None:
         return self.consumer_group_id
 
-    def handle_response(self, response):
+    def handle_response(self, response) -> None:
         lookup_coordinator = False
         retriable_failure = False
 

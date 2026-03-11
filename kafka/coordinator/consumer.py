@@ -4,20 +4,19 @@ import functools
 import logging
 import time
 
-from kafka.coordinator.base import BaseCoordinator, Generation
+import kafka.errors as Errors
 from kafka.coordinator.assignors.range import RangePartitionAssignor
 from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
 from kafka.coordinator.assignors.sticky.sticky_assignor import StickyPartitionAssignor
+from kafka.coordinator.base import BaseCoordinator, Generation
 from kafka.coordinator.protocol import ConsumerProtocol
 from kafka.coordinator.subscription import Subscription
-import kafka.errors as Errors
 from kafka.future import Future
 from kafka.metrics import AnonMeasurable
 from kafka.metrics.stats import Avg, Count, Max, Rate
 from kafka.protocol.commit import OffsetCommitRequest, OffsetFetchRequest
 from kafka.structs import OffsetAndMetadata, TopicPartition
 from kafka.util import Timer, WeakMethod
-
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ class ConsumerCoordinator(BaseCoordinator):
         'metric_group_prefix': 'consumer'
     }
 
-    def __init__(self, client, subscription, **configs):
+    def __init__(self, client, subscription, **configs) -> None:
         """Initialize the coordination manager.
 
         Keyword Arguments:
@@ -138,7 +137,7 @@ class ConsumerCoordinator(BaseCoordinator):
         self._cluster.request_update()
         self._cluster.add_listener(WeakMethod(self._handle_metadata_update))
 
-    def __del__(self):
+    def __del__(self) -> None:
         if hasattr(self, '_cluster') and self._cluster:
             try:
                 self._cluster.remove_listener(WeakMethod(self._handle_metadata_update))
@@ -146,10 +145,10 @@ class ConsumerCoordinator(BaseCoordinator):
                 pass
         super(ConsumerCoordinator, self).__del__()
 
-    def protocol_type(self):
+    def protocol_type(self) -> None:
         return ConsumerProtocol[0].PROTOCOL_TYPE
 
-    def group_protocols(self):
+    def group_protocols(self) -> None:
         """Returns list of preferred (protocols, metadata)"""
         if self._subscription.subscription is None:
             raise Errors.IllegalStateError('Consumer has not subscribed to topics')
@@ -171,7 +170,7 @@ class ConsumerCoordinator(BaseCoordinator):
             metadata_list.append(group_protocol)
         return metadata_list
 
-    def _handle_metadata_update(self, cluster):
+    def _handle_metadata_update(self, cluster) -> None:
         # if we encounter any unauthorized topics, raise an exception
         if cluster.unauthorized_topics:
             raise Errors.TopicAuthorizationFailedError(cluster.unauthorized_topics)
@@ -202,7 +201,7 @@ class ConsumerCoordinator(BaseCoordinator):
                         for partition in self._metadata_snapshot[topic]
                     ])
 
-    def _auto_assign_all_partitions(self):
+    def _auto_assign_all_partitions(self) -> None:
         # For users that use "subscribe" without group support,
         # we will simply assign all partitions to this consumer
         if self.config['api_version'] < (0, 9):
@@ -212,21 +211,21 @@ class ConsumerCoordinator(BaseCoordinator):
         else:
             return False
 
-    def _build_metadata_snapshot(self, subscription, cluster):
+    def _build_metadata_snapshot(self, subscription, cluster) -> None:
         metadata_snapshot = {}
         for topic in subscription.group_subscription():
             partitions = cluster.partitions_for_topic(topic)
             metadata_snapshot[topic] = partitions or set()
         return metadata_snapshot
 
-    def _lookup_assignor(self, name):
+    def _lookup_assignor(self, name) -> None:
         for assignor in self.config['assignors']:
             if assignor.name == name:
                 return assignor
         return None
 
     def _on_join_complete(self, generation, member_id, protocol,
-                          member_assignment_bytes):
+                          member_assignment_bytes) -> None:
         # only the leader is responsible for monitoring for metadata changes
         # (i.e. partition changes)
         if not self._is_leader:
@@ -266,7 +265,7 @@ class ConsumerCoordinator(BaseCoordinator):
                               self._subscription.rebalance_listener, self.group_id,
                               assigned)
 
-    def poll(self, timeout_ms=None):
+    def poll(self, timeout_ms=None) -> None:
         """
         Poll for coordinator events. Only applicable if group_id is set, and
         broker version supports GroupCoordinators. This ensures that the
@@ -316,7 +315,7 @@ class ConsumerCoordinator(BaseCoordinator):
         except Errors.KafkaTimeoutError:
             return False
 
-    def time_to_next_poll(self):
+    def time_to_next_poll(self) -> None:
         """Return seconds (float) remaining until :meth:`.poll` should be called again"""
         if not self.config['enable_auto_commit']:
             return self.time_to_next_heartbeat()
@@ -327,7 +326,7 @@ class ConsumerCoordinator(BaseCoordinator):
         return min(self.next_auto_commit_deadline - time.time(),
                    self.time_to_next_heartbeat())
 
-    def _perform_assignment(self, leader_id, assignment_strategy, members):
+    def _perform_assignment(self, leader_id, assignment_strategy, members) -> None:
         assignor = self._lookup_assignor(assignment_strategy)
         assert assignor, 'Invalid assignment protocol: %s' % (assignment_strategy,)
         member_subscriptions = {}
@@ -367,7 +366,7 @@ class ConsumerCoordinator(BaseCoordinator):
             group_assignment[member_id] = assignment
         return group_assignment
 
-    def _on_join_prepare(self, generation, member_id, timeout_ms=None):
+    def _on_join_prepare(self, generation, member_id, timeout_ms=None) -> None:
         # commit offsets prior to rebalance if auto-commit enabled
         self._maybe_auto_commit_offsets_sync(timeout_ms=timeout_ms)
 
@@ -386,7 +385,7 @@ class ConsumerCoordinator(BaseCoordinator):
         self._is_leader = False
         self._subscription.reset_group_subscription()
 
-    def need_rejoin(self):
+    def need_rejoin(self) -> None:
         """Check whether the group should be rejoined
 
         Returns:
@@ -410,7 +409,7 @@ class ConsumerCoordinator(BaseCoordinator):
 
         return super(ConsumerCoordinator, self).need_rejoin()
 
-    def refresh_committed_offsets_if_needed(self, timeout_ms=None):
+    def refresh_committed_offsets_if_needed(self, timeout_ms=None) -> None:
         """Fetch committed offsets for assigned partitions."""
         missing_fetch_positions = set(self._subscription.missing_fetch_positions())
         try:
@@ -422,7 +421,7 @@ class ConsumerCoordinator(BaseCoordinator):
             self._subscription.seek(partition, offset.offset)
         return True
 
-    def fetch_committed_offsets(self, partitions, timeout_ms=None):
+    def fetch_committed_offsets(self, partitions, timeout_ms=None) -> None:
         """Fetch the current committed offsets for specified partitions
 
         Arguments:
@@ -469,7 +468,7 @@ class ConsumerCoordinator(BaseCoordinator):
                 time.sleep(timer.timeout_ms / 1000)
             timer.maybe_raise()
 
-    def close(self, autocommit=True, timeout_ms=None):
+    def close(self, autocommit=True, timeout_ms=None) -> None:
         """Close the coordinator, leave the current group,
         and reset local generation / member_id.
 
@@ -484,14 +483,14 @@ class ConsumerCoordinator(BaseCoordinator):
         finally:
             super(ConsumerCoordinator, self).close(timeout_ms=timeout_ms)
 
-    def _invoke_completed_offset_commit_callbacks(self):
+    def _invoke_completed_offset_commit_callbacks(self) -> None:
         if self._async_commit_fenced:
             raise Errors.FencedInstanceIdError("Got fenced exception for group_instance_id %s" % (self.group_instance_id,))
         while self.completed_offset_commits:
             callback, offsets, res_or_exc = self.completed_offset_commits.popleft()
             callback(offsets, res_or_exc)
 
-    def commit_offsets_async(self, offsets, callback=None):
+    def commit_offsets_async(self, offsets, callback=None) -> None:
         """Commit specific offsets asynchronously.
 
         Arguments:
@@ -528,7 +527,7 @@ class ConsumerCoordinator(BaseCoordinator):
 
         return future
 
-    def _do_commit_offsets_async(self, offsets, callback=None):
+    def _do_commit_offsets_async(self, offsets, callback=None) -> None:
         if self.config['api_version'] < (0, 8, 1):
             raise Errors.UnsupportedVersionError('OffsetCommitRequest requires 0.8.1+ broker')
         assert all(map(lambda k: isinstance(k, TopicPartition), offsets))
@@ -538,13 +537,13 @@ class ConsumerCoordinator(BaseCoordinator):
             callback = self.config['default_offset_commit_callback']
         future = self._send_offset_commit_request(offsets)
         future.add_both(lambda res: self.completed_offset_commits.appendleft((callback, offsets, res)))
-        def _maybe_set_async_commit_fenced(exc):
+        def _maybe_set_async_commit_fenced(exc) -> None:
             if isinstance(exc, Errors.FencedInstanceIdError):
                 self._async_commit_fenced = True
         future.add_errback(_maybe_set_async_commit_fenced)
         return future
 
-    def commit_offsets_sync(self, offsets, timeout_ms=None):
+    def commit_offsets_sync(self, offsets, timeout_ms=None) -> None:
         """Commit specific offsets synchronously.
 
         This method will retry until the commit completes successfully or an
@@ -585,7 +584,7 @@ class ConsumerCoordinator(BaseCoordinator):
                 time.sleep(timer.timeout_ms / 1000)
             timer.maybe_raise()
 
-    def _maybe_auto_commit_offsets_sync(self, timeout_ms=None):
+    def _maybe_auto_commit_offsets_sync(self, timeout_ms=None) -> None:
         if self.config['enable_auto_commit']:
             try:
                 self.commit_offsets_sync(self._subscription.all_consumed_offsets(), timeout_ms=timeout_ms)
@@ -602,7 +601,7 @@ class ConsumerCoordinator(BaseCoordinator):
                 log.exception("Offset commit failed: This is likely to cause"
                               " duplicate message delivery")
 
-    def _send_offset_commit_request(self, offsets):
+    def _send_offset_commit_request(self, offsets) -> None:
         """Commit offsets for the specified list of topics and partitions.
 
         This is a non-blocking call which returns a request future that can be
@@ -757,7 +756,7 @@ class ConsumerCoordinator(BaseCoordinator):
         _f.add_errback(self._failed_request, node_id, request, future)
         return future
 
-    def _handle_offset_commit_response(self, offsets, future, send_time, response):
+    def _handle_offset_commit_response(self, offsets, future, send_time, response) -> None:
         log.debug("Received OffsetCommitResponse: %s", response)
         # TODO look at adding request_latency_ms to response (like java kafka)
         if self._consumer_sensors:
@@ -839,7 +838,7 @@ class ConsumerCoordinator(BaseCoordinator):
         else:
             future.success(None)
 
-    def _send_offset_fetch_request(self, partitions):
+    def _send_offset_fetch_request(self, partitions) -> None:
         """Fetch the committed offsets for a set of partitions.
 
         This is a non-blocking call. The returned future can be polled to get
@@ -889,7 +888,7 @@ class ConsumerCoordinator(BaseCoordinator):
         _f.add_errback(self._failed_request, node_id, request, future)
         return future
 
-    def _handle_offset_fetch_response(self, future, response):
+    def _handle_offset_fetch_response(self, future, response) -> None:
         log.debug("Received OffsetFetchResponse: %s", response)
         if response.API_VERSION >= 2 and response.error_code != Errors.NoError.errno:
             error_type = Errors.for_code(response.error_code)
@@ -951,7 +950,7 @@ class ConsumerCoordinator(BaseCoordinator):
                               " %s", self.group_id, tp)
         future.success(offsets)
 
-    def _default_offset_commit_callback(self, offsets, res_or_exc):
+    def _default_offset_commit_callback(self, offsets, res_or_exc) -> None:
         if isinstance(res_or_exc, Exception):
             log.warning("Auto offset commit failed for group %s: %s",
                         self.group_id, res_or_exc)
@@ -959,12 +958,12 @@ class ConsumerCoordinator(BaseCoordinator):
             log.debug("Completed autocommit of offsets %s for group %s",
                       offsets, self.group_id)
 
-    def _commit_offsets_async_on_complete(self, offsets, res_or_exc):
+    def _commit_offsets_async_on_complete(self, offsets, res_or_exc) -> None:
         if isinstance(res_or_exc, Exception) and getattr(res_or_exc, 'retriable', False):
             self.next_auto_commit_deadline = min(time.time() + self.config['retry_backoff_ms'] / 1000, self.next_auto_commit_deadline)
         self.config['default_offset_commit_callback'](offsets, res_or_exc)
 
-    def _maybe_auto_commit_offsets_async(self):
+    def _maybe_auto_commit_offsets_async(self) -> None:
         if self.config['enable_auto_commit']:
             if self.coordinator_unknown():
                 self.next_auto_commit_deadline = time.time() + self.config['retry_backoff_ms'] / 1000
@@ -972,17 +971,17 @@ class ConsumerCoordinator(BaseCoordinator):
                 self.next_auto_commit_deadline = time.time() + self.auto_commit_interval
                 self._do_auto_commit_offsets_async()
 
-    def maybe_auto_commit_offsets_now(self):
+    def maybe_auto_commit_offsets_now(self) -> None:
         if self.config['enable_auto_commit'] and not self.coordinator_unknown():
             self._do_auto_commit_offsets_async()
 
-    def _do_auto_commit_offsets_async(self):
+    def _do_auto_commit_offsets_async(self) -> None:
         self.commit_offsets_async(self._subscription.all_consumed_offsets(),
                                   self._commit_offsets_async_on_complete)
 
 
 class ConsumerCoordinatorMetrics(object):
-    def __init__(self, metrics, metric_group_prefix, subscription):
+    def __init__(self, metrics, metric_group_prefix, subscription) -> None:
         self.metrics = metrics
         self.metric_group_name = '%s-coordinator-metrics' % (metric_group_prefix,)
 

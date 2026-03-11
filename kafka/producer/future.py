@@ -6,28 +6,28 @@ from kafka.future import Future
 
 
 class FutureProduceResult(Future):
-    def __init__(self, topic_partition):
+    def __init__(self, topic_partition) -> None:
         super(FutureProduceResult, self).__init__()
         self.topic_partition = topic_partition
         self._latch = threading.Event()
 
-    def success(self, value):
+    def success(self, value) -> None:
         ret = super(FutureProduceResult, self).success(value)
         self._latch.set()
         return ret
 
-    def failure(self, error):
+    def failure(self, error) -> None:
         ret = super(FutureProduceResult, self).failure(error)
         self._latch.set()
         return ret
 
-    def wait(self, timeout=None):
+    def wait(self, timeout=None) -> None:
         # wait() on python2.6 returns None instead of the flag value
         return self._latch.wait(timeout) or self._latch.is_set()
 
 
 class FutureRecordMetadata(Future):
-    def __init__(self, produce_future, batch_index, timestamp_ms, checksum, serialized_key_size, serialized_value_size, serialized_header_size):
+    def __init__(self, produce_future, batch_index, timestamp_ms, checksum, serialized_key_size, serialized_value_size, serialized_header_size) -> None:
         super(FutureRecordMetadata, self).__init__()
         self._produce_future = produce_future
         # packing args as a tuple is a minor speed optimization
@@ -35,7 +35,7 @@ class FutureRecordMetadata(Future):
         produce_future.add_callback(self._produce_success)
         produce_future.add_errback(self.failure)
 
-    def _produce_success(self, result):
+    def _produce_success(self, result) -> None:
         offset, produce_timestamp_ms, record_exceptions_fn = result
 
         # Unpacking from args tuple is minor speed optimization
@@ -57,7 +57,7 @@ class FutureRecordMetadata(Future):
                                       serialized_value_size, serialized_header_size)
             self.success(metadata)
 
-    def get(self, timeout=None):
+    def get(self, timeout=None) -> None:
         if not self.is_done and not self._produce_future.wait(timeout):
             raise Errors.KafkaTimeoutError(
                 "Timeout after waiting for %s secs." % (timeout,))

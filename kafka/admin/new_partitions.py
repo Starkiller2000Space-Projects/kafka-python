@@ -11,6 +11,6 @@ class NewPartitions(object):
         self,
         total_count,
         new_assignments=None
-    ):
+    ) -> None:
         self.total_count = total_count
         self.new_assignments = new_assignments

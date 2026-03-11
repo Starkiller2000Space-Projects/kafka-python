@@ -13,5 +13,5 @@ class AbstractType(object, metaclass=abc.ABCMeta):
         pass
 
     @classmethod
-    def repr(cls, value):
+    def repr(cls, value) -> None:
         return repr(value)

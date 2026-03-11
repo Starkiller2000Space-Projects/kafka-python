@@ -16,7 +16,7 @@ class BaseApiVersionsResponse(Response):
     )
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data) -> None:
         if isinstance(data, bytes):
             data = BytesIO(data)
         # Check error_code, decode as v0 if any error

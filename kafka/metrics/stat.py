@@ -7,7 +7,7 @@ class AbstractStat(object, metaclass=abc.ABCMeta):
     off the stream of updates to a sensor
     """
     @abc.abstractmethod
-    def record(self, config, value, time_ms):
+    def record(self, config, value, time_ms) -> None:
         """
         Record the given value
 

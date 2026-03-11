@@ -6,7 +6,7 @@ from unittest import mock
 from kafka.sasl.msk import AwsMskIamClient, SaslMechanismAwsMskIam
 
 
-def client_factory(token=None):
+def client_factory(token=None) -> None:
     if sys.version_info >= (3, 3):
         now = datetime.datetime.fromtimestamp(1629321911, datetime.timezone.utc)
     else:
@@ -22,7 +22,7 @@ def client_factory(token=None):
         )
 
 
-def test_aws_msk_iam_client_permanent_credentials():
+def test_aws_msk_iam_client_permanent_credentials() -> None:
     client = client_factory(token=None)
     msg = client.first_message()
     assert msg
@@ -44,7 +44,7 @@ def test_aws_msk_iam_client_permanent_credentials():
     assert actual == expected
 
 
-def test_aws_msk_iam_client_temporary_credentials():
+def test_aws_msk_iam_client_temporary_credentials() -> None:
     client = client_factory(token='XXXXX')
     msg = client.first_message()
     assert msg
@@ -67,7 +67,7 @@ def test_aws_msk_iam_client_temporary_credentials():
     assert actual == expected
 
 
-def test_aws_msk_iam_sasl_mechanism():
+def test_aws_msk_iam_sasl_mechanism() -> None:
     with mock.patch('kafka.sasl.msk.BotoSession'):
         sasl = SaslMechanismAwsMskIam(security_protocol='SASL_SSL', host='localhost')
         with mock.patch.object(sasl, '_build_client', return_value=client_factory(token=None)):

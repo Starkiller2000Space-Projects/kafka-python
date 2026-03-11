@@ -7,7 +7,7 @@ class AbstractMetricsReporter(object, metaclass=abc.ABCMeta):
     are created so they can be reported.
     """
     @abc.abstractmethod
-    def init(self, metrics):
+    def init(self, metrics) -> None:
         """
         This is called when the reporter is first registered
         to initially register all existing metrics
@@ -18,7 +18,7 @@ class AbstractMetricsReporter(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def metric_change(self, metric):
+    def metric_change(self, metric) -> None:
         """
         This is called whenever a metric is updated or added
 
@@ -28,7 +28,7 @@ class AbstractMetricsReporter(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def metric_removal(self, metric):
+    def metric_removal(self, metric) -> None:
         """
         This is called whenever a metric is removed
 
@@ -38,7 +38,7 @@ class AbstractMetricsReporter(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def configure(self, configs):
+    def configure(self, configs) -> None:
         """
         Configure this class with the given key-value pairs
 
@@ -48,6 +48,6 @@ class AbstractMetricsReporter(object, metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         """Called when the metrics repository is closed."""
         raise NotImplementedError

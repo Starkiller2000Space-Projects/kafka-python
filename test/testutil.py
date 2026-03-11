@@ -13,11 +13,11 @@ def special_to_underscore(string, _matcher=re.compile(r'[^a-zA-Z0-9_]+')):
     return _matcher.sub('_', string)
 
 
-def random_string(length):
+def random_string(length) -> None:
     return "".join(random.choice(string.ascii_letters) for i in range(length))
 
 
-def env_kafka_version():
+def env_kafka_version() -> None:
     """Return the Kafka version set in the OS environment as a tuple.
 
      Example: '0.8.1.1' --> (0, 8, 1, 1)
@@ -27,7 +27,7 @@ def env_kafka_version():
     return tuple(map(int, os.environ['KAFKA_VERSION'].split('.')))
 
 
-def assert_message_count(messages, num_messages):
+def assert_message_count(messages, num_messages) -> None:
     """Check that we received the expected number of messages with no duplicates."""
     # Make sure we got them all
     assert len(messages) == num_messages, 'Expected %d messages, got %d' % (num_messages, len(messages))
@@ -38,7 +38,7 @@ def assert_message_count(messages, num_messages):
     assert len(unique_messages) == num_messages, 'Expected %d unique messages, got %d' % (num_messages, len(unique_messages))
 
 
-def maybe_skip_unsupported_compression(compression_type):
+def maybe_skip_unsupported_compression(compression_type) -> None:
     codecs = {1: 'gzip', 2: 'snappy', 3: 'lz4', 4: 'zstd'}
     if not compression_type:
         return
@@ -51,10 +51,10 @@ def maybe_skip_unsupported_compression(compression_type):
 
 
 class Timer(object):
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.start = time.time()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         self.end = time.time()
         self.interval = self.end - self.start

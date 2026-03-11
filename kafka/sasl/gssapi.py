@@ -20,7 +20,7 @@ class SaslMechanismGSSAPI(SaslMechanism):
     SASL_QOP_AUTH_INT = 2
     SASL_QOP_AUTH_CONF = 4
 
-    def __init__(self, **config):
+    def __init__(self, **config) -> None:
         assert gssapi is not None, 'GSSAPI lib not available'
         if 'sasl_kerberos_name' not in config and 'sasl_kerberos_service_name' not in config:
             raise ValueError('sasl_kerberos_service_name or sasl_kerberos_name required for GSSAPI sasl configuration')
@@ -39,7 +39,7 @@ class SaslMechanismGSSAPI(SaslMechanism):
         self._client_ctx = gssapi.SecurityContext(name=self.gssapi_name, usage='initiate')
         self._next_token = self._client_ctx.step(None)
 
-    def auth_bytes(self):
+    def auth_bytes(self) -> None:
         # GSSAPI Auth does not have a final broker->client message
         # so mark is_done after the final auth_bytes are provided
         # in practice we'll still receive a response when using SaslAuthenticate
@@ -48,7 +48,7 @@ class SaslMechanismGSSAPI(SaslMechanism):
             self._is_done = True
         return self._next_token or b''
 
-    def receive(self, auth_bytes):
+    def receive(self, auth_bytes) -> None:
         if not self._client_ctx.complete:
             # The server will send a token back. Processing of this token either
             # establishes a security context, or it needs further token exchange.
@@ -82,13 +82,13 @@ class SaslMechanismGSSAPI(SaslMechanism):
             # not read is_authenticated() until after is_done() is True, this should be fine.
             self._is_authenticated = True
 
-    def is_done(self):
+    def is_done(self) -> None:
         return self._is_done
 
-    def is_authenticated(self):
+    def is_authenticated(self) -> None:
         return self._is_authenticated
 
-    def auth_details(self):
+    def auth_details(self) -> None:
         if not self.is_authenticated:
             raise RuntimeError('Not authenticated yet!')
         return 'Authenticated as %s to %s via SASL / GSSAPI' % (self._client_ctx.initiator_name, self._client_ctx.target_name)

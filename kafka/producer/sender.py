@@ -42,7 +42,7 @@ class Sender(threading.Thread):
         'client_id': 'kafka-python-' + __version__,
     }
 
-    def __init__(self, client, metadata, accumulator, **configs):
+    def __init__(self, client, metadata, accumulator, **configs) -> None:
         super(Sender, self).__init__()
         self.config = copy.copy(self.DEFAULT_CONFIG)
         for key in self.config:
@@ -64,7 +64,7 @@ class Sender(threading.Thread):
         # A per-partition queue of batches ordered by creation time for tracking the in-flight batches
         self._in_flight_batches = collections.defaultdict(list)
 
-    def _maybe_remove_from_inflight_batches(self, batch):
+    def _maybe_remove_from_inflight_batches(self, batch) -> None:
         try:
             queue = self._in_flight_batches[batch.topic_partition]
         except KeyError:
@@ -78,7 +78,7 @@ class Sender(threading.Thread):
         queue.pop()
         heapq.heapify(queue)
 
-    def _get_expired_inflight_batches(self, now=None):
+    def _get_expired_inflight_batches(self, now=None) -> None:
         """Get the in-flight batches that has reached delivery timeout."""
         expired_batches = []
         to_remove = []
@@ -101,7 +101,7 @@ class Sender(threading.Thread):
             del self._in_flight_batches[tp]
         return expired_batches
 
-    def run(self):
+    def run(self) -> None:
         """The main run loop for the sender thread."""
         log.debug("%s: Starting Kafka producer I/O thread.", str(self))
 
@@ -138,7 +138,7 @@ class Sender(threading.Thread):
 
         log.debug("%s: Shutdown of Kafka producer I/O thread has completed.", str(self))
 
-    def run_once(self):
+    def run_once(self) -> None:
         """Run a single iteration of sending."""
         while self._topics_to_add:
             self._client.add_topic(self._topics_to_add.pop())
@@ -176,7 +176,7 @@ class Sender(threading.Thread):
         poll_timeout_ms = self._send_producer_data()
         self._client.poll(timeout_ms=poll_timeout_ms)
 
-    def _send_producer_data(self, now=None):
+    def _send_producer_data(self, now=None) -> None:
         now = time.time() if now is None else now
         # get the list of partitions with data ready to send
         result = self._accumulator.ready(self._metadata, now=now)
@@ -278,7 +278,7 @@ class Sender(threading.Thread):
                      self._failed_produce, batches, node_id))
         return poll_timeout_ms
 
-    def _maybe_send_transactional_request(self):
+    def _maybe_send_transactional_request(self) -> None:
         if self._transaction_manager.is_completing() and self._accumulator.has_incomplete:
             if self._transaction_manager.is_aborting():
                 self._accumulator.abort_undrained_batches(Errors.KafkaError("Failing batch since transaction was aborted"))
@@ -333,23 +333,23 @@ class Sender(threading.Thread):
 
         return True
 
-    def _maybe_abort_batches(self, exc):
+    def _maybe_abort_batches(self, exc) -> None:
         if self._accumulator.has_incomplete:
             log.error("%s: Aborting producer batches due to fatal error: %s", str(self), exc)
             self._accumulator.abort_batches(exc)
 
-    def initiate_close(self):
+    def initiate_close(self) -> None:
         """Start closing the sender (won't complete until all data is sent)."""
         self._running = False
         self._accumulator.close()
         self.wakeup()
 
-    def force_close(self):
+    def force_close(self) -> None:
         """Closes the sender without sending out any pending messages."""
         self._force_close = True
         self.initiate_close()
 
-    def add_topic(self, topic):
+    def add_topic(self, topic) -> None:
         # This is generally called from a separate thread
         # so this needs to be a thread-safe operation
         # we assume that checking set membership across threads
@@ -359,7 +359,7 @@ class Sender(threading.Thread):
             self._topics_to_add.add(topic)
             self.wakeup()
 
-    def _maybe_wait_for_producer_id(self):
+    def _maybe_wait_for_producer_id(self) -> None:
         while not self._transaction_manager.has_producer_id():
             try:
                 node_id = self._client.least_loaded_node()
@@ -392,12 +392,12 @@ class Sender(threading.Thread):
             log.debug("%s: Retry InitProducerIdRequest in %sms.", str(self), self.config['retry_backoff_ms'])
             time.sleep(self.config['retry_backoff_ms'] / 1000)
 
-    def _failed_produce(self, batches, node_id, error):
+    def _failed_produce(self, batches, node_id, error) -> None:
         log.error("%s: Error sending produce request to node %d: %s", str(self), node_id, error) # trace
         for batch in batches:
             self._complete_batch(batch, PartitionResponse(error=error))
 
-    def _handle_produce_response(self, node_id, send_time, batches, response):
+    def _handle_produce_response(self, node_id, send_time, batches, response) -> None:
         """Handle a produce response."""
         # if we have a response, parse it
         log.debug('%s: Parsing produce response: %r', str(self), response)
@@ -436,14 +436,14 @@ class Sender(threading.Thread):
             for batch in batches:
                 self._complete_batch(batch, PartitionResponse())
 
-    def _record_exceptions_fn(self, top_level_exception, record_errors, error_message):
+    def _record_exceptions_fn(self, top_level_exception, record_errors, error_message) -> None:
         """Returns a fn mapping batch_index to exception"""
         # When no record_errors, all batches resolve to top-level exception
         if not record_errors:
             return lambda _: top_level_exception
 
         record_errors_dict = dict(record_errors)
-        def record_exceptions_fn(batch_index):
+        def record_exceptions_fn(batch_index) -> None:
             if batch_index not in record_errors_dict:
                 return Errors.KafkaError(
                     "Failed to append record because it was part of a batch which had one more more invalid records")
@@ -453,7 +453,7 @@ class Sender(threading.Thread):
             return exc(err_msg)
         return record_exceptions_fn
 
-    def _fail_batch(self, batch, partition_response):
+    def _fail_batch(self, batch, partition_response) -> None:
         if partition_response.error is Errors.TopicAuthorizationFailedError:
             exception = Errors.TopicAuthorizationFailedError(batch.topic_partition.topic)
         elif partition_response.error is Errors.ClusterAuthorizationFailedError:
@@ -496,7 +496,7 @@ class Sender(threading.Thread):
             self._maybe_remove_from_inflight_batches(batch)
             self._accumulator.deallocate(batch)
 
-    def _complete_batch(self, batch, partition_response):
+    def _complete_batch(self, batch, partition_response) -> None:
         """Complete or retry the given batch of records.
 
         Arguments:
@@ -558,7 +558,7 @@ class Sender(threading.Thread):
         if self.config['guarantee_message_order']:
             self._accumulator.muted.remove(batch.topic_partition)
 
-    def _can_retry(self, batch, error):
+    def _can_retry(self, batch, error) -> None:
         """
         We can retry a send if the error is transient and the number of
         attempts taken is fewer than the maximum allowed
@@ -568,7 +568,7 @@ class Sender(threading.Thread):
                 batch.final_state is None and
                 getattr(error, 'retriable', False))
 
-    def _create_produce_requests(self, collated):
+    def _create_produce_requests(self, collated) -> None:
         """
         Transfer the record batches into a list of produce requests on a
         per-node basis.
@@ -587,7 +587,7 @@ class Sender(threading.Thread):
                     self.config['request_timeout_ms'], batches)
         return requests
 
-    def _produce_request(self, node_id, acks, timeout, batches):
+    def _produce_request(self, node_id, acks, timeout, batches) -> None:
         """Create a produce request from the given record batches.
 
         Returns:
@@ -622,20 +622,20 @@ class Sender(threading.Thread):
                 topics=topic_partition_data,
             )
 
-    def wakeup(self):
+    def wakeup(self) -> None:
         """Wake up the selector associated with this send thread."""
         self._client.wakeup()
 
-    def bootstrap_connected(self):
+    def bootstrap_connected(self) -> None:
         return self._client.bootstrap_connected()
 
-    def __str__(self):
+    def __str__(self) -> None:
         return "<Sender client_id=%s transactional_id=%s>" % (self.config['client_id'], self.config['transactional_id'])
 
 
 class SenderMetrics(object):
 
-    def __init__(self, metrics, client, metadata):
+    def __init__(self, metrics, client, metadata) -> None:
         self.metrics = metrics
         self._client = client
         self._metadata = metadata
@@ -710,7 +710,7 @@ class SenderMetrics(object):
 
     def add_metric(self, metric_name, measurable, group_name='producer-metrics',
                    description=None, tags=None,
-                   sensor_name=None):
+                   sensor_name=None) -> None:
         m = self.metrics
         metric = m.metric_name(metric_name, group_name, description, tags)
         if sensor_name:
@@ -719,9 +719,9 @@ class SenderMetrics(object):
         else:
             m.add_metric(metric, measurable)
 
-    def maybe_register_topic_metrics(self, topic):
+    def maybe_register_topic_metrics(self, topic) -> None:
 
-        def sensor_name(name):
+        def sensor_name(name) -> None:
             return 'topic.{0}.{1}'.format(topic, name)
 
         # if one sensor of the metrics has been registered for the topic,
@@ -753,7 +753,7 @@ class SenderMetrics(object):
                             group_name='producer-topic-metrics.' + topic,
                             description='Record errors per second for topic ' + topic)
 
-    def update_produce_request_metrics(self, batches_map):
+    def update_produce_request_metrics(self, batches_map) -> None:
         for node_batch in batches_map.values():
             records = 0
             total_bytes = 0
@@ -790,13 +790,13 @@ class SenderMetrics(object):
                 self.records_per_request_sensor.record(records)
                 self.byte_rate_sensor.record(total_bytes)
 
-    def record_retries(self, topic, count):
+    def record_retries(self, topic, count) -> None:
         self.retry_sensor.record(count)
         sensor = self.metrics.get_sensor('topic.' + topic + '.record-retries')
         if sensor:
             sensor.record(count)
 
-    def record_errors(self, topic, count):
+    def record_errors(self, topic, count) -> None:
         self.error_sensor.record(count)
         sensor = self.metrics.get_sensor('topic.' + topic + '.record-errors')
         if sensor:
