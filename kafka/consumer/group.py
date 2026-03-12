@@ -391,7 +391,7 @@ class KafkaConsumer(object):
             log.warning('use api_version=%s [tuple] -- "%s" as str is deprecated',
                         str(self.config['api_version']), str_version)
 
-        self._client = self.config['kafka_client'](metrics=self._metrics, **self.config)
+        self._client: KafkaClient = self.config['kafka_client'](metrics=self._metrics, **self.config)
 
         # Get auto-discovered / normalized version from client
         self.config['api_version'] = self._client.config['api_version']

@@ -10,7 +10,8 @@ class AbstractPartitionAssignor(object):
     partition counts which are always needed in assignors).
     """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def name(self) -> None:
         """.name should be a string identifying the assignor"""
         pass

@@ -9,37 +9,44 @@ if TYPE_CHECKING:
 class ABCRecord(object, metaclass=abc.ABCMeta):
     __slots__ = ()
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def size_in_bytes(self) -> int:
         """ Number of total bytes in record
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def offset(self) -> int:
         """ Absolute offset of record
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def timestamp(self) -> int:
         """ Epoch milliseconds
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def timestamp_type(self) -> Literal[0, 1]:
         """ CREATE_TIME(0) or APPEND_TIME(1)
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def key(self) -> bytes | None:
         """ Bytes key or None
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def value(self) -> bytes | None:
         """ Bytes value or None
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def checksum(self) -> None:
         """ Prior to v2 format CRC was contained in every message. This will
             be the checksum for v0 and v1 and None for v2 and above.
@@ -50,7 +57,8 @@ class ABCRecord(object, metaclass=abc.ABCMeta):
         """ Return True if v0/v1 record matches checksum. noop/True for v2 records
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def headers(self) -> list[tuple[str, bytes]]:
         """ If supported by version list of key-value tuples, or empty list if
             not supported by format.
@@ -108,17 +116,20 @@ class ABCRecordBatch(object, metaclass=abc.ABCMeta):
             if needed.
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def base_offset(self) -> int:
         """ Return base offset for batch
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def size_in_bytes(self) -> int:
         """ Return size of batch in bytes (includes header overhead)
         """
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def magic(self) -> Literal[0, 1, 2]:
         """ Return magic value (0, 1, 2) for batch.
         """

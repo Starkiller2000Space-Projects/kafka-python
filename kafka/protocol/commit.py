@@ -1,3 +1,6 @@
+from abc import ABC
+from typing import List, Tuple, Type, TypeVar
+
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import Array, Int16, Int32, Int64, Schema, String
 
@@ -197,7 +200,11 @@ OffsetCommitResponse = [
 ]
 
 
-class OffsetFetchResponse_v0(Response):
+class _OffsetFetchResponse(Response, ABC):
+    topics: List[Tuple[str, List[Tuple]]]
+
+
+class OffsetFetchResponse_v0(_OffsetFetchResponse):
     API_KEY = 9
     API_VERSION = 0
     SCHEMA = Schema(
@@ -210,14 +217,17 @@ class OffsetFetchResponse_v0(Response):
                 ('error_code', Int16)))))
     )
 
+    topics: List[Tuple[str, List[Tuple[int, int, str, int]]]]
 
-class OffsetFetchResponse_v1(Response):
+
+class OffsetFetchResponse_v1(_OffsetFetchResponse):
     API_KEY = 9
     API_VERSION = 1
     SCHEMA = OffsetFetchResponse_v0.SCHEMA
+    topics: List[Tuple[str, List[Tuple[int, int, str, int]]]]
 
 
-class OffsetFetchResponse_v2(Response):
+class OffsetFetchResponse_v2(_OffsetFetchResponse):
     # Added in KIP-88
     API_KEY = 9
     API_VERSION = 2
@@ -232,8 +242,11 @@ class OffsetFetchResponse_v2(Response):
         ('error_code', Int16)
     )
 
+    topics: List[Tuple[str, List[Tuple[int, int, str, int]]]]
+    error_code: int
 
-class OffsetFetchResponse_v3(Response):
+
+class OffsetFetchResponse_v3(_OffsetFetchResponse):
     API_KEY = 9
     API_VERSION = 3
     SCHEMA = Schema(
@@ -248,14 +261,22 @@ class OffsetFetchResponse_v3(Response):
         ('error_code', Int16)
     )
 
+    throttle_time_ms: int
+    topics: List[Tuple[str, List[Tuple[int, int, str, int]]]]
+    error_code: int
 
-class OffsetFetchResponse_v4(Response):
+
+class OffsetFetchResponse_v4(_OffsetFetchResponse):
     API_KEY = 9
     API_VERSION = 4
     SCHEMA = OffsetFetchResponse_v3.SCHEMA
 
+    throttle_time_ms: int
+    topics: List[Tuple[str, List[Tuple[int, int, str, int]]]]
+    error_code: int
 
-class OffsetFetchResponse_v5(Response):
+
+class OffsetFetchResponse_v5(_OffsetFetchResponse):
     API_KEY = 9
     API_VERSION = 5
     SCHEMA = Schema(
@@ -271,6 +292,10 @@ class OffsetFetchResponse_v5(Response):
         ('error_code', Int16)
     )
 
+    throttle_time_ms: int
+    topics: List[Tuple[str, List[Tuple[int, int, int, str, int]]]]
+    error_code: int
+
 
 class OffsetFetchRequest_v0(Request):
     API_KEY = 9
@@ -284,14 +309,20 @@ class OffsetFetchRequest_v0(Request):
     )
 
 
-class OffsetFetchRequest_v1(Request):
+_OffsetFetchResponseType = TypeVar('_OffsetFetchResponseType', bound=_OffsetFetchResponse)
+
+class _OffsetFetchRequest(Request[_OffsetFetchResponseType], ABC):
+    pass
+
+
+class OffsetFetchRequest_v1(_OffsetFetchRequest[OffsetFetchResponse_v1]):
     API_KEY = 9
     API_VERSION = 1  # kafka-backed storage
     RESPONSE_TYPE = OffsetFetchResponse_v1
     SCHEMA = OffsetFetchRequest_v0.SCHEMA
 
 
-class OffsetFetchRequest_v2(Request):
+class OffsetFetchRequest_v2(_OffsetFetchRequest[OffsetFetchResponse_v2]):
     # KIP-88: Allows passing null topics to return offsets for all partitions
     # that the consumer group has a stored offset for, even if no consumer in
     # the group is currently consuming that partition.
@@ -301,33 +332,33 @@ class OffsetFetchRequest_v2(Request):
     SCHEMA = OffsetFetchRequest_v1.SCHEMA
 
 
-class OffsetFetchRequest_v3(Request):
+class OffsetFetchRequest_v3(_OffsetFetchRequest[OffsetFetchResponse_v3]):
     API_KEY = 9
     API_VERSION = 3
     RESPONSE_TYPE = OffsetFetchResponse_v3
     SCHEMA = OffsetFetchRequest_v2.SCHEMA
 
 
-class OffsetFetchRequest_v4(Request):
+class OffsetFetchRequest_v4(_OffsetFetchRequest[OffsetFetchResponse_v4]):
     API_KEY = 9
     API_VERSION = 4
     RESPONSE_TYPE = OffsetFetchResponse_v4
     SCHEMA = OffsetFetchRequest_v3.SCHEMA
 
 
-class OffsetFetchRequest_v5(Request):
+class OffsetFetchRequest_v5(_OffsetFetchRequest[OffsetFetchResponse_v5]):
     API_KEY = 9
     API_VERSION = 5
     RESPONSE_TYPE = OffsetFetchResponse_v5
     SCHEMA = OffsetFetchRequest_v4.SCHEMA
 
 
-OffsetFetchRequest = [
+OffsetFetchRequest: List[Type[_OffsetFetchRequest]] = [
     OffsetFetchRequest_v0, OffsetFetchRequest_v1,
     OffsetFetchRequest_v2, OffsetFetchRequest_v3,
     OffsetFetchRequest_v4, OffsetFetchRequest_v5,
 ]
-OffsetFetchResponse = [
+OffsetFetchResponse: List[Type[_OffsetFetchResponse]] = [
     OffsetFetchResponse_v0, OffsetFetchResponse_v1,
     OffsetFetchResponse_v2, OffsetFetchResponse_v3,
     OffsetFetchResponse_v4, OffsetFetchResponse_v5,

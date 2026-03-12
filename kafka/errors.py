@@ -2,7 +2,7 @@ import inspect
 import sys
 from abc import ABC
 from collections.abc import Iterator
-from typing import Any, Tuple, Type
+from typing import Any, Dict, Type
 
 
 class KafkaError(RuntimeError):
@@ -1056,16 +1056,16 @@ class VoterNotFoundError(BrokerResponseError):
     retriable = False
 
 
-def _iter_broker_errors() -> Iterator[type[BrokerResponseError]]:
+def _iter_broker_errors() -> Iterator[Type[BrokerResponseError]]:
     for name, obj in inspect.getmembers(sys.modules[__name__]):
         if inspect.isclass(obj) and issubclass(obj, BrokerResponseError) and obj != BrokerResponseError:
             yield obj
 
 
-kafka_errors = dict([(x.errno, x) for x in _iter_broker_errors()])
+kafka_errors: Dict[int, Type[BrokerResponseError]] = dict([(x.errno, x) for x in _iter_broker_errors()])
 
 
-def for_code(error_code: Tuple[int, Type[BrokerResponseError]]) -> None:
+def for_code(error_code: int) -> Type[BrokerResponseError]:
     if error_code in kafka_errors:
         return kafka_errors[error_code]
     else:

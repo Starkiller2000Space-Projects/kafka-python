@@ -5,6 +5,7 @@ import random
 import re
 import threading
 import time
+from typing import Dict, Set
 
 from kafka import errors as Errors
 from kafka.conn import get_ip_port_afi
@@ -54,7 +55,7 @@ class ClusterMetadata(object):
         self._lock = threading.Lock()
         self.need_all_topic_metadata = False
         self.unauthorized_topics = set()
-        self.internal_topics = set()
+        self.internal_topics: Set[str] = set()
         self.controller = None
         self.cluster_id = None
 
@@ -66,11 +67,11 @@ class ClusterMetadata(object):
         self._bootstrap_brokers = self._generate_bootstrap_brokers()
         self._coordinator_brokers = {}
 
-    def _generate_bootstrap_brokers(self) -> None:
+    def _generate_bootstrap_brokers(self) -> Dict[int, BrokerMetadata]:
         # collect_hosts does not perform DNS, so we should be fine to re-use
         bootstrap_hosts = collect_hosts(self.config['bootstrap_servers'])
 
-        brokers = {}
+        brokers: Dict[int, BrokerMetadata] = {}
         for i, (host, port, _) in enumerate(bootstrap_hosts):
             node_id = 'bootstrap-%s' % i
             brokers[node_id] = BrokerMetadata(node_id, host, port, None)
@@ -79,7 +80,7 @@ class ClusterMetadata(object):
     def is_bootstrap(self, node_id) -> None:
         return node_id in self._bootstrap_brokers
 
-    def brokers(self) -> None:
+    def brokers(self) -> Set[BrokerMetadata]:
         """Get all BrokerMetadata
 
         Returns:
@@ -201,10 +202,10 @@ class ClusterMetadata(object):
             return self._future
 
     @property
-    def need_update(self) -> None:
+    def need_update(self) -> bool:
         return self._need_update
 
-    def topics(self, exclude_internal_topics=True) -> None:
+    def topics(self, exclude_internal_topics: bool = True) -> Set[str]:
         """Get set of known topics.
 
         Arguments:

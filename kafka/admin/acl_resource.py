@@ -1,4 +1,6 @@
+from collections.abc import Iterable
 from enum import IntEnum
+from typing import Set
 
 from kafka.errors import IllegalArgumentError
 
@@ -80,11 +82,11 @@ class ACLFilter(object):
 
     def __init__(
         self,
-        principal,
-        host,
-        operation,
-        permission_type,
-        resource_pattern
+        principal: str,
+        host: str,
+        operation: ACLOperation,
+        permission_type: ACLPermissionType,
+        resource_pattern: ResourcePatternFilter,
     ) -> None:
         self.principal = principal
         self.host = host
@@ -102,7 +104,7 @@ class ACLFilter(object):
         if not isinstance(self.resource_pattern, ResourcePatternFilter):
             raise IllegalArgumentError("resource_pattern must be a ResourcePatternFilter object")
 
-    def __repr__(self) -> None:
+    def __repr__(self) -> str:
         return "<ACL principal={principal}, resource={resource}, operation={operation}, type={type}, host={host}>".format(
             principal=self.principal,
             host=self.host,
@@ -111,7 +113,7 @@ class ACLFilter(object):
             resource=self.resource_pattern
         )
 
-    def __eq__(self, other) -> None:
+    def __eq__(self, other: 'ACLFilter') -> bool:
         return all((
             self.principal == other.principal,
             self.host == other.host,
@@ -120,7 +122,7 @@ class ACLFilter(object):
             self.resource_pattern == other.resource_pattern
         ))
 
-    def __hash__(self) -> None:
+    def __hash__(self) -> int:
         return hash((
             self.principal,
             self.host,
@@ -153,12 +155,12 @@ class ACL(ACLFilter):
     """
 
     def __init__(
-            self,
-            principal,
-            host,
-            operation,
-            permission_type,
-            resource_pattern
+        self,
+        principal: str,
+        host: str,
+        operation: ACLOperation,
+        permission_type: ACLPermissionType,
+        resource_pattern: 'ResourcePatternFilter'
     ) -> None:
         super(ACL, self).__init__(principal, host, operation, permission_type, resource_pattern)
         self.validate()
@@ -174,10 +176,10 @@ class ACL(ACLFilter):
 
 class ResourcePatternFilter(object):
     def __init__(
-            self,
-            resource_type,
-            resource_name,
-            pattern_type
+        self,
+        resource_type: ResourceType,
+        resource_name: str,
+        pattern_type: ACLResourcePatternType,
     ) -> None:
         self.resource_type = resource_type
         self.resource_name = resource_name
@@ -191,21 +193,21 @@ class ResourcePatternFilter(object):
         if not isinstance(self.pattern_type, ACLResourcePatternType):
             raise IllegalArgumentError("pattern_type must be an ACLResourcePatternType object")
 
-    def __repr__(self) -> None:
+    def __repr__(self) -> str:
         return "<ResourcePattern type={}, name={}, pattern={}>".format(
             self.resource_type.name,
             self.resource_name,
             self.pattern_type.name
         )
 
-    def __eq__(self, other) -> None:
+    def __eq__(self, other: 'ResourcePatternFilter') -> bool:
         return all((
             self.resource_type == other.resource_type,
             self.resource_name == other.resource_name,
             self.pattern_type == other.pattern_type,
         ))
 
-    def __hash__(self) -> None:
+    def __hash__(self) -> int:
         return hash((
             self.resource_type,
             self.resource_name,
@@ -226,10 +228,10 @@ class ResourcePattern(ResourcePatternFilter):
     """
 
     def __init__(
-            self,
-            resource_type,
-            resource_name,
-            pattern_type=ACLResourcePatternType.LITERAL
+        self,
+        resource_type: ResourceType,
+        resource_name: str,
+        pattern_type: ACLResourcePatternType = ACLResourcePatternType.LITERAL
     ) -> None:
         super(ResourcePattern, self).__init__(resource_type, resource_name, pattern_type)
         self.validate()
@@ -243,5 +245,5 @@ class ResourcePattern(ResourcePatternFilter):
             )
 
 
-def valid_acl_operations(int_vals) -> None:
-     return set([ACLOperation(v) for v in int_vals if v not in (0, 1, 2)])
+def valid_acl_operations(int_vals: Iterable[int]) -> Set[ACLOperation]:
+    return set([ACLOperation(v) for v in int_vals if v not in (0, 1, 2)])

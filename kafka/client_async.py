@@ -7,7 +7,8 @@ import socket
 import threading
 import time
 import weakref
-from typing import Optional, Tuple, Union
+from collections.abc import Sequence
+from typing import List, Optional, Tuple, Union
 
 from typing_extensions import Unpack
 
@@ -18,6 +19,7 @@ from kafka.future import Future
 from kafka.metrics import AnonMeasurable
 from kafka.metrics.stats import Avg, Count, Rate
 from kafka.metrics.stats.rate import TimeUnit
+from kafka.protocol.api import Request, Response
 from kafka.protocol.broker_api_versions import BROKER_API_VERSIONS
 from kafka.protocol.metadata import MetadataRequest
 from kafka.types import KafkaClientParams
@@ -219,7 +221,7 @@ class KafkaClient(object):
         self._wake_lock = threading.Lock()
 
         self.cluster = ClusterMetadata(**self.config)
-        self._topics = set()  # empty set will fetch all topic metadata
+        self._topics: Set[str] = set()  # empty set will fetch all topic metadata
         self._metadata_refresh_in_progress = False
         self._conns = Dict()  # object to support weakrefs
         self._api_versions = None
@@ -269,6 +271,8 @@ class KafkaClient(object):
                 raise Errors.UnrecognizedBrokerVersion(self.config['api_version'])
 
     def _init_wakeup_socketpair(self) -> None:
+        self._wake_r: socket.socket | None
+        self._wake_w: socket.socket | None
         self._wake_r, self._wake_w = socket.socketpair()
         self._wake_r.setblocking(False)
         self._wake_w.settimeout(self.config['wakeup_timeout_ms'] / 1000.0)
@@ -287,7 +291,7 @@ class KafkaClient(object):
         self._wake_r = None
         self._wake_w = None
 
-    def _can_connect(self, node_id) -> None:
+    def _can_connect(self, node_id) -> bool:
         if node_id not in self._conns:
             if self.cluster.broker_metadata(node_id):
                 return True
@@ -458,7 +462,7 @@ class KafkaClient(object):
         self.maybe_connect(node_id)
         return self.is_ready(node_id, metadata_priority=metadata_priority)
 
-    def connected(self, node_id) -> None:
+    def connected(self, node_id: int) -> bool:
         """Return True iff the node_id is connected."""
         conn = self._conns.get(node_id)
         if conn is None:
@@ -471,7 +475,7 @@ class KafkaClient(object):
             self._close_wakeup_socketpair()
             self._selector.close()
 
-    def close(self, node_id=None) -> None:
+    def close(self, node_id: Optional[int] = None) -> None:
         """Close one or all broker connections.
 
         Arguments:
@@ -493,7 +497,7 @@ class KafkaClient(object):
     def __del__(self) -> None:
         self._close()
 
-    def is_disconnected(self, node_id) -> None:
+    def is_disconnected(self, node_id: int) -> bool:
         """Check whether the node connection has been disconnected or failed.
 
         A disconnected node has either been closed or has failed. Connection
@@ -512,7 +516,7 @@ class KafkaClient(object):
             return False
         return conn.disconnected()
 
-    def connection_delay(self, node_id) -> None:
+    def connection_delay(self, node_id: int) -> int:
         """
         Return the number of milliseconds to wait, based on the connection
         state, before attempting to send data. When connecting or disconnected,
@@ -530,7 +534,7 @@ class KafkaClient(object):
             return 0
         return conn.connection_delay()
 
-    def throttle_delay(self, node_id) -> None:
+    def throttle_delay(self, node_id: int) -> int:
         """
         Return the number of milliseconds to wait until a broker is no longer throttled.
         When disconnected / connecting, returns 0.
@@ -540,7 +544,7 @@ class KafkaClient(object):
             return 0
         return conn.throttle_delay()
 
-    def is_ready(self, node_id, metadata_priority=True) -> None:
+    def is_ready(self, node_id: int, metadata_priority: bool = True) -> bool:
         """Check whether a node is ready to send more requests.
 
         In addition to connection-level checks, this method also is used to
@@ -566,13 +570,13 @@ class KafkaClient(object):
                 return False
         return True
 
-    def _can_send_request(self, node_id) -> None:
+    def _can_send_request(self, node_id) -> bool:
         conn = self._conns.get(node_id)
         if not conn:
             return False
         return conn.connected() and conn.can_send_more()
 
-    def send(self, node_id, request, wakeup=True, request_timeout_ms=None) -> None:
+    def send(self, node_id: int, request: Struct, wakeup: Optional[bool] = True, request_timeout_ms: Optional[int] = None) -> Future:
         """Send a request to a specific node. Bytes are placed on an
         internal per-connection send-queue. Actual network I/O will be
         triggered in a subsequent call to .poll()
@@ -808,8 +812,8 @@ class KafkaClient(object):
             return sum([len(conn.in_flight_requests)
                         for conn in list(self._conns.values())])
 
-    def _fire_pending_completed_requests(self) -> None:
-        responses = []
+    def _fire_pending_completed_requests(self) -> List[Response]:
+        responses: List[Response] = []
         while True:
             try:
                 # We rely on deque.popleft remaining threadsafe
@@ -823,7 +827,7 @@ class KafkaClient(object):
 
         return responses
 
-    def least_loaded_node(self) -> None:
+    def least_loaded_node(self) -> int:
         """Choose the node with fewest outstanding requests, with fallbacks.
 
         This method will prefer a node with an existing connection (not throttled)
@@ -890,7 +894,7 @@ class KafkaClient(object):
         self._topics = set(topics)
         return future
 
-    def add_topic(self, topic) -> None:
+    def add_topic(self, topic: str) -> None:
         """Add a topic to the list of topics tracked via metadata.
 
         Arguments:
@@ -1062,7 +1066,7 @@ class KafkaClient(object):
                 else:
                     raise Errors.NoBrokersAvailable()
 
-    def api_version(self, operation, max_version=None) -> None:
+    def api_version(self, operation: Sequence[type[Request]], max_version: Optional[int] = None) -> int:
         """Find the latest version of the protocol operation supported by both
         this library and the broker.
 

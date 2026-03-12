@@ -1,5 +1,8 @@
 import abc
 from io import BytesIO
+from typing import Any
+
+from typing_extensions import Self
 
 from kafka.protocol.abstract import AbstractType
 from kafka.protocol.types import Schema
@@ -9,12 +12,12 @@ from kafka.util import WeakMethod
 class Struct(metaclass=abc.ABCMeta):
 
     @property
-    @abc.astractmethod
+    @abc.abstractmethod
     def SCHEMA(self) -> Schema:
         """An instance of Schema() representing the structure"""
-        pass
+        ...
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         if len(args) == len(self.SCHEMA):
             for i, name in enumerate(self.SCHEMA.names):
                 setattr(self, name, args[i])
@@ -34,12 +37,12 @@ class Struct(metaclass=abc.ABCMeta):
         )
 
     @classmethod
-    def decode(cls, data) -> None:
+    def decode(cls, data) -> Self:
         if isinstance(data, bytes):
             data = BytesIO(data)
         return cls(*cls.SCHEMA.decode(data))
 
-    def get_item(self, name) -> None:
+    def get_item(self, name: str) -> Any:
         if name not in self.SCHEMA.names:
             raise KeyError("%s is not in the schema" % name)
         return getattr(self, name)

@@ -1,11 +1,16 @@
 import struct
 import uuid
+from collections.abc import Callable, Sequence
 from struct import error
+from typing import Any, Tuple, TypeVar
 
 from kafka.protocol.abstract import AbstractType
 
+ArgType = TypeVar('ArgType')
+ReturnType = TypeVar('ReturnType')
 
-def _pack(f, value) -> None:
+
+def _pack(f: Callable[[ArgType], ReturnType], value: ArgType) -> ReturnType:
     try:
         return f(value)
     except error as e:
@@ -14,7 +19,7 @@ def _pack(f, value) -> None:
                         .format(value, f, e))
 
 
-def _unpack(f, data) -> None:
+def _unpack(f: Callable[[ArgType], Tuple[ReturnType]], data: ArgType) -> ReturnType:
     try:
         (value,) = f(data)
         return value
@@ -29,11 +34,11 @@ class Int8(AbstractType):
     _unpack = struct.Struct('>b').unpack
 
     @classmethod
-    def encode(cls, value) -> None:
+    def encode(cls, value: Any) -> bytes:
         return _pack(cls._pack, value)
 
     @classmethod
-    def decode(cls, data) -> None:
+    def decode(cls, data) -> Any:
         return _unpack(cls._unpack, data.read(1))
 
 
@@ -42,7 +47,7 @@ class Int16(AbstractType):
     _unpack = struct.Struct('>h').unpack
 
     @classmethod
-    def encode(cls, value) -> None:
+    def encode(cls, value: Any) -> bytes:
         return _pack(cls._pack, value)
 
     @classmethod
@@ -160,13 +165,17 @@ class Boolean(AbstractType):
 
 
 class Schema(AbstractType):
-    def __init__(self, *fields) -> None:
+
+    names: Tuple[str]
+    fields: Tuple[AbstractType]
+
+    def __init__(self, *fields: Tuple[Tuple[str, AbstractType], ...]) -> None:
         if fields:
             self.names, self.fields = zip(*fields)
         else:
             self.names, self.fields = (), ()
 
-    def encode(self, item) -> None:
+    def encode(self, item: Sequence[Any]) -> bytes:
         if len(item) != len(self.fields):
             raise ValueError('Item field count does not match Schema')
         return b''.join([
@@ -174,7 +183,7 @@ class Schema(AbstractType):
             for i, field in enumerate(self.fields)
         ])
 
-    def decode(self, data) -> None:
+    def decode(self, data: bytes) -> Tuple[Any, ...]:
         return tuple([field.decode(data) for field in self.fields])
 
     def __len__(self) -> None:

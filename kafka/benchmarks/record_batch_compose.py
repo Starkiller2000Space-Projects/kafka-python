@@ -4,7 +4,7 @@ import itertools
 import os
 import random
 from collections.abc import Iterator
-from typing import Literal
+from typing import List, Literal, Tuple
 
 import pyperf
 
@@ -26,7 +26,7 @@ def random_bytes(length: int) -> bytes:
     return bytes(buffer)
 
 
-def prepare() -> Iterator[tuple[bytes, bytes, int]]:
+def prepare() -> Iterator[Tuple[bytes, bytes, int]]:
     return iter(itertools.cycle([
         (random_bytes(KEY_SIZE),
          random_bytes(VALUE_SIZE),
@@ -36,7 +36,7 @@ def prepare() -> Iterator[tuple[bytes, bytes, int]]:
     ]))
 
 
-def finalize(results: list[bytes]) -> None:
+def finalize(results: List[bytes]) -> None:
     # Just some strange code to make sure PyPy does execute the main code
     # properly, without optimizing it away
     hash_val = hashlib.md5()
@@ -49,7 +49,7 @@ def func(loops: int, magic: Literal[0, 1, 2]) -> float:
     # Jit can optimize out the whole function if the result is the same each
     # time, so we need some randomized input data )
     precomputed_samples = prepare()
-    results: list[bytes] = []
+    results: List[bytes] = []
 
     # Main benchmark code.
     t0 = pyperf.perf_counter()

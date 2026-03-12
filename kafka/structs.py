@@ -32,7 +32,7 @@ class BrokerMetadata(NamedTuple):
     nodeId: int
     host: str
     port: int
-    rack: str
+    rack: str | None
 
 
 class PartitionMetadata(NamedTuple):

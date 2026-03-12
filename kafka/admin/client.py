@@ -4,7 +4,8 @@ import logging
 import socket
 import time
 from collections import defaultdict
-from typing import List, Literal, Mapping, Optional, Tuple
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import Any, DefaultDict, Dict, List, Literal, Optional, Tuple, Type, TypeVar
 
 from typing_extensions import Unpack
 
@@ -22,9 +23,11 @@ from kafka.metrics import MetricConfig, Metrics
 from kafka.protocol.admin import (AlterConfigsRequest, CreateAclsRequest, CreatePartitionsRequest, CreateTopicsRequest,
                                   DeleteAclsRequest, DeleteGroupsRequest, DeleteRecordsRequest, DeleteTopicsRequest,
                                   DescribeAclsRequest, DescribeConfigsRequest, DescribeGroupsRequest,
-                                  DescribeLogDirsRequest, ElectionType, ElectLeadersRequest, ListGroupsRequest)
+                                  DescribeLogDirsRequest, ElectionType, ElectLeadersRequest, ListGroupsRequest,
+                                  _DeleteGroupsResponse, _DescribeGroupsRequest, _DescribeGroupsResponse,
+                                  _ListGroupsRequest, _ListGroupsResponse)
 from kafka.protocol.api import Request, Response
-from kafka.protocol.commit import OffsetFetchRequest
+from kafka.protocol.commit import OffsetFetchRequest, _OffsetFetchRequest, _OffsetFetchResponse
 from kafka.protocol.find_coordinator import FindCoordinatorRequest
 from kafka.protocol.metadata import MetadataRequest
 from kafka.protocol.types import Array
@@ -34,6 +37,10 @@ from kafka.version import __version__
 from . import ConfigResourceType
 
 log = logging.getLogger(__name__)
+
+
+ReturnType = TypeVar('ReturnType')
+ResponseType = TypeVar('ResponseType', bound=Response)
 
 
 class KafkaAdminClient(object):
@@ -215,7 +222,7 @@ class KafkaAdminClient(object):
         reporters = [reporter() for reporter in self.config['metric_reporters']]
         self._metrics = Metrics(metric_config, reporters)
 
-        self._client = self.config['kafka_client'](
+        self._client: KafkaClient = self.config['kafka_client'](
             metrics=self._metrics,
             metric_group_prefix='admin',
             **self.config
@@ -279,7 +286,7 @@ class KafkaAdminClient(object):
         else:
             raise Errors.NodeNotReadyError('controller')
 
-    def _find_coordinator_id_request(self, group_id) -> None:
+    def _find_coordinator_id_request(self, group_id: str) -> Request:
         """Send a FindCoordinatorRequest to a broker.
 
         Arguments:
@@ -314,7 +321,7 @@ class KafkaAdminClient(object):
                 .format(response))
         return response.coordinator_id
 
-    def _find_coordinator_ids(self, group_ids) -> None:
+    def _find_coordinator_ids(self, group_ids: Sequence[str]) -> Dict[str, int]:
         """Find the broker node_ids of the coordinators of the given groups.
 
         Sends a FindCoordinatorRequest message to the cluster for each group_id.
@@ -369,16 +376,16 @@ class KafkaAdminClient(object):
                 if future.failed():
                     raise future.exception  # pylint: disable-msg=raising-bad-type
 
-    def send_request(self, request: Request, node_id=None) -> None:
+    def send_request(self, request: Request, node_id: Optional[int] = None) -> Any:
         if node_id is None:
             node_id = self._client.least_loaded_node()
         self._client.await_ready(node_id)
         future = self._client.send(node_id, request)
-        self._wait_for_futures([future]) # raises exception on failure
+        self._wait_for_futures([future])  # raises exception on failure
         return future.value
 
-    def send_requests(self, requests_and_node_ids, response_fn=lambda x: x) -> None:
-        futures = []
+    def send_requests(self, requests_and_node_ids: Iterable[Tuple[Request[ResponseType], int]], response_fn: Callable[[ResponseType], ReturnType] = lambda x: x) -> List[ReturnType]:
+        futures: List[Future] = []
         for request, node_id in requests_and_node_ids:
             if node_id is None:
                 node_id = self._client.least_loaded_node()
@@ -387,7 +394,7 @@ class KafkaAdminClient(object):
         self._wait_for_futures(futures)
         return [response_fn(future.value) for future in futures]
 
-    def _send_request_to_controller(self, request) -> None:
+    def _send_request_to_controller(self, request: Request[ResponseType]) -> ResponseType:
         """Send a Kafka protocol message to the cluster controller.
 
         Will block until the message result is received.
@@ -543,7 +550,7 @@ class KafkaAdminClient(object):
                 t['authorized_operations'] = list(map(lambda acl: acl.name, valid_acl_operations(t['authorized_operations'])))
         return obj
 
-    def _get_cluster_metadata(self, topics=None, auto_topic_creation=False) -> None:
+    def _get_cluster_metadata(self, topics: Optional[List[str]] = None, auto_topic_creation: bool = False) -> None:
         """
         topics == None means "get all topics"
         """
@@ -1206,7 +1213,7 @@ class KafkaAdminClient(object):
     # describe delegation_token protocol not yet implemented
     # Note: send the request to the least_loaded_node()
 
-    def _describe_consumer_groups_request(self, group_id) -> None:
+    def _describe_consumer_groups_request(self, group_id: str) -> _DescribeGroupsRequest:
         """Send a DescribeGroupsRequest to the group's coordinator.
 
         Arguments:
@@ -1230,7 +1237,7 @@ class KafkaAdminClient(object):
             )
         return request
 
-    def _describe_consumer_groups_process_response(self, response) -> None:
+    def _describe_consumer_groups_process_response(self, response: _DescribeGroupsResponse) -> GroupInformation:
         """Process a DescribeGroupsResponse into a group description."""
         if response.API_VERSION > 3:
             raise NotImplementedError(
@@ -1242,7 +1249,7 @@ class KafkaAdminClient(object):
             if isinstance(response_field, Array):
                 described_groups_field_schema = response_field.array_of
                 described_group = getattr(response, response_name)[0]
-                described_group_information_list = []
+                described_group_information_list: List[List[MemberInformation]] = []
                 protocol_type_is_consumer = False
                 for (described_group_information, group_information_name, group_information_field) in zip(described_group, described_groups_field_schema.names, described_groups_field_schema.fields):
                     if group_information_name == 'protocol_type':
@@ -1253,7 +1260,7 @@ class KafkaAdminClient(object):
                         member_schema = group_information_field.array_of
                         for members in described_group_information:
                             member_information = []
-                            for (member, member_field, member_name)  in zip(members, member_schema.fields, member_schema.names):
+                            for (member, member_field, member_name) in zip(members, member_schema.fields, member_schema.names):
                                 if protocol_type_is_consumer:
                                     if member_name == 'member_metadata' and member:
                                         member_information.append(ConsumerProtocolMemberMetadata_v0.decode(member))
@@ -1283,7 +1290,7 @@ class KafkaAdminClient(object):
                 return group_description
         assert False, "DescribeGroupsResponse parsing failed"
 
-    def describe_consumer_groups(self, group_ids, group_coordinator_id=None, include_authorized_operations=False) -> None:
+    def describe_consumer_groups(self, group_ids: Sequence[str], group_coordinator_id: Optional[int] = None, include_authorized_operations: bool = False) -> List[GroupInformation]:
         """Describe a set of consumer groups.
 
         Any errors are immediately raised.
@@ -1317,7 +1324,7 @@ class KafkaAdminClient(object):
         ]
         return self.send_requests(requests, response_fn=self._describe_consumer_groups_process_response)
 
-    def _list_consumer_groups_request(self) -> None:
+    def _list_consumer_groups_request(self) -> _ListGroupsRequest:
         """Send a ListGroupsRequest to a broker.
 
         Returns:
@@ -1326,7 +1333,7 @@ class KafkaAdminClient(object):
         version = self._client.api_version(ListGroupsRequest, max_version=2)
         return ListGroupsRequest[version]()
 
-    def _list_consumer_groups_process_response(self, response) -> None:
+    def _list_consumer_groups_process_response(self, response: _ListGroupsResponse) -> List[Tuple[str, str]]:
         """Process a ListGroupsResponse into a list of groups."""
         if response.API_VERSION <= 2:
             error_type = Errors.for_code(response.error_code)
@@ -1340,7 +1347,7 @@ class KafkaAdminClient(object):
                 .format(response.API_VERSION))
         return response.groups
 
-    def list_consumer_groups(self, broker_ids=None) -> None:
+    def list_consumer_groups(self, broker_ids: Optional[Sequence[int]] = None) -> List[Tuple[str, str]]:
         """List all consumer groups known to the cluster.
 
         This returns a list of Consumer Group tuples. The tuples are
@@ -1383,7 +1390,7 @@ class KafkaAdminClient(object):
         consumer_groups = self.send_requests(requests, response_fn=self._list_consumer_groups_process_response)
         return list(set().union(*consumer_groups))
 
-    def _list_consumer_group_offsets_request(self, group_id, partitions=None) -> None:
+    def _list_consumer_group_offsets_request(self, group_id: str, partitions: Optional[List[TopicPartition]] = None) -> _OffsetFetchRequest:
         """Send an OffsetFetchRequest to a broker.
 
         Arguments:
@@ -1414,7 +1421,7 @@ class KafkaAdminClient(object):
             topics_partitions = list(topics_partitions_dict.items())
         return OffsetFetchRequest[version](group_id, topics_partitions)
 
-    def _list_consumer_group_offsets_process_response(self, response) -> None:
+    def _list_consumer_group_offsets_process_response(self, response: _OffsetFetchResponse) -> Dict[TopicPartition, OffsetAndMetadata]:
         """Process an OffsetFetchResponse.
 
         Arguments:
@@ -1457,8 +1464,8 @@ class KafkaAdminClient(object):
                 .format(response.API_VERSION))
         return offsets
 
-    def list_consumer_group_offsets(self, group_id, group_coordinator_id=None,
-                                    partitions=None) -> None:
+    def list_consumer_group_offsets(self, group_id: str, group_coordinator_id: Optional[int] = None,
+                                    partitions: Optional[List[TopicPartition]] = None) -> Dict[TopicPartition, OffsetAndMetadata]:
         """Fetch Consumer Offsets for a single consumer group.
 
         Note:
@@ -1494,7 +1501,7 @@ class KafkaAdminClient(object):
         response = self.send_request(request, node_id=group_coordinator_id)
         return self._list_consumer_group_offsets_process_response(response)
 
-    def delete_consumer_groups(self, group_ids, group_coordinator_id=None) -> None:
+    def delete_consumer_groups(self, group_ids: List[str], group_coordinator_id: Optional[int] = None) -> List[Tuple[str, Errors.KafkaError]]:
         """Delete Consumer Group Offsets for given consumer groups.
 
         Note:
@@ -1517,7 +1524,7 @@ class KafkaAdminClient(object):
         Returns:
             A list of tuples (group_id, KafkaError)
         """
-        coordinators_groups = defaultdict(list)
+        coordinators_groups: DefaultDict[int, List[str]] = defaultdict(list)
         if group_coordinator_id is not None:
             coordinators_groups[group_coordinator_id] = group_ids
         else:
@@ -1532,7 +1539,7 @@ class KafkaAdminClient(object):
         results = self.send_requests(requests, response_fn=self._convert_delete_groups_response)
         return list(itertools.chain(*results))
 
-    def _convert_delete_groups_response(self, response: 'Response') -> None:
+    def _convert_delete_groups_response(self, response: _DeleteGroupsResponse) -> List[Tuple[str, Type[Errors.KafkaError]]]:
         """Parse the DeleteGroupsResponse, mapping group IDs to their respective errors.
 
         Arguments:
@@ -1542,7 +1549,7 @@ class KafkaAdminClient(object):
             A list of (group_id, KafkaError) for each deleted group.
         """
         if response.API_VERSION <= 1:
-            results = []
+            results: List[Tuple[str, Type[Errors.KafkaError]]] = []
             for group_id, error_code in response.results:
                 results.append((group_id, Errors.for_code(error_code)))
             return results
@@ -1551,7 +1558,7 @@ class KafkaAdminClient(object):
                 "Support for DeleteGroupsResponse_v{} has not yet been added to KafkaAdminClient."
                     .format(response.API_VERSION))
 
-    def _delete_consumer_groups_request(self, group_ids: List[str]) -> None:
+    def _delete_consumer_groups_request(self, group_ids: List[str]) -> Request:
         """Build a DeleteGroupsRequest to send to a broker (the group coordinator).
 
         Arguments:

@@ -13,7 +13,7 @@ def tp() -> None:
     return TopicPartition('foo', 0)
 
 @pytest.fixture
-def cluster(tp, mocker) -> None:
+def cluster(tp, mocker) -> ClusterMetadata:
     metadata = ClusterMetadata()
     mocker.patch.object(metadata, 'leader_for_partition', return_value=0)
     mocker.patch.object(metadata, 'partitions_for_broker', return_value=[tp])

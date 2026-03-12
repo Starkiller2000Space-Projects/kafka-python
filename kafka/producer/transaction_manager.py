@@ -605,7 +605,8 @@ class TxnRequestHandler(object, metaclass=abc.ABCMeta):
     def handle_response(self, response) -> None:
         pass
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def priority(self) -> None:
         pass
 

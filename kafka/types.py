@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from selectors import BaseSelector
 from ssl import SSLContext
-from typing import List, Literal, Optional, Tuple, Type, TypedDict, Union
+from typing import List, Literal, Optional, Set, Tuple, Type, TypedDict, Union
 
 import gssapi
 
@@ -75,3 +75,9 @@ class KafkaClientParams(AuthParams, total=False):
     allow_auto_create_topics: bool
     metrics: Optional[Metrics]
     metric_group_prefix: str
+
+    # additional fields
+    bootstrap_topics_filter: Set[str]
+    wakeup_timeout_ms
+    sock_chunk_bytes
+    sock_chunk_buffer_count

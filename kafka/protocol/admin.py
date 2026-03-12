@@ -1,5 +1,6 @@
+from abc import ABC
 from enum import IntEnum
-from typing import List
+from typing import List, Literal, Tuple, Type, TypeVar
 
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import (Array, BitField, Boolean, Bytes, CompactArray, CompactString, Float64, Int8, Int16,
@@ -213,9 +214,7 @@ DeleteRecordsResponse = [DeleteRecordsResponse_v0]
 DeleteRecordsRequest = [DeleteRecordsRequest_v0]
 
 
-class ListGroupsResponse_v0(Response):
-    API_KEY = 16
-    API_VERSION = 0
+class _ListGroupsResponse(Response):
     SCHEMA = Schema(
         ('error_code', Int16),
         ('groups', Array(
@@ -223,8 +222,16 @@ class ListGroupsResponse_v0(Response):
             ('protocol_type', String('utf-8'))))
     )
 
+    error_code: int
+    groups: List[Tuple[str, str]]
 
-class ListGroupsResponse_v1(Response):
+
+class ListGroupsResponse_v0(_ListGroupsResponse):
+    API_KEY = 16
+    API_VERSION = 0
+
+
+class ListGroupsResponse_v1(_ListGroupsResponse):
     API_KEY = 16
     API_VERSION = 1
     SCHEMA = Schema(
@@ -235,44 +242,59 @@ class ListGroupsResponse_v1(Response):
             ('protocol_type', String('utf-8'))))
     )
 
-class ListGroupsResponse_v2(Response):
+    throttle_time_ms: int
+
+
+class ListGroupsResponse_v2(_ListGroupsResponse):
     API_KEY = 16
     API_VERSION = 2
     SCHEMA = ListGroupsResponse_v1.SCHEMA
 
+    throttle_time_ms: int
 
-class ListGroupsRequest_v0(Request):
-    API_KEY = 16
-    API_VERSION = 0
-    RESPONSE_TYPE = ListGroupsResponse_v0
+
+_ListGroupResponseType = TypeVar('_ListGroupResponseType', bound=_ListGroupsResponse)
+
+
+class _ListGroupsRequest(Request[_ListGroupResponseType]):
     SCHEMA = Schema()
 
 
-class ListGroupsRequest_v1(Request):
+class ListGroupsRequest_v0(_ListGroupsRequest[ListGroupsResponse_v0]):
+    API_KEY = 16
+    API_VERSION = 0
+    RESPONSE_TYPE = ListGroupsResponse_v0
+
+
+class ListGroupsRequest_v1(_ListGroupsRequest[ListGroupsResponse_v1]):
     API_KEY = 16
     API_VERSION = 1
     RESPONSE_TYPE = ListGroupsResponse_v1
-    SCHEMA = ListGroupsRequest_v0.SCHEMA
 
-class ListGroupsRequest_v2(Request):
+
+class ListGroupsRequest_v2(_ListGroupsRequest[ListGroupsResponse_v2]):
     API_KEY = 16
     API_VERSION = 1
     RESPONSE_TYPE = ListGroupsResponse_v2
-    SCHEMA = ListGroupsRequest_v0.SCHEMA
 
 
-ListGroupsRequest = [
+ListGroupsRequest: List[Type[_ListGroupsRequest]] = [
     ListGroupsRequest_v0, ListGroupsRequest_v1,
     ListGroupsRequest_v2,
 ]
-ListGroupsResponse = [
+ListGroupsResponse: List[Type[_ListGroupsResponse]] = [
     ListGroupsResponse_v0, ListGroupsResponse_v1,
     ListGroupsResponse_v2,
 ]
 
 
-class DescribeGroupsResponse_v0(Response):
+class _DescribeGroupsResponse(Response, ABC):
     API_KEY = 15
+
+    groups: List[Tuple]
+
+
+class DescribeGroupsResponse_v0(_DescribeGroupsResponse):
     API_VERSION = 0
     SCHEMA = Schema(
         ('groups', Array(
@@ -289,9 +311,10 @@ class DescribeGroupsResponse_v0(Response):
                 ('member_assignment', Bytes)))))
     )
 
+    groups: List[Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]]]]
 
-class DescribeGroupsResponse_v1(Response):
-    API_KEY = 15
+
+class DescribeGroupsResponse_v1(_DescribeGroupsResponse):
     API_VERSION = 1
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -309,15 +332,19 @@ class DescribeGroupsResponse_v1(Response):
                 ('member_assignment', Bytes)))))
     )
 
+    throttle_time_ms: int
+    groups: List[Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]]]]
 
-class DescribeGroupsResponse_v2(Response):
-    API_KEY = 15
+
+class DescribeGroupsResponse_v2(_DescribeGroupsResponse):
     API_VERSION = 2
     SCHEMA = DescribeGroupsResponse_v1.SCHEMA
 
+    throttle_time_ms: int
+    groups: List[Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]]]]
 
-class DescribeGroupsResponse_v3(Response):
-    API_KEY = 15
+
+class DescribeGroupsResponse_v3(_DescribeGroupsResponse):
     API_VERSION = 3
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -336,32 +363,40 @@ class DescribeGroupsResponse_v3(Response):
             ('authorized_operations', BitField)))
     )
 
+    throttle_time_ms: int
+    groups: List[Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]], Literal[0, 1]]]
 
-class DescribeGroupsRequest_v0(Request):
+
+_DescribeGroupsResponseType = TypeVar('_DescribeGroupsResponseType', bound=_DescribeGroupsResponse)
+
+
+class _DescribeGroupsRequest(Request[_DescribeGroupsResponseType], ABC):
     API_KEY = 15
-    API_VERSION = 0
-    RESPONSE_TYPE = DescribeGroupsResponse_v0
     SCHEMA = Schema(
         ('groups', Array(String('utf-8')))
     )
 
+    groups: List[str]
 
-class DescribeGroupsRequest_v1(Request):
-    API_KEY = 15
+
+class DescribeGroupsRequest_v0(_DescribeGroupsRequest[DescribeGroupsResponse_v0]):
+    API_VERSION = 0
+    RESPONSE_TYPE = DescribeGroupsResponse_v0
+
+
+class DescribeGroupsRequest_v1(_DescribeGroupsRequest[DescribeGroupsResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = DescribeGroupsResponse_v1
     SCHEMA = DescribeGroupsRequest_v0.SCHEMA
 
 
-class DescribeGroupsRequest_v2(Request):
-    API_KEY = 15
+class DescribeGroupsRequest_v2(_DescribeGroupsRequest[DescribeGroupsResponse_v2]):
     API_VERSION = 2
     RESPONSE_TYPE = DescribeGroupsResponse_v2
     SCHEMA = DescribeGroupsRequest_v0.SCHEMA
 
 
-class DescribeGroupsRequest_v3(Request):
-    API_KEY = 15
+class DescribeGroupsRequest_v3(_DescribeGroupsRequest[DescribeGroupsResponse_v3]):
     API_VERSION = 3
     RESPONSE_TYPE = DescribeGroupsResponse_v3
     SCHEMA = Schema(
@@ -369,12 +404,14 @@ class DescribeGroupsRequest_v3(Request):
         ('include_authorized_operations', Boolean)
     )
 
+    include_authorized_operations: bool
 
-DescribeGroupsRequest = [
+
+DescribeGroupsRequest: List[Type[_DescribeGroupsRequest]] = [
     DescribeGroupsRequest_v0, DescribeGroupsRequest_v1,
     DescribeGroupsRequest_v2, DescribeGroupsRequest_v3,
 ]
-DescribeGroupsResponse = [
+DescribeGroupsResponse: List[Type[_DescribeGroupsResponse]] = [
     DescribeGroupsResponse_v0, DescribeGroupsResponse_v1,
     DescribeGroupsResponse_v2, DescribeGroupsResponse_v3,
 ]
@@ -863,9 +900,8 @@ CreatePartitionsResponse = [
 ]
 
 
-class DeleteGroupsResponse_v0(Response):
-    API_KEY = 42
-    API_VERSION = 0
+class _DeleteGroupsResponse(Response, ABC):
+
     SCHEMA = Schema(
         ("throttle_time_ms", Int32),
         ("results", Array(
@@ -873,34 +909,47 @@ class DeleteGroupsResponse_v0(Response):
             ("error_code", Int16)))
     )
 
-
-class DeleteGroupsResponse_v1(Response):
-    API_KEY = 42
-    API_VERSION = 1
-    SCHEMA = DeleteGroupsResponse_v0.SCHEMA
+    throttle_time_ms: int
+    results: List[Tuple[str, int]]
 
 
-class DeleteGroupsRequest_v0(Request):
+class DeleteGroupsResponse_v0(_DeleteGroupsResponse):
     API_KEY = 42
     API_VERSION = 0
-    RESPONSE_TYPE = DeleteGroupsResponse_v0
+
+
+class DeleteGroupsResponse_v1(_DeleteGroupsResponse):
+    API_KEY = 42
+    API_VERSION = 1
+
+
+_DeleteGroupsResponseType = TypeVar('_DeleteGroupsResponseType', bound=_DeleteGroupsResponse)
+
+
+class _DeleteGroupsRequest(Request[_DeleteGroupsResponseType], ABC):
     SCHEMA = Schema(
         ("groups_names", Array(String("utf-8")))
     )
 
+    groups_names: List[str]
 
-class DeleteGroupsRequest_v1(Request):
+class DeleteGroupsRequest_v0(_DeleteGroupsRequest[DeleteGroupsResponse_v0]):
+    API_KEY = 42
+    API_VERSION = 0
+    RESPONSE_TYPE = DeleteGroupsResponse_v0
+
+
+class DeleteGroupsRequest_v1(_DeleteGroupsRequest[DeleteGroupsResponse_v1]):
     API_KEY = 42
     API_VERSION = 1
     RESPONSE_TYPE = DeleteGroupsResponse_v1
-    SCHEMA = DeleteGroupsRequest_v0.SCHEMA
 
 
-DeleteGroupsRequest: List[Request] = [
+DeleteGroupsRequest: List[Type[_DeleteGroupsRequest]] = [
     DeleteGroupsRequest_v0, DeleteGroupsRequest_v1
 ]
 
-DeleteGroupsResponse: List[Response] = [
+DeleteGroupsResponse: List[Type[_DeleteGroupsResponse]] = [
     DeleteGroupsResponse_v0, DeleteGroupsResponse_v1
 ]
 
@@ -1036,9 +1085,8 @@ ListPartitionReassignmentsRequest = [ListPartitionReassignmentsRequest_v0]
 ListPartitionReassignmentsResponse = [ListPartitionReassignmentsResponse_v0]
 
 
-class ElectLeadersResponse_v0(Response):
+class _ElectLeadersResponse(Response):
     API_KEY = 43
-    API_VERSION = 1
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
         ('error_code', Int16),
@@ -1052,50 +1100,46 @@ class ElectLeadersResponse_v0(Response):
         ))
     )
 
+    throttle_time_ms: int
+    error_code: int
+    replication_election_results: List[Tuple[str, List[Tuple[int, int, str]]]]
 
-class ElectLeadersRequest_v0(Request):
+
+class ElectLeadersResponse_v0(_ElectLeadersResponse):
+    API_VERSION = 1
+
+
+_ElectLeadersResponseType = TypeVar('_ElectLeadersResponseType', bound=_ElectLeadersResponse)
+
+
+class _ElectLeadersRequest(Request[_ElectLeadersResponseType]):
     API_KEY = 43
+    SCHEMA = Schema(
+        ('election_type', Int8),
+        ('topic_partitions', Array(
+            ('topic', String('utf-8')),
+            ('partition_ids', Array(Int32))
+        )),
+        ('timeout', Int32),
+    )
+
+    election_type: int
+    topic_partitions: List[Tuple[str, List[int]]]
+    timeout: int
+
+
+class ElectLeadersRequest_v0(_ElectLeadersRequest[ElectLeadersResponse_v0]):
     API_VERSION = 1
     RESPONSE_TYPE = ElectLeadersResponse_v0
-    SCHEMA = Schema(
-        ('election_type', Int8),
-        ('topic_partitions', Array(
-            ('topic', String('utf-8')),
-            ('partition_ids', Array(Int32))
-        )),
-        ('timeout', Int32),
-    )
 
 
-class ElectLeadersResponse_v1(Response):
-    API_KEY = 43
+class ElectLeadersResponse_v1(_ElectLeadersResponse):
     API_VERSION = 1
-    SCHEMA = Schema(
-        ('throttle_time_ms', Int32),
-        ('error_code', Int16),
-        ('replication_election_results', Array(
-            ('topic', String('utf-8')),
-            ('partition_result', Array(
-                ('partition_id', Int32),
-                ('error_code', Int16),
-                ('error_message', String('utf-8'))
-            ))
-        ))
-    )
 
 
-class ElectLeadersRequest_v1(Request):
-    API_KEY = 43
+class ElectLeadersRequest_v1(_ElectLeadersRequest[ElectLeadersResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = ElectLeadersResponse_v1
-    SCHEMA = Schema(
-        ('election_type', Int8),
-        ('topic_partitions', Array(
-            ('topic', String('utf-8')),
-            ('partition_ids', Array(Int32))
-        )),
-        ('timeout', Int32),
-    )
 
 
 class ElectionType(IntEnum):
@@ -1106,5 +1150,5 @@ class ElectionType(IntEnum):
     UNCLEAN = 1
 
 
-ElectLeadersRequest = [ElectLeadersRequest_v0, ElectLeadersRequest_v1]
-ElectLeadersResponse = [ElectLeadersResponse_v0, ElectLeadersResponse_v1]
+ElectLeadersRequest: List[Type[_ElectLeadersRequest]] = [ElectLeadersRequest_v0, ElectLeadersRequest_v1]
+ElectLeadersResponse: List[Type[_ElectLeadersResponse]] = [ElectLeadersResponse_v0, ElectLeadersResponse_v1]

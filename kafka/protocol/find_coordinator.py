@@ -1,3 +1,5 @@
+from typing import List, Type
+
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import Int8, Int16, Int32, Schema, String
 
@@ -58,5 +60,5 @@ class FindCoordinatorRequest_v2(Request):
     SCHEMA = FindCoordinatorRequest_v1.SCHEMA
 
 
-FindCoordinatorRequest = [FindCoordinatorRequest_v0, FindCoordinatorRequest_v1, FindCoordinatorRequest_v2]
-FindCoordinatorResponse = [FindCoordinatorResponse_v0, FindCoordinatorResponse_v1, FindCoordinatorResponse_v2]
+FindCoordinatorRequest: List[Type[Request]] = [FindCoordinatorRequest_v0, FindCoordinatorRequest_v1, FindCoordinatorRequest_v2]
+FindCoordinatorResponse: List[Type[Response]] = [FindCoordinatorResponse_v0, FindCoordinatorResponse_v1, FindCoordinatorResponse_v2]

@@ -1,4 +1,5 @@
-from typing import List
+from abc import ABC, abstractmethod
+from typing import List, Optional, Type
 
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import Array, BitField, Boolean, Int16, Int32, Schema, String
@@ -194,7 +195,20 @@ class MetadataResponse_v8(Response):
     )
 
 
-class MetadataRequest_v0(Request):
+class _MetadataRequest(Request, ABC):
+
+    @property
+    @abstractmethod
+    def ALL_TOPICS(self) -> Optional[List[str]]:
+        ...
+
+    @property
+    @abstractmethod
+    def NO_TOPICS(self) -> Optional[List[str]]:
+        ...
+
+
+class MetadataRequest_v0(_MetadataRequest):
     API_KEY = 3
     API_VERSION = 0
     RESPONSE_TYPE = MetadataResponse_v0
@@ -205,7 +219,7 @@ class MetadataRequest_v0(Request):
     NO_TOPICS = [] # v0 does not support a 'no topics' request, so we'll just ask for ALL
 
 
-class MetadataRequest_v1(Request):
+class MetadataRequest_v1(_MetadataRequest):
     API_KEY = 3
     API_VERSION = 1
     RESPONSE_TYPE = MetadataResponse_v1
@@ -214,7 +228,7 @@ class MetadataRequest_v1(Request):
     NO_TOPICS = [] # Empty array (len 0) for topics returns no topics
 
 
-class MetadataRequest_v2(Request):
+class MetadataRequest_v2(_MetadataRequest):
     API_KEY = 3
     API_VERSION = 2
     RESPONSE_TYPE = MetadataResponse_v2
@@ -223,7 +237,7 @@ class MetadataRequest_v2(Request):
     NO_TOPICS = []
 
 
-class MetadataRequest_v3(Request):
+class MetadataRequest_v3(_MetadataRequest):
     API_KEY = 3
     API_VERSION = 3
     RESPONSE_TYPE = MetadataResponse_v3
@@ -232,7 +246,7 @@ class MetadataRequest_v3(Request):
     NO_TOPICS = []
 
 
-class MetadataRequest_v4(Request):
+class MetadataRequest_v4(_MetadataRequest):
     API_KEY = 3
     API_VERSION = 4
     RESPONSE_TYPE = MetadataResponse_v4
@@ -244,7 +258,7 @@ class MetadataRequest_v4(Request):
     NO_TOPICS = []
 
 
-class MetadataRequest_v5(Request):
+class MetadataRequest_v5(_MetadataRequest):
     """
     The v5 metadata request is the same as v4.
     An additional field for offline_replicas has been added to the v5 metadata response
@@ -257,7 +271,7 @@ class MetadataRequest_v5(Request):
     NO_TOPICS = []
 
 
-class MetadataRequest_v6(Request):
+class MetadataRequest_v6(_MetadataRequest):
     API_KEY = 3
     API_VERSION = 6
     RESPONSE_TYPE = MetadataResponse_v6
@@ -266,7 +280,7 @@ class MetadataRequest_v6(Request):
     NO_TOPICS = []
 
 
-class MetadataRequest_v7(Request):
+class MetadataRequest_v7(_MetadataRequest):
     API_KEY = 3
     API_VERSION = 7
     RESPONSE_TYPE = MetadataResponse_v7
@@ -275,7 +289,7 @@ class MetadataRequest_v7(Request):
     NO_TOPICS = []
 
 
-class MetadataRequest_v8(Request):
+class MetadataRequest_v8(_MetadataRequest):
     API_KEY = 3
     API_VERSION = 8
     RESPONSE_TYPE = MetadataResponse_v8
@@ -289,12 +303,12 @@ class MetadataRequest_v8(Request):
     NO_TOPICS = []
 
 
-MetadataRequest: List[Request] = [
+MetadataRequest: List[Type[_MetadataRequest]] = [
     MetadataRequest_v0, MetadataRequest_v1, MetadataRequest_v2,
     MetadataRequest_v3, MetadataRequest_v4, MetadataRequest_v5,
     MetadataRequest_v6, MetadataRequest_v7, MetadataRequest_v8,
 ]
-MetadataResponse: List[Response] = [
+MetadataResponse: List[Type[Response]] = [
     MetadataResponse_v0, MetadataResponse_v1, MetadataResponse_v2,
     MetadataResponse_v3, MetadataResponse_v4, MetadataResponse_v5,
     MetadataResponse_v6, MetadataResponse_v7, MetadataResponse_v8,

@@ -385,22 +385,22 @@ if __name__ == '__main__':
 
     runner = pyperf.Runner()
     # Encode algorithms returning a bytes result
-    for bench_func in [
+    for enc_bytes_bench_func in [
             encode_varint_1,
             encode_varint_2,
             encode_varint_4]:
         for i, value in enumerate(BENCH_VALUES_ENC):
             runner.bench_func(
-                '{}_{}byte'.format(bench_func.__name__, i + 1),
-                bench_func, value)
+                '{}_{}byte'.format(enc_bytes_bench_func.__name__, i + 1),
+                enc_bytes_bench_func, value)
 
     # Encode algorithms writing to the buffer
-    for bench_func in [
+    for enc_bench_func in [
             encode_varint_3,
             encode_varint_5,
             encode_varint_6]:
         for i, value in enumerate(BENCH_VALUES_ENC):
-            fname = bench_func.__name__
+            fname = enc_bench_func.__name__
             runner.timeit(
                 '{}_{}byte'.format(fname, i + 1),
                 stmt="{}({}, buffer)".format(fname, value),
@@ -409,20 +409,20 @@ if __name__ == '__main__':
             )
 
     # Size algorithms
-    for bench_func in [
+    for size_bench_func in [
             size_of_varint_1,
             size_of_varint_2]:
-        for i, value in enumerate(BENCH_VALUES_ENC):
+        for i, enc_value in enumerate(BENCH_VALUES_ENC):
             runner.bench_func(
-                '{}_{}byte'.format(bench_func.__name__, i + 1),
-                bench_func, value)
+                '{}_{}byte'.format(size_bench_func.__name__, i + 1),
+                size_bench_func, enc_value)
 
     # Decode algorithms
-    for bench_func in [
+    for dec_bench_func in [
             decode_varint_1,
             decode_varint_2,
             decode_varint_3]:
-        for i, value in enumerate(BENCH_VALUES_DEC):
+        for i, dec_value in enumerate(BENCH_VALUES_DEC):
             runner.bench_func(
-                '{}_{}byte'.format(bench_func.__name__, i + 1),
-                bench_func, value)
+                '{}_{}byte'.format(dec_bench_func.__name__, i + 1),
+                dec_bench_func, dec_value)

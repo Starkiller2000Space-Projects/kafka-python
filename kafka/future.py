@@ -2,11 +2,13 @@ import functools
 import logging
 import threading
 from collections.abc import Callable, Iterable
-from typing import Any
+from typing import Any, ParamSpec, TypeVar
 
 from typing_extensions import Self
 
 log = logging.getLogger(__name__)
+Param = TypeVar('Param')
+Params = ParamSpec('Params')
 
 
 class Future(object):
@@ -16,8 +18,8 @@ class Future(object):
         self.is_done = False
         self.value: Any = None
         self.exception: BaseException | None = None
-        self._callbacks: list[Callable[..., 'Future']] = []
-        self._errbacks: list[Callable[..., 'Future']] = []
+        self._callbacks: list[Callable[..., None]] = []
+        self._errbacks: list[Callable[..., None]] = []
         self._lock = threading.Lock()
 
     def succeeded(self) -> bool:
@@ -52,7 +54,7 @@ class Future(object):
         self._call_backs('errback', self._errbacks, self.exception)
         return self
 
-    def add_callback(self, f: Callable[..., 'Future'], *args: Any, **kwargs: Any) -> Self:
+    def add_callback(self, f: Callable[Params, None], *args: Params.args, **kwargs: Params.kwargs) -> Self:
         if args or kwargs:
             f = functools.partial(f, *args, **kwargs)
         with self._lock:
@@ -64,7 +66,7 @@ class Future(object):
                 self._lock.acquire()
         return self
 
-    def add_errback(self, f: Callable[..., 'Future'], *args: Any, **kwargs: Any) -> Self:
+    def add_errback(self, f: Callable[Params, None], *args: Params.args, **kwargs: Params.kwargs) -> Self:
         if args or kwargs:
             f = functools.partial(f, *args, **kwargs)
         with self._lock:
@@ -76,7 +78,7 @@ class Future(object):
                 self._lock.acquire()
         return self
 
-    def add_both(self, f: Callable[..., 'Future'], *args: Any, **kwargs: Any) -> Self:
+    def add_both(self, f: Callable[Params, None], *args: Params.args, **kwargs: Params.kwargs) -> Self:
         self.add_callback(f, *args, **kwargs)
         self.add_errback(f, *args, **kwargs)
         return self
@@ -86,7 +88,7 @@ class Future(object):
         self.add_errback(future.failure)
         return self
 
-    def _call_backs(self, back_type: str, backs: Iterable[Callable], value: Any) -> None:
+    def _call_backs(self, back_type: str, backs: Iterable[Callable[[Param], None]], value: Param) -> None:
         for f in backs:
             try:
                 f(value)
