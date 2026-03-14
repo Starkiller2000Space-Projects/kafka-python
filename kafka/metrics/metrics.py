@@ -2,6 +2,7 @@ import logging
 import sys
 import threading
 import time
+from typing import Dict, List, Optional
 
 from kafka.metrics import AnonMeasurable, KafkaMetric, MetricConfig, MetricName
 from kafka.metrics.measurable import AbstractMeasurable
@@ -34,7 +35,7 @@ class Metrics(object):
         # as messages are sent we record the sizes
         sensor.record(message_size);
     """
-    def __init__(self, default_config: MetricConfig | None = None, reporters: list[AbstractMetricsReporter] | None = None,
+    def __init__(self, default_config: Optional[MetricConfig] = None, reporters: Optional[List[AbstractMetricsReporter]] = None,
                  enable_expiration: bool = False) -> None:
         """
         Create a metrics repository with a default config, given metric
@@ -49,9 +50,9 @@ class Metrics(object):
         """
         self._lock = threading.RLock()
         self._config = default_config or MetricConfig()
-        self._sensors = {}
-        self._metrics: dict[str, KafkaMetric] = {}
-        self._children_sensors: dict[str, Sensor] = {}
+        self._sensors: Dict[str, Sensor] = {}
+        self._metrics: Dict[str, KafkaMetric] = {}
+        self._children_sensors: Dict[Sensor, List[Sensor]] = {}
         self._reporters = reporters or []
         for reporter in self._reporters:
             reporter.init([])
@@ -77,13 +78,13 @@ class Metrics(object):
         return self._config
 
     @property
-    def metrics(self) -> dict:
+    def metrics(self) -> Dict[str, KafkaMetric]:
         """
         Get all the metrics currently maintained and indexed by metricName
         """
         return self._metrics
 
-    def metric_name(self, name: str, group: str, description: str = '', tags: dict | None = None) -> MetricName:
+    def metric_name(self, name: str, group: str, description: str = '', tags: Optional[Dict] = None) -> MetricName:
         """
         Create a MetricName with the given name, group, description and tags,
         plus default tags specified in the metric configuration.
@@ -103,7 +104,7 @@ class Metrics(object):
         combined_tags.update(tags or {})
         return MetricName(name, group, description, combined_tags)
 
-    def get_sensor(self, name: str) -> None:
+    def get_sensor(self, name: str) -> Optional[Sensor]:
         """
         Get the sensor with the given name if it exists
 
@@ -117,9 +118,9 @@ class Metrics(object):
             raise ValueError('name must be non-empty')
         return self._sensors.get(name, None)
 
-    def sensor(self, name: str, config: MetricConfig | None = None,
+    def sensor(self, name: str, config: Optional[MetricConfig] = None,
                inactive_sensor_expiration_time_seconds: int = sys.maxsize,
-               parents: list[Sensor] | None = None) -> Sensor:
+               parents: Optional[List[Sensor]] = None) -> Sensor:
         """
         Get or create a sensor with the given unique name and zero or
         more parent sensors. All parent sensors will receive every value

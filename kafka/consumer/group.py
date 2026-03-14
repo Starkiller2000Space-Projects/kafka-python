@@ -3,6 +3,7 @@ import logging
 import re
 import socket
 import time
+from typing import Dict, Optional
 
 from typing_extensions import Unpack
 
@@ -14,7 +15,7 @@ from kafka.coordinator.assignors.range import RangePartitionAssignor
 from kafka.coordinator.assignors.roundrobin import RoundRobinPartitionAssignor
 from kafka.coordinator.consumer import ConsumerCoordinator
 from kafka.errors import KafkaConfigurationError, UnsupportedVersionError
-from kafka.metrics import MetricConfig, Metrics
+from kafka.metrics import KafkaMetric, MetricConfig, Metrics
 from kafka.protocol.list_offsets import OffsetResetStrategy
 from kafka.structs import OffsetAndMetadata, TopicPartition
 from kafka.util import Timer
@@ -377,7 +378,7 @@ class KafkaConsumer(object):
                                          time_window_ms=self.config['metrics_sample_window_ms'],
                                          tags=metrics_tags)
             reporters = [reporter() for reporter in self.config['metric_reporters']]
-            self._metrics = Metrics(metric_config, reporters)
+            self._metrics: Optional[Metrics] = Metrics(metric_config, reporters)
         else:
             self._metrics = None
 
@@ -1008,7 +1009,7 @@ class KafkaConsumer(object):
         log.debug("Unsubscribed all topics or patterns and assigned partitions")
         self._iterator = None
 
-    def metrics(self, raw: bool = False) -> dict | None:
+    def metrics(self, raw: bool = False) -> Dict[str, KafkaMetric]:
         """Get metrics on consumer performance.
 
         This is ported from the Java Consumer, for details see:
@@ -1019,7 +1020,7 @@ class KafkaConsumer(object):
             releases without warning.
         """
         if not self._metrics:
-            return
+            return {}
         if raw:
             return self._metrics.metrics.copy()
 
@@ -1196,7 +1197,7 @@ class KafkaConsumer(object):
                 self._subscription.assignment[tp].position = OffsetAndMetadata(record.offset + 1, '', -1)
                 yield record
 
-    def __iter__(self):  # pylint: disable=non-iterator-returned
+    def __iter__(self):  
         return self
 
     def __next__(self) -> None:

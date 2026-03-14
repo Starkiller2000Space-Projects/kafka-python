@@ -478,9 +478,9 @@ class BrokerConnection(object):
         assert self.config['security_protocol'] in ('SSL', 'SASL_SSL')
         if self._ssl_context is None:
             log.debug('%s: configuring default SSL Context', self)
-            self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)  # pylint: disable=no-member
-            self._ssl_context.options |= ssl.OP_NO_SSLv2  # pylint: disable=no-member
-            self._ssl_context.options |= ssl.OP_NO_SSLv3  # pylint: disable=no-member
+            self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)  
+            self._ssl_context.options |= ssl.OP_NO_SSLv2  
+            self._ssl_context.options |= ssl.OP_NO_SSLv3  
             self._ssl_context.verify_mode = ssl.CERT_OPTIONAL
             if self.config['ssl_check_hostname']:
                 self._ssl_context.check_hostname = True
@@ -503,7 +503,7 @@ class BrokerConnection(object):
                     raise RuntimeError('This version of Python does not support ssl_crlfile!')
                 log.info('%s: Loading SSL CRL from %s', self, self.config['ssl_crlfile'])
                 self._ssl_context.load_verify_locations(self.config['ssl_crlfile'])
-                # pylint: disable=no-member
+                
                 self._ssl_context.verify_flags |= ssl.VERIFY_CRL_CHECK_LEAF
             if self.config['ssl_ciphers']:
                 log.info('%s: Setting SSL Ciphers: %s', self, self.config['ssl_ciphers'])
@@ -670,7 +670,7 @@ class BrokerConnection(object):
         elif self._sasl_auth_future.failed():
             ex = self._sasl_auth_future.exception
             if not isinstance(ex, Errors.KafkaConnectionError):
-                raise ex  # pylint: disable-msg=raising-bad-type
+                raise ex  
         return self._sasl_auth_future.succeeded()
 
     def _handle_sasl_handshake_response(self, future, response) -> None:
@@ -968,7 +968,7 @@ class BrokerConnection(object):
         """Return True iff socket is ready for requests / responses"""
         return self.connected() or self.initializing()
 
-    def send(self, request, blocking=True, request_timeout_ms=None) -> None:
+    def send(self, request: Request, blocking: bool = True, request_timeout_ms: Optional[bool] = None) -> Future:
         """Queue request for async network send, return Future()
 
         Arguments:

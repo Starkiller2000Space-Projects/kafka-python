@@ -5,13 +5,16 @@ import socket
 import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any, DefaultDict, Dict, List, Literal, Optional, Tuple, Type, TypeVar
+from typing import Any, DefaultDict, Dict, List, Literal, Optional, Set, Tuple, Type, TypeVar, Union
 
 from typing_extensions import Unpack
 
 import kafka.errors as Errors
 from kafka.admin.acl_resource import (ACL, ACLFilter, ACLOperation, ACLPermissionType, ACLResourcePatternType,
                                       ResourcePattern, ResourceType, valid_acl_operations)
+from kafka.admin.config_resource import ConfigResource, ConfigResourceType
+from kafka.admin.new_partitions import NewPartitions
+from kafka.admin.new_topic import NewTopic
 from kafka.admin.types import KafkaAdminClientParams
 from kafka.client_async import KafkaClient, selectors
 from kafka.coordinator.protocol import (ConsumerProtocol_v0, ConsumerProtocolMemberAssignment_v0,
@@ -24,17 +27,16 @@ from kafka.protocol.admin import (AlterConfigsRequest, CreateAclsRequest, Create
                                   DeleteAclsRequest, DeleteGroupsRequest, DeleteRecordsRequest, DeleteTopicsRequest,
                                   DescribeAclsRequest, DescribeConfigsRequest, DescribeGroupsRequest,
                                   DescribeLogDirsRequest, ElectionType, ElectLeadersRequest, ListGroupsRequest,
-                                  _DeleteGroupsResponse, _DescribeGroupsRequest, _DescribeGroupsResponse,
+                                  _DeleteAclsResponse, _DeleteGroupsResponse, _DescribeConfigsRequest,
+                                  _DescribeConfigsResponse, _DescribeGroupsRequest, _DescribeGroupsResponse,
                                   _ListGroupsRequest, _ListGroupsResponse)
 from kafka.protocol.api import Request, Response
 from kafka.protocol.commit import OffsetFetchRequest, _OffsetFetchRequest, _OffsetFetchResponse
 from kafka.protocol.find_coordinator import FindCoordinatorRequest
-from kafka.protocol.metadata import MetadataRequest
+from kafka.protocol.metadata import MetadataRequest, _MetadataResponse
 from kafka.protocol.types import Array
 from kafka.structs import GroupInformation, MemberInformation, OffsetAndMetadata, TopicPartition
 from kafka.version import __version__
-
-from . import ConfigResourceType
 
 log = logging.getLogger(__name__)
 
@@ -246,7 +248,7 @@ class KafkaAdminClient(object):
         self._closed = True
         log.debug("KafkaAdminClient is now closed.")
 
-    def _validate_timeout(self, timeout_ms: Optional[int]) -> int:
+    def _validate_timeout(self, timeout_ms: Optional[float]) -> int:
         """Validate the timeout is set or use the configuration default.
 
         Arguments:
@@ -301,7 +303,7 @@ class KafkaAdminClient(object):
             request = FindCoordinatorRequest[version](group_id)
         elif version <= 2:
             request = FindCoordinatorRequest[version](group_id, 0)
-        return request  # pylint: disable=E0606
+        return request  
 
     def _find_coordinator_id_process_response(self, response: Response) -> None:
         """Process a FindCoordinatorResponse.
@@ -340,7 +342,7 @@ class KafkaAdminClient(object):
         coordinator_ids = self.send_requests(requests, response_fn=self._find_coordinator_id_process_response)
         return dict(zip(group_ids, coordinator_ids))
 
-    def _send_request_to_node(self, node_id, request, wakeup=True) -> None:
+    def _send_request_to_node(self, node_id: int, request: Request, wakeup: bool = True) -> Future:
         """Send a Kafka protocol message to a specific broker.
 
         Arguments:
@@ -360,7 +362,7 @@ class KafkaAdminClient(object):
             return Future().failure(e)
         return self._client.send(node_id, request, wakeup)
 
-    def _wait_for_futures(self, futures) -> None:
+    def _wait_for_futures(self, futures: List[Future]) -> None:
         """Block until all futures complete. If any fail, raise the encountered exception.
 
         Arguments:
@@ -374,9 +376,9 @@ class KafkaAdminClient(object):
                 self._client.poll(future=future)
 
                 if future.failed():
-                    raise future.exception  # pylint: disable-msg=raising-bad-type
+                    raise future.exception  
 
-    def send_request(self, request: Request, node_id: Optional[int] = None) -> Any:
+    def send_request(self, request: Request[ResponseType], node_id: Optional[int] = None) -> ResponseType:
         if node_id is None:
             node_id = self._client.least_loaded_node()
         self._client.await_ready(node_id)
@@ -384,7 +386,7 @@ class KafkaAdminClient(object):
         self._wait_for_futures([future])  # raises exception on failure
         return future.value
 
-    def send_requests(self, requests_and_node_ids: Iterable[Tuple[Request[ResponseType], int]], response_fn: Callable[[ResponseType], ReturnType] = lambda x: x) -> List[ReturnType]:
+    def send_requests(self, requests_and_node_ids: Iterable[Tuple[Request[ResponseType], Optional[int]]], response_fn: Callable[[ResponseType], ReturnType] = lambda x: x) -> List[ReturnType]:
         futures: List[Future] = []
         for request, node_id in requests_and_node_ids:
             if node_id is None:
@@ -415,7 +417,7 @@ class KafkaAdminClient(object):
             # So this is a little brittle in that it assumes all responses have
             # one of these attributes and that they always unpack into
             # (topic, error_code) tuples.
-            topic_error_tuples = getattr(response, 'topic_errors', getattr(response, 'topic_error_codes', None))
+            topic_error_tuples: List[Tuple[str, int]] = getattr(response, 'topic_errors', getattr(response, 'topic_error_codes', None))
             if topic_error_tuples is not None:
                 success = self._parse_topic_request_response(topic_error_tuples, request, response, tries)
             else:
@@ -426,7 +428,7 @@ class KafkaAdminClient(object):
                 return response
         raise RuntimeError("This should never happen, please file a bug with full stacktrace if encountered")
 
-    def _parse_topic_request_response(self, topic_error_tuples, request, response, tries) -> None:
+    def _parse_topic_request_response(self, topic_error_tuples: Iterable[Tuple[str, int]], request: Request, response: Response, tries: int) -> bool:
         for topic, error_code, *_ in topic_error_tuples:
             error_type = Errors.for_code(error_code)
             if tries and error_type is Errors.NotControllerError:
@@ -441,7 +443,7 @@ class KafkaAdminClient(object):
                     .format(request, response))
         return True
 
-    def _parse_topic_partition_request_response(self, request, response, tries) -> None:
+    def _parse_topic_partition_request_response(self, request: Request, response: Response, tries: int) -> bool:
         for topic, partition_results in response.replication_election_results:
             for partition_id, error_code, *_ in partition_results:
                 error_type = Errors.for_code(error_code)
@@ -458,7 +460,7 @@ class KafkaAdminClient(object):
         return True
 
     @staticmethod
-    def _convert_new_topic_request(new_topic) -> None:
+    def _convert_new_topic_request(new_topic: NewTopic) -> Tuple[str, int, int, List[Tuple[int, List[str]]], List[Tuple[str, Any]]]:
         """
         Build the tuple required by CreateTopicsRequest from a NewTopic object.
 
@@ -517,7 +519,7 @@ class KafkaAdminClient(object):
             )
         # TODO convert structs to a more pythonic interface
         # TODO raise exceptions if errors
-        return self._send_request_to_controller(request)  # pylint: disable=E0606
+        return self._send_request_to_controller(request)  
 
     def delete_topics(self, topics, timeout_ms=None) -> None:
         """Delete topics from the cluster.
@@ -541,7 +543,7 @@ class KafkaAdminClient(object):
             )
         )
 
-    def _process_metadata_response(self, metadata_response) -> None:
+    def _process_metadata_response(self, metadata_response: _MetadataResponse) -> Dict[str, Any]:
         obj = metadata_response.to_object()
         if 'authorized_operations' in obj:
             obj['authorized_operations'] = list(map(lambda acl: acl.name, valid_acl_operations(obj['authorized_operations'])))
@@ -550,7 +552,7 @@ class KafkaAdminClient(object):
                 t['authorized_operations'] = list(map(lambda acl: acl.name, valid_acl_operations(t['authorized_operations'])))
         return obj
 
-    def _get_cluster_metadata(self, topics: Optional[List[str]] = None, auto_topic_creation: bool = False) -> None:
+    def _get_cluster_metadata(self, topics: Optional[Iterable[str]] = None, auto_topic_creation: bool = False) -> Dict[str, Any]:
         """
         topics == None means "get all topics"
         """
@@ -691,7 +693,7 @@ class KafkaAdminClient(object):
                 permission_type=acl_filter.permission_type
 
             )
-        response = self.send_request(request)  # pylint: disable=E0606
+        response = self.send_request(request)  
         error_type = Errors.for_code(response.error_code)
         if error_type is not Errors.NoError:
             # optionally we could retry if error_type.retriable
@@ -804,7 +806,7 @@ class KafkaAdminClient(object):
             request = CreateAclsRequest[version](
                 creations=[self._convert_create_acls_resource_request_v1(acl) for acl in acls]
             )
-        response = self.send_request(request)  # pylint: disable=E0606
+        response = self.send_request(request)  
         return self._convert_create_acls_response_to_acls(acls, response)
 
     @staticmethod
@@ -847,7 +849,7 @@ class KafkaAdminClient(object):
         )
 
     @staticmethod
-    def _convert_delete_acls_response_to_matching_acls(acl_filters, delete_response) -> None:
+    def _convert_delete_acls_response_to_matching_acls(acl_filters: Sequence[ACLFilter], delete_response: _DeleteAclsResponse) -> List[Tuple[ACLFilter, List[Tuple[ACL, Type[Errors.BrokerResponseError]]], Type[Errors.BrokerResponseError]]]:
         """Parse the DeleteAclsResponse and map the results back to each input ACLFilter.
 
         Arguments:
@@ -867,7 +869,7 @@ class KafkaAdminClient(object):
             for acl in matching_acls:
                 if version == 0:
                     error_code, error_message, resource_type, resource_name, principal, host, operation, permission_type = acl
-                    resource_pattern_type = ACLResourcePatternType.LITERAL.value
+                    resource_pattern_type: int = ACLResourcePatternType.LITERAL.value
                 elif version == 1:
                     error_code, error_message, resource_type, resource_name, resource_pattern_type, principal, host, operation, permission_type = acl
                 else:
@@ -891,7 +893,7 @@ class KafkaAdminClient(object):
             filter_result_list.append((acl_filters[i], acl_result_list, filter_error,))
         return filter_result_list
 
-    def delete_acls(self, acl_filters) -> None:
+    def delete_acls(self, acl_filters: List[ACLFilter]) -> List[Tuple[ACLFilter, List[Tuple[ACL, Type[Errors.BrokerResponseError]]], Type[Errors.BrokerResponseError]]]:
         """Delete a set of ACLs
 
         Deletes all ACLs matching the list of input ACLFilter
@@ -918,11 +920,11 @@ class KafkaAdminClient(object):
             request = DeleteAclsRequest[version](
                 filters=[self._convert_delete_acls_resource_request_v1(acl) for acl in acl_filters]
             )
-        response = self.send_request(request)  # pylint: disable=E0606
+        response = self.send_request(request)
         return self._convert_delete_acls_response_to_matching_acls(acl_filters, response)
 
     @staticmethod
-    def _convert_describe_config_resource_request(config_resource) -> None:
+    def _convert_describe_config_resource_request(config_resource: ConfigResource) -> Tuple[ConfigResourceType, str, Optional[List[str]]]:
         """Convert a ConfigResource into the format required by DescribeConfigsRequest.
 
         Arguments:
@@ -939,7 +941,7 @@ class KafkaAdminClient(object):
             ] if config_resource.configs else None
         )
 
-    def describe_configs(self, config_resources, include_synonyms=False) -> None:
+    def describe_configs(self, config_resources: List[ConfigResource], include_synonyms: bool = False) -> List[_DescribeConfigsResponse]:
         """Fetch configuration parameters for one or more Kafka resources.
 
         Arguments:
@@ -958,8 +960,8 @@ class KafkaAdminClient(object):
 
         # Break up requests by type - a broker config request must be sent to the specific broker.
         # All other (currently just topic resources) can be sent to any broker.
-        broker_resources = []
-        topic_resources = []
+        broker_resources: List[Tuple[ConfigResourceType, str, Optional[List[str]]]] = []
+        topic_resources: List[Tuple[ConfigResourceType, str, Optional[List[str]]]] = []
 
         for config_resource in config_resources:
             if config_resource.resource_type == ConfigResourceType.BROKER:
@@ -973,7 +975,7 @@ class KafkaAdminClient(object):
                 "include_synonyms requires DescribeConfigsRequest >= v1, which is not supported by Kafka {}."
                     .format(self.config['api_version']))
 
-        requests = []
+        requests: List[Tuple[_DescribeConfigsRequest, Optional[int]]] = []
         if len(broker_resources) > 0:
             for broker_resource in broker_resources:
                 try:
@@ -999,7 +1001,7 @@ class KafkaAdminClient(object):
         return self.send_requests(requests)
 
     @staticmethod
-    def _convert_alter_config_resource_request(config_resource) -> None:
+    def _convert_alter_config_resource_request(config_resource: ConfigResource) -> Tuple[ConfigResourceType, str, List[Tuple[str, str]]]:
         """Convert a ConfigResource into the format required by AlterConfigsRequest.
 
         Arguments:
@@ -1016,7 +1018,7 @@ class KafkaAdminClient(object):
             ]
         )
 
-    def alter_configs(self, config_resources) -> None:
+    def alter_configs(self, config_resources: List[ConfigResource]) -> None:
         """Alter configuration parameters of one or more Kafka resources.
 
         Warning:
@@ -1050,7 +1052,7 @@ class KafkaAdminClient(object):
     # Note: have to lookup the broker with the replica assignment and send the request to that broker
 
     @staticmethod
-    def _convert_create_partitions_request(topic_name, new_partitions) -> None:
+    def _convert_create_partitions_request(topic_name: str, new_partitions: NewPartitions) -> Tuple[str, Tuple[int, List[List[int]]]]:
         """Convert a NewPartitions object into the tuple format for CreatePartitionsRequest.
 
         Arguments:
@@ -1068,7 +1070,7 @@ class KafkaAdminClient(object):
             )
         )
 
-    def create_partitions(self, topic_partitions, timeout_ms=None, validate_only=False) -> None:
+    def create_partitions(self, topic_partitions: Dict[str, NewPartitions], timeout_ms: Optional[float] = None, validate_only: bool = False) -> None:
         """Create additional partitions for an existing topic.
 
         Arguments:
@@ -1092,7 +1094,7 @@ class KafkaAdminClient(object):
         )
         return self._send_request_to_controller(request)
 
-    def _get_leader_for_partitions(self, partitions, timeout_ms=None) -> None:
+    def _get_leader_for_partitions(self, partitions: Iterable[TopicPartition], timeout_ms: Optional[float] = None) -> Dict[int, List[TopicPartition]]:
         """Finds ID of the leader node for every given topic partition.
 
         Will raise UnknownTopicOrPartitionError if for some partition no leader can be found.
@@ -1110,8 +1112,8 @@ class KafkaAdminClient(object):
 
         metadata = self._get_cluster_metadata(topics=topics)
 
-        leader2partitions = defaultdict(list)
-        valid_partitions = set()
+        leader2partitions: DefaultDict[int, List[TopicPartition]] = defaultdict(list)
+        valid_partitions: Set[TopicPartition] = set()
         for topic in metadata.get("topics", ()):
             for partition in topic.get("partitions", ()):
                 t2p = TopicPartition(topic=topic["topic"], partition=partition["partition"])
@@ -1128,14 +1130,14 @@ class KafkaAdminClient(object):
 
         return leader2partitions
 
-    def delete_records(self, records_to_delete, timeout_ms=None, partition_leader_id=None) -> None:
+    def delete_records(self, records_to_delete: Dict[TopicPartition, int], timeout_ms: Optional[float] = None, partition_leader_id: Optional[int] = None) -> Dict[TopicPartition, Dict[str, Any]]:
         """Delete records whose offset is smaller than the given offset of the corresponding partition.
 
         :param records_to_delete: ``{TopicPartition: int}``: The earliest available offsets for the
             given partitions.
         :param timeout_ms: ``float``: Timeout in milliseconds, if None (default), will be read from
             config.
-        :param partition_leader_id: ``str``: If specified, all deletion requests will be sent to
+        :param partition_leader_id: ``int``: If specified, all deletion requests will be sent to
             this node. No check is performed verifying that this is indeed the leader for all
             listed partitions: use with caution.
 
@@ -1144,7 +1146,7 @@ class KafkaAdminClient(object):
             guaranteed to be zero, otherwise an exception is raised.
         """
         timeout_ms = self._validate_timeout(timeout_ms)
-        responses = []
+        responses: List[Dict[str, Any]] = []
         version = self._client.api_version(DeleteRecordsRequest, max_version=0)
 
         # We want to make as few requests as possible
@@ -1152,14 +1154,14 @@ class KafkaAdminClient(object):
         # topics), we can send all of those in a single request.
         # For that we store {leader -> {partitions for leader}}, and do 1 request per leader
         if partition_leader_id is None:
-            leader2partitions = self._get_leader_for_partitions(
+            leader2partitions: Mapping[int, Iterable[TopicPartition]] = self._get_leader_for_partitions(
                 set(records_to_delete), timeout_ms
             )
         else:
             leader2partitions = {partition_leader_id: set(records_to_delete)}
 
         for leader, partitions in leader2partitions.items():
-            topic2partitions = defaultdict(list)
+            topic2partitions: DefaultDict[str, List[TopicPartition]] = defaultdict(list)
             for partition in partitions:
                 topic2partitions[partition.topic].append(partition)
 
@@ -1173,15 +1175,15 @@ class KafkaAdminClient(object):
             response = self.send_request(request, node_id=leader)
             responses.append(response.to_object())
 
-        partition2result = {}
-        partition2error = {}
-        for response in responses:
-            for topic in response["topics"]:
-                for partition in topic["partitions"]:
-                    tp = TopicPartition(topic["name"], partition["partition_index"])
-                    partition2result[tp] = partition
-                    if partition["error_code"] != 0:
-                        partition2error[tp] = partition["error_code"]
+        partition2result: Dict[TopicPartition, Dict[str, Any]] = {}
+        partition2error: Dict[TopicPartition, int] = {}
+        for response_data in responses:
+            for topic in response_data["topics"]:
+                for partition_data in topic["partitions"]:
+                    tp = TopicPartition(topic["name"], partition_data["partition_index"])
+                    partition2result[tp] = partition_data
+                    if partition_data["error_code"] != 0:
+                        partition2error[tp] = partition_data["error_code"]
 
         if partition2error:
             if len(partition2error) == 1:
@@ -1249,17 +1251,17 @@ class KafkaAdminClient(object):
             if isinstance(response_field, Array):
                 described_groups_field_schema = response_field.array_of
                 described_group = getattr(response, response_name)[0]
-                described_group_information_list: List[List[MemberInformation]] = []
+                described_group_information_list: List[List[Union[MemberInformation, str]]] = []
                 protocol_type_is_consumer = False
                 for (described_group_information, group_information_name, group_information_field) in zip(described_group, described_groups_field_schema.names, described_groups_field_schema.fields):
                     if group_information_name == 'protocol_type':
                         protocol_type = described_group_information
                         protocol_type_is_consumer = (protocol_type == ConsumerProtocol_v0.PROTOCOL_TYPE or not protocol_type)
                     if isinstance(group_information_field, Array):
-                        member_information_list = []
+                        member_information_list: List[Union[MemberInformation, str]] = []
                         member_schema = group_information_field.array_of
                         for members in described_group_information:
-                            member_information = []
+                            member_information: List[Union[ConsumerProtocolMemberMetadata_v0, ConsumerProtocolMemberAssignment_v0]] = []
                             for (member, member_field, member_name) in zip(members, member_schema.fields, member_schema.names):
                                 if protocol_type_is_consumer:
                                     if member_name == 'member_metadata' and member:

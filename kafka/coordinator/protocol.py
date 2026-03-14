@@ -1,3 +1,5 @@
+from typing import List, Tuple
+
 from kafka.protocol.struct import Struct
 from kafka.protocol.types import Array, Bytes, Int16, Int32, Schema, String
 from kafka.structs import TopicPartition
@@ -9,6 +11,10 @@ class ConsumerProtocolMemberMetadata_v0(Struct):
         ('topics', Array(String('utf-8'))),
         ('user_data', Bytes))
 
+    version: int
+    topics: List[str]
+    user_data: bytes
+
 
 class ConsumerProtocolMemberAssignment_v0(Struct):
     SCHEMA = Schema(
@@ -18,9 +24,13 @@ class ConsumerProtocolMemberAssignment_v0(Struct):
             ('partitions', Array(Int32)))),
         ('user_data', Bytes))
 
-    def partitions(self) -> None:
+    version: int
+    assignment: List[Tuple[str, List[int]]]
+    user_data: bytes
+
+    def partitions(self) -> List[TopicPartition]:
         return [TopicPartition(topic, partition)
-                for topic, partitions in self.assignment # pylint: disable-msg=no-member
+                for topic, partitions in self.assignment
                 for partition in partitions]
 
 

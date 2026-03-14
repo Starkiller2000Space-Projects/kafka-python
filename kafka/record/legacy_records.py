@@ -206,7 +206,7 @@ class LegacyRecordBatch(ABCRecordBatch, LegacyRecordBase):
                 uncompressed = lz4_decode_old_kafka(data.tobytes())
             else:
                 uncompressed = lz4_decode(data.tobytes())
-        return uncompressed  # pylint: disable=E0606
+        return uncompressed  
 
     def _read_header(self, pos) -> None:
         if self._magic == 0:
@@ -483,7 +483,7 @@ class LegacyRecordBatchBuilder(ABCRecordBatchBuilder, LegacyRecordBase):
                 else:
                     compressed = lz4_encode(data)
             size = self.size_in_bytes(
-                0, timestamp=0, key=None, value=compressed)  # pylint: disable=E0606
+                0, timestamp=0, key=None, value=compressed)  
             # We will try to reuse the same buffer if we have enough space
             if size > len(self._buffer):
                 self._buffer = bytearray(size)

@@ -459,7 +459,7 @@ class ConsumerCoordinator(BaseCoordinator):
                     return future.value
 
                 elif not future.retriable():
-                    raise future.exception # pylint: disable-msg=raising-bad-type
+                    raise future.exception 
 
             # future failed but is retriable, or is not done yet
             if timer.timeout_ms is None or timer.timeout_ms > self.config['retry_backoff_ms']:
@@ -575,7 +575,7 @@ class ConsumerCoordinator(BaseCoordinator):
                     return future.value
 
                 elif not future.retriable():
-                    raise future.exception # pylint: disable-msg=raising-bad-type
+                    raise future.exception 
 
             # future failed but is retriable, or it is still pending
             if timer.timeout_ms is None or timer.timeout_ms > self.config['retry_backoff_ms']:

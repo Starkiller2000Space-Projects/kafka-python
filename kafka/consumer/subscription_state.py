@@ -7,7 +7,7 @@ import time
 from collections import OrderedDict
 from collections.abc import Sequence
 from enum import IntEnum
-from typing import Literal
+from typing import Literal, Optional
 
 import kafka.errors as Errors
 from kafka.protocol.list_offsets import OffsetResetStrategy
@@ -85,7 +85,7 @@ class SubscriptionState(object):
             raise Errors.IllegalStateError(self._SUBSCRIPTION_EXCEPTION_MESSAGE)
 
     @synchronized
-    def subscribe(self, topics: Sequence[str] = (), pattern: str | None = None, listener: 'ConsumerRebalanceListener' = None):
+    def subscribe(self, topics: Sequence[str] = (), pattern: str | None = None, listener: Optional['ConsumerRebalanceListener'] = None):
         """Subscribe to a list of topics, or a topic regex pattern.
 
         Partitions will be dynamically assigned via a group coordinator.

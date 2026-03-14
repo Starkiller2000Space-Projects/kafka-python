@@ -57,7 +57,7 @@
 import struct
 import time
 from collections.abc import Callable, Iterator
-from typing import Dict, Literal, Tuple
+from typing import Dict, Literal, Optional, Tuple
 
 import kafka.codec as codecs
 from kafka.codec import (gzip_decode, gzip_encode, lz4_decode, lz4_encode, snappy_decode, snappy_encode, zstd_decode,
@@ -244,7 +244,7 @@ class DefaultRecordBatch(DefaultRecordBase, ABCRecordBatch):
                     uncompressed = lz4_decode(data.tobytes())
                 if compression_type == self.CODEC_ZSTD:
                     uncompressed = zstd_decode(data.tobytes())
-                self._buffer = bytearray(uncompressed)  # pylint: disable=E0606
+                self._buffer = bytearray(uncompressed)  
                 self._pos = 0
         self._decompressed = True
 
@@ -490,8 +490,8 @@ class DefaultRecordBatchBuilder(DefaultRecordBase, ABCRecordBatchBuilder):
                  "_buffer")
 
     def __init__(
-            self, magic: Literal[0, 1, 2], compression_type, is_transactional,
-            producer_id, producer_epoch, base_sequence, batch_size) -> None:
+            self, magic: Literal[0, 1, 2], compression_type: int, is_transactional: bool,
+            producer_id: int, producer_epoch: int, base_sequence: int, batch_size: int) -> None:
         assert magic >= 2
         self._magic = magic
         self._compression_type = compression_type & self.CODEC_MASK
@@ -509,7 +509,7 @@ class DefaultRecordBatchBuilder(DefaultRecordBase, ABCRecordBatchBuilder):
 
         self._buffer = bytearray(self.HEADER_STRUCT.size)
 
-    def set_producer_state(self, producer_id, producer_epoch, base_sequence, is_transactional) -> None:
+    def set_producer_state(self, producer_id: int, producer_epoch: int, base_sequence: int, is_transactional: bool) -> None:
         assert not is_transactional or producer_id != -1, "Cannot write transactional messages without a valid producer ID"
         assert producer_id == -1 or producer_epoch != -1, "Invalid negative producer epoch"
         assert producer_id == -1 or base_sequence != -1, "Invalid negative sequence number"
@@ -519,14 +519,14 @@ class DefaultRecordBatchBuilder(DefaultRecordBase, ABCRecordBatchBuilder):
         self._is_transactional = is_transactional
 
     @property
-    def producer_id(self) -> None:
+    def producer_id(self) -> int:
         return self._producer_id
 
     @property
-    def producer_epoch(self) -> None:
+    def producer_epoch(self) -> int:
         return self._producer_epoch
 
-    def _get_attributes(self, include_compression_type=True) -> None:
+    def _get_attributes(self, include_compression_type: bool = True) -> int:
         attrs = 0
         if include_compression_type:
             attrs |= self._compression_type
@@ -536,7 +536,7 @@ class DefaultRecordBatchBuilder(DefaultRecordBase, ABCRecordBatchBuilder):
         # Control batches are only created by Broker
         return attrs
 
-    def append(self, offset, timestamp, key, value, headers,
+    def append(self, offset: int, timestamp: Optional[int], key, value, headers,
                # Cache for LOAD_FAST opcodes
                encode_varint=encode_varint, size_of_varint=size_of_varint,
                get_type=type, type_int=int, time_time=time.time,
@@ -657,7 +657,7 @@ class DefaultRecordBatchBuilder(DefaultRecordBase, ABCRecordBatchBuilder):
                 compressed = lz4_encode(data)
             elif self._compression_type == self.CODEC_ZSTD:
                 compressed = zstd_encode(data)
-            compressed_size = len(compressed)  # pylint: disable=E0606
+            compressed_size = len(compressed)  
             if len(data) <= compressed_size:
                 # We did not get any benefit from compression, lets send
                 # uncompressed

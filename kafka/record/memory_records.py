@@ -20,8 +20,7 @@
 # used to construct the correct class for Batch itself.
 
 import struct
-from collections.abc import Sequence
-from typing import Literal
+from typing import List, Literal, Optional, Tuple, Union
 
 from typing_extensions import Self
 
@@ -43,12 +42,12 @@ class MemoryRecords(ABCRecords):
 
     __slots__ = ("_buffer", "_pos", "_next_slice", "_remaining_bytes")
 
-    def __init__(self, bytes_data: Sequence[bytes]) -> None:
+    def __init__(self, bytes_data: Union[bytes, bytearray, memoryview]) -> None:
         self._buffer = bytes_data
         self._pos = 0
         # We keep one slice ahead so `has_next` will return very fast
-        self._next_slice: memoryview[int] | None = None
-        self._remaining_bytes: int | None = None
+        self._next_slice: Optional[memoryview[int]] = None
+        self._remaining_bytes: Optional[int] = None
         self._cache_next()
 
     def size_in_bytes(self) -> int:
@@ -138,12 +137,12 @@ class MemoryRecordsBuilder(object):
             assert producer_id == -1 or producer_epoch != -1, "Invalid negative producer epoch"
             assert producer_id == -1 or base_sequence != -1, "Invalid negative sequence number used"
 
-            self._builder: ABCRecordBatchBuilder | None = DefaultRecordBatchBuilder(
+            self._builder: Optional[ABCRecordBatchBuilder] = DefaultRecordBatchBuilder(
                 magic=magic, compression_type=compression_type,
                 is_transactional=transactional, producer_id=producer_id,
                 producer_epoch=producer_epoch, base_sequence=base_sequence,
                 batch_size=batch_size)
-            self._producer_id = producer_id
+            self._producer_id: Optional[int] = producer_id
             self._producer_epoch = producer_epoch
         else:
             assert not transactional and producer_id == -1, "Idempotent messages are not supported for magic %s" % (magic,)
@@ -152,7 +151,7 @@ class MemoryRecordsBuilder(object):
                 batch_size=batch_size)
             self._producer_id = None
         self._batch_size = batch_size
-        self._buffer = None
+        self._buffer: Union[bytes, bytearray, memoryview, None] = None
 
         self._next_offset = offset
         self._closed = False
@@ -163,7 +162,7 @@ class MemoryRecordsBuilder(object):
         # Exposed for testing compacted records
         self._next_offset += offsets_to_skip
 
-    def append(self, timestamp: int, key: bytes, value: bytes, headers: list[tuple[str, bytes]]=[]) -> DefaultRecordMetadata:
+    def append(self, timestamp: int, key: bytes, value: bytes, headers: List[Tuple[str, bytes]] = []) -> Optional[DefaultRecordMetadata]:
         """ Append a message to the buffer.
 
         Returns: RecordMetadata or None if unable to append
@@ -180,7 +179,7 @@ class MemoryRecordsBuilder(object):
         self._next_offset += 1
         return metadata
 
-    def set_producer_state(self, producer_id, producer_epoch, base_sequence, is_transactional) -> None:
+    def set_producer_state(self, producer_id: int, producer_epoch: int, base_sequence, is_transactional) -> None:
         if self._magic < 2:
             raise UnsupportedVersionError('Producer State requires Message format v2+')
         elif self._closed:
@@ -193,14 +192,14 @@ class MemoryRecordsBuilder(object):
         self._producer_id = producer_id
 
     @property
-    def producer_id(self) -> None:
+    def producer_id(self) -> Optional[int]:
         return self._producer_id
 
     @property
-    def producer_epoch(self) -> None:
+    def producer_epoch(self) -> int:
         return self._producer_epoch
 
-    def records(self) -> None:
+    def records(self) -> MemoryRecords:
         assert self._closed
         return MemoryRecords(self._buffer)
 

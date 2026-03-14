@@ -1,3 +1,6 @@
+from typing import Dict, List, Optional
+
+
 class NewTopic(object):
     """ A class for new topic creation
     Arguments:
@@ -12,12 +15,12 @@ class NewTopic(object):
             and value for the topic.
     """
     def __init__(
-            self,
-            name,
-            num_partitions=-1,
-            replication_factor=-1,
-            replica_assignments=None,
-            topic_configs=None,
+        self,
+        name: str,
+        num_partitions: int = -1,
+        replication_factor: int = -1,
+        replica_assignments: Optional[Dict[int, List[int]]] = None,
+        topic_configs: Optional[Dict[str, str]] = None,
     ) -> None:
         self.name = name
         self.num_partitions = num_partitions

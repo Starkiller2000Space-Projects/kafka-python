@@ -147,7 +147,7 @@ def snappy_encode(payload, xerial_compatible=True, xerial_blocksize=32*1024) -> 
     else:
         # snappy.compress does not like raw memoryviews, so we have to convert
         # tobytes, which is a copy... oh well. it's the thought that counts.
-        # pylint: disable-msg=undefined-variable
+        
         chunker = lambda payload, i, size: memoryview(payload)[i:size+i].tobytes()
 
     for chunk in (chunker(payload, i, xerial_blocksize)
@@ -222,18 +222,18 @@ def snappy_decode(payload) -> None:
 
 
 if lz4:
-    lz4_encode = _lz4_compress # pylint: disable-msg=no-member
+    lz4_encode = _lz4_compress 
 elif lz4f:
-    lz4_encode = lz4f.compressFrame # pylint: disable-msg=no-member
+    lz4_encode = lz4f.compressFrame 
 elif lz4framed:
-    lz4_encode = lz4framed.compress # pylint: disable-msg=no-member
+    lz4_encode = lz4framed.compress 
 else:
     lz4_encode = None
 
 
 def lz4f_decode(payload) -> None:
     """Decode payload using interoperable LZ4 framing. Requires Kafka >= 0.10"""
-    # pylint: disable-msg=no-member
+    
     ctx = lz4f.createDecompContext()
     data = lz4f.decompressFrame(payload, ctx)
     lz4f.freeDecompContext(ctx)
@@ -246,11 +246,11 @@ def lz4f_decode(payload) -> None:
 
 
 if lz4:
-    lz4_decode = lz4.decompress # pylint: disable-msg=no-member
+    lz4_decode = lz4.decompress 
 elif lz4f:
     lz4_decode = lz4f_decode
 elif lz4framed:
-    lz4_decode = lz4framed.decompress # pylint: disable-msg=no-member
+    lz4_decode = lz4framed.decompress 
 else:
     lz4_decode = None
 
@@ -277,7 +277,7 @@ def lz4_encode_old_kafka(payload) -> None:
         payload = data[header_size:]
 
     # This is the incorrect hc
-    hc = xxhash.xxh32(data[0:header_size-1]).digest()[-2:-1]  # pylint: disable-msg=no-member
+    hc = xxhash.xxh32(data[0:header_size-1]).digest()[-2:-1]  
 
     return b''.join([
         data[0:header_size-1],
@@ -299,7 +299,7 @@ def lz4_decode_old_kafka(payload) -> None:
         header_size += 8
 
     # This should be the correct hc
-    hc = xxhash.xxh32(payload[4:header_size-1]).digest()[-2:-1]  # pylint: disable-msg=no-member
+    hc = xxhash.xxh32(payload[4:header_size-1]).digest()[-2:-1]  
 
     munged_payload = b''.join([
         payload[0:header_size-1],

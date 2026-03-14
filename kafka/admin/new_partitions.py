@@ -1,3 +1,6 @@
+from typing import List
+
+
 class NewPartitions(object):
     """A class for new partition creation on existing topics.  Note that the length of new_assignments, if specified,
     must be the difference between the new total number of partitions and the existing number of partitions.
@@ -9,8 +12,8 @@ class NewPartitions(object):
 
     def __init__(
         self,
-        total_count,
-        new_assignments=None
+        total_count: int,
+        new_assignments: List[List[int]] = None
     ) -> None:
         self.total_count = total_count
         self.new_assignments = new_assignments

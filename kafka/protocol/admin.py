@@ -1,6 +1,6 @@
 from abc import ABC
 from enum import IntEnum
-from typing import List, Literal, Tuple, Type, TypeVar
+from typing import List, Literal, Tuple, Type, TypeVar, final
 
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import (Array, BitField, Boolean, Bytes, CompactArray, CompactString, Float64, Int8, Int16,
@@ -182,6 +182,7 @@ DeleteTopicsResponse = [
 ]
 
 
+@final
 class DeleteRecordsResponse_v0(Response):
     API_KEY = 21
     API_VERSION = 0
@@ -196,7 +197,8 @@ class DeleteRecordsResponse_v0(Response):
     )
 
 
-class DeleteRecordsRequest_v0(Request):
+@final
+class DeleteRecordsRequest_v0(Request[DeleteRecordsResponse_v0]):
     API_KEY = 21
     API_VERSION = 0
     RESPONSE_TYPE = DeleteRecordsResponse_v0
@@ -210,8 +212,8 @@ class DeleteRecordsRequest_v0(Request):
     )
 
 
-DeleteRecordsResponse = [DeleteRecordsResponse_v0]
-DeleteRecordsRequest = [DeleteRecordsRequest_v0]
+DeleteRecordsResponse: List[Type[DeleteRecordsResponse_v0]] = [DeleteRecordsResponse_v0]
+DeleteRecordsRequest: List[Type[DeleteRecordsRequest_v0]] = [DeleteRecordsRequest_v0]
 
 
 class _ListGroupsResponse(Response):
@@ -549,8 +551,15 @@ class CreateAclsRequest_v1(Request):
 CreateAclsRequest = [CreateAclsRequest_v0, CreateAclsRequest_v1]
 CreateAclsResponse = [CreateAclsResponse_v0, CreateAclsResponse_v1]
 
-class DeleteAclsResponse_v0(Response):
+
+class _DeleteAclsResponse(Response):
     API_KEY = 31
+
+    throttle_time_ms: int
+    filter_responses: List[Tuple[int, str, List[Tuple]]]
+
+@final
+class DeleteAclsResponse_v0(_DeleteAclsResponse):
     API_VERSION = 0
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -568,8 +577,11 @@ class DeleteAclsResponse_v0(Response):
                 ('permission_type', Int8)))))
     )
 
-class DeleteAclsResponse_v1(Response):
-    API_KEY = 31
+    filter_responses: List[Tuple[int, str, List[Tuple[int, str, int, str, str, str, int, int]]]]
+
+
+@final
+class DeleteAclsResponse_v1(_DeleteAclsResponse):
     API_VERSION = 1
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -588,8 +600,18 @@ class DeleteAclsResponse_v1(Response):
                 ('permission_type', Int8)))))
     )
 
-class DeleteAclsRequest_v0(Request):
+    filter_responses: List[Tuple[int, str, List[Tuple[int, str, int, str, int, str, str, int, int]]]]
+
+
+_DeleteAclsResponseType = TypeVar('_DeleteAclsResponseType', bound=_DeleteAclsResponse)
+
+
+class _DeleteAclsRequest(Request[_DeleteAclsResponseType]):
     API_KEY = 31
+
+
+@final
+class DeleteAclsRequest_v0(_DeleteAclsRequest[DeleteAclsResponse_v0]):
     API_VERSION = 0
     RESPONSE_TYPE = DeleteAclsResponse_v0
     SCHEMA = Schema(
@@ -602,8 +624,9 @@ class DeleteAclsRequest_v0(Request):
             ('permission_type', Int8)))
     )
 
-class DeleteAclsRequest_v1(Request):
-    API_KEY = 31
+
+@final
+class DeleteAclsRequest_v1(_DeleteAclsRequest[DeleteAclsResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = DeleteAclsResponse_v1
     SCHEMA = Schema(
@@ -617,8 +640,10 @@ class DeleteAclsRequest_v1(Request):
             ('permission_type', Int8)))
     )
 
-DeleteAclsRequest = [DeleteAclsRequest_v0, DeleteAclsRequest_v1]
-DeleteAclsResponse = [DeleteAclsResponse_v0, DeleteAclsResponse_v1]
+
+DeleteAclsRequest: List[Type[_DeleteAclsRequest]] = [DeleteAclsRequest_v0, DeleteAclsRequest_v1]
+DeleteAclsResponse: List[Type[_DeleteAclsResponse]] = [DeleteAclsResponse_v0, DeleteAclsResponse_v1]
+
 
 class AlterConfigsResponse_v0(Response):
     API_KEY = 33
@@ -663,8 +688,12 @@ AlterConfigsRequest = [AlterConfigsRequest_v0, AlterConfigsRequest_v1]
 AlterConfigsResponse = [AlterConfigsResponse_v0, AlterConfigsRequest_v1]
 
 
-class DescribeConfigsResponse_v0(Response):
+class _DescribeConfigsResponse(Response):
     API_KEY = 32
+
+
+@final
+class DescribeConfigsResponse_v0(_DescribeConfigsResponse):
     API_VERSION = 0
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -681,8 +710,8 @@ class DescribeConfigsResponse_v0(Response):
                 ('is_sensitive', Boolean)))))
     )
 
-class DescribeConfigsResponse_v1(Response):
-    API_KEY = 32
+
+class DescribeConfigsResponse_v1(_DescribeConfigsResponse):
     API_VERSION = 1
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -703,8 +732,8 @@ class DescribeConfigsResponse_v1(Response):
                     ('config_source', Int8)))))))
     )
 
-class DescribeConfigsResponse_v2(Response):
-    API_KEY = 32
+
+class DescribeConfigsResponse_v2(_DescribeConfigsResponse):
     API_VERSION = 2
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -725,8 +754,15 @@ class DescribeConfigsResponse_v2(Response):
                     ('config_source', Int8)))))))
     )
 
-class DescribeConfigsRequest_v0(Request):
+_DescribeConfigsResponseType = TypeVar('_DescribeConfigsResponseType', bound=_DescribeConfigsResponse)
+
+
+class _DescribeConfigsRequest(Request[_DescribeConfigsResponseType], ABC):
     API_KEY = 32
+
+
+@final
+class DescribeConfigsRequest_v0(_DescribeConfigsRequest[DescribeConfigsResponse_v0]):
     API_VERSION = 0
     RESPONSE_TYPE = DescribeConfigsResponse_v0
     SCHEMA = Schema(
@@ -736,8 +772,9 @@ class DescribeConfigsRequest_v0(Request):
             ('config_names', Array(String('utf-8')))))
     )
 
-class DescribeConfigsRequest_v1(Request):
-    API_KEY = 32
+
+@final
+class DescribeConfigsRequest_v1(_DescribeConfigsRequest[DescribeConfigsResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = DescribeConfigsResponse_v1
     SCHEMA = Schema(
@@ -749,18 +786,18 @@ class DescribeConfigsRequest_v1(Request):
     )
 
 
-class DescribeConfigsRequest_v2(Request):
-    API_KEY = 32
+@final
+class DescribeConfigsRequest_v2(_DescribeConfigsRequest[DescribeConfigsResponse_v2]):
     API_VERSION = 2
     RESPONSE_TYPE = DescribeConfigsResponse_v2
     SCHEMA = DescribeConfigsRequest_v1.SCHEMA
 
 
-DescribeConfigsRequest = [
+DescribeConfigsRequest: List[Type[_DescribeConfigsRequest]] = [
     DescribeConfigsRequest_v0, DescribeConfigsRequest_v1,
     DescribeConfigsRequest_v2,
 ]
-DescribeConfigsResponse = [
+DescribeConfigsResponse: List[Type[_DescribeConfigsResponse]] = [
     DescribeConfigsResponse_v0, DescribeConfigsResponse_v1,
     DescribeConfigsResponse_v2,
 ]

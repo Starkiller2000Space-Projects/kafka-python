@@ -316,7 +316,7 @@ class BaseCoordinator(object):
                             else:
                                 time.sleep(timer.timeout_ms / 1000)
                     else:
-                        raise future.exception  # pylint: disable-msg=raising-bad-type
+                        raise future.exception  
                 if timer.expired:
                     return False
             else:
@@ -366,7 +366,7 @@ class BaseCoordinator(object):
                     # will spawn a new heartbeat thread.
                     cause = self._heartbeat_thread.failed
                     self._heartbeat_thread = None
-                    raise cause  # pylint: disable-msg=raising-bad-type
+                    raise cause  
 
                 # Awake the heartbeat thread if needed
                 if self.heartbeat.should_heartbeat():
@@ -509,7 +509,7 @@ class BaseCoordinator(object):
                                           Errors.MemberIdRequiredError)):
                     continue
                 elif not future.retriable():
-                    raise exception  # pylint: disable-msg=raising-bad-type
+                    raise exception  
                 elif timer.expired:
                     return False
                 else:

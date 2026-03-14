@@ -251,7 +251,7 @@ class Fetcher(object):
                 timestamps = {tp: timestamps[tp] for tp in future.value[1]}
 
             elif not future.retriable():
-                raise future.exception  # pylint: disable-msg=raising-bad-type
+                raise future.exception  
 
             if future.exception.invalid_metadata or self._client.cluster.need_update:
                 refresh_future = self._client.cluster.request_update()

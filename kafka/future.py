@@ -2,21 +2,22 @@ import functools
 import logging
 import threading
 from collections.abc import Callable, Iterable
-from typing import Any, ParamSpec, TypeVar
+from typing import Any, Generic, ParamSpec, TypeVar
 
 from typing_extensions import Self
 
 log = logging.getLogger(__name__)
 Param = TypeVar('Param')
 Params = ParamSpec('Params')
+Value = TypeVar('Value')
 
 
-class Future(object):
+class Future(Generic[Value]):
     error_on_callbacks = False  # and errbacks
 
     def __init__(self) -> None:
         self.is_done = False
-        self.value: Any = None
+        self.value: Value = None
         self.exception: BaseException | None = None
         self._callbacks: list[Callable[..., None]] = []
         self._errbacks: list[Callable[..., None]] = []
@@ -34,7 +35,7 @@ class Future(object):
         except AttributeError:
             return False
 
-    def success(self, value: Any) -> Self:
+    def success(self, value: Value) -> Self:
         assert not self.is_done, 'Future is already complete'
         with self._lock:
             self.value = value

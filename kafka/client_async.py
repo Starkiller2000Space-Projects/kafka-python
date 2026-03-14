@@ -8,7 +8,8 @@ import threading
 import time
 import weakref
 from collections.abc import Sequence
-from typing import List, Optional, Tuple, Union
+from typing import Dict as DictType
+from typing import List, Optional, Set, Tuple, Union
 
 from typing_extensions import Unpack
 
@@ -223,7 +224,7 @@ class KafkaClient(object):
         self.cluster = ClusterMetadata(**self.config)
         self._topics: Set[str] = set()  # empty set will fetch all topic metadata
         self._metadata_refresh_in_progress = False
-        self._conns = Dict()  # object to support weakrefs
+        self._conns: DictType[int, BrokerConnection] = Dict()  # object to support weakrefs
         self._api_versions = None
         self._connecting = set()
         self._sending = set()
@@ -291,7 +292,7 @@ class KafkaClient(object):
         self._wake_r = None
         self._wake_w = None
 
-    def _can_connect(self, node_id) -> bool:
+    def _can_connect(self, node_id: int) -> bool:
         if node_id not in self._conns:
             if self.cluster.broker_metadata(node_id):
                 return True
@@ -299,7 +300,7 @@ class KafkaClient(object):
         conn = self._conns[node_id]
         return conn.disconnected() and not conn.blacked_out()
 
-    def _conn_state_change(self, node_id, sock, conn) -> None:
+    def _conn_state_change(self, node_id: int, sock: socket.socket, conn: BrokerConnection) -> None:
         with self._lock:
             if conn.state is ConnectionStates.CONNECTING:
                 # SSL connections can enter this state 2x (second during Handshake)
@@ -391,7 +392,7 @@ class KafkaClient(object):
             return True
         return False
 
-    def connection_failed(self, node_id) -> None:
+    def connection_failed(self, node_id: int) -> None:
         if node_id not in self._conns:
             return False
         return self._conns[node_id].connect_failed()
@@ -576,7 +577,7 @@ class KafkaClient(object):
             return False
         return conn.connected() and conn.can_send_more()
 
-    def send(self, node_id: int, request: Struct, wakeup: Optional[bool] = True, request_timeout_ms: Optional[int] = None) -> Future:
+    def send(self, node_id: int, request: Request, wakeup: bool = True, request_timeout_ms: Optional[int] = None) -> Future:
         """Send a request to a specific node. Bytes are placed on an
         internal per-connection send-queue. Actual network I/O will be
         triggered in a subsequent call to .poll()
@@ -1151,7 +1152,7 @@ class KafkaClient(object):
         else:
             return False
 
-    def await_ready(self, node_id, timeout_ms=30000) -> None:
+    def await_ready(self, node_id: int, timeout_ms: int = 30000) -> bool:
         """
         Invokes `poll` to discard pending disconnects, followed by `client.ready` and 0 or more `client.poll`
         invocations until the connection to `node` is ready, the timeoutMs expires or the connection fails.

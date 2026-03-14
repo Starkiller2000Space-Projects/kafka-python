@@ -1,4 +1,4 @@
-# pylint: skip-file
+
 import time
 
 import pytest

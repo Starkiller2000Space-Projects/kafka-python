@@ -3,8 +3,13 @@ import functools
 import re
 import time
 import weakref
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Concatenate, ParamSpec, TypeVar
 
 from kafka.errors import KafkaTimeoutError
+
+if TYPE_CHECKING:
+    from kafka.consumer.subscription_state import SubscriptionState
 
 
 class Timer:
@@ -113,8 +118,12 @@ class Dict(dict):
     pass
 
 
-def synchronized(func) -> None:
-    def wrapper(self, *args, **kwargs) -> None:
+Arguments = ParamSpec('Arguments')
+ReturnValue = TypeVar('ReturnValue')
+
+
+def synchronized(func: Callable[Concatenate['SubscriptionState', Arguments], ReturnValue]) -> Callable[Concatenate['SubscriptionState', Arguments], ReturnValue]:
+    def wrapper(self: 'SubscriptionState', *args: Arguments.args, **kwargs: Arguments.kwargs) -> ReturnValue:
         with self._lock:
             return func(self, *args, **kwargs)
     functools.update_wrapper(wrapper, func)

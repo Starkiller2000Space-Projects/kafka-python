@@ -1,4 +1,4 @@
-# pylint: skip-file
+
 
 import socket
 from errno import EALREADY, ECONNRESET, EINPROGRESS, EISCONN

@@ -1,12 +1,16 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Type
+from typing import List, Optional, Type, TypeVar, final
 
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import Array, BitField, Boolean, Int16, Int32, Schema, String
 
 
-class MetadataResponse_v0(Response):
+class _MetadataResponse(Response):
     API_KEY = 3
+
+
+@final
+class MetadataResponse_v0(_MetadataResponse):
     API_VERSION = 0
     SCHEMA = Schema(
         ('brokers', Array(
@@ -25,8 +29,8 @@ class MetadataResponse_v0(Response):
     )
 
 
-class MetadataResponse_v1(Response):
-    API_KEY = 3
+@final
+class MetadataResponse_v1(_MetadataResponse):
     API_VERSION = 1
     SCHEMA = Schema(
         ('brokers', Array(
@@ -48,8 +52,8 @@ class MetadataResponse_v1(Response):
     )
 
 
-class MetadataResponse_v2(Response):
-    API_KEY = 3
+@final
+class MetadataResponse_v2(_MetadataResponse):
     API_VERSION = 2
     SCHEMA = Schema(
         ('brokers', Array(
@@ -72,8 +76,8 @@ class MetadataResponse_v2(Response):
     )
 
 
-class MetadataResponse_v3(Response):
-    API_KEY = 3
+@final
+class MetadataResponse_v3(_MetadataResponse):
     API_VERSION = 3
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -97,14 +101,14 @@ class MetadataResponse_v3(Response):
     )
 
 
-class MetadataResponse_v4(Response):
-    API_KEY = 3
+@final
+class MetadataResponse_v4(_MetadataResponse):
     API_VERSION = 4
     SCHEMA = MetadataResponse_v3.SCHEMA
 
 
-class MetadataResponse_v5(Response):
-    API_KEY = 3
+@final
+class MetadataResponse_v5(_MetadataResponse):
     API_VERSION = 5
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -129,17 +133,17 @@ class MetadataResponse_v5(Response):
     )
 
 
-class MetadataResponse_v6(Response):
+@final
+class MetadataResponse_v6(_MetadataResponse):
     """Metadata Request/Response v6 is the same as v5,
     but on quota violation, brokers send out responses before throttling."""
-    API_KEY = 3
     API_VERSION = 6
     SCHEMA = MetadataResponse_v5.SCHEMA
 
 
-class MetadataResponse_v7(Response):
+@final
+class MetadataResponse_v7(_MetadataResponse):
     """v7 adds per-partition leader_epoch field"""
-    API_KEY = 3
     API_VERSION = 7
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -165,9 +169,9 @@ class MetadataResponse_v7(Response):
     )
 
 
-class MetadataResponse_v8(Response):
+@final
+class MetadataResponse_v8(_MetadataResponse):
     """v8 adds authorized_operations fields"""
-    API_KEY = 3
     API_VERSION = 8
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -195,8 +199,11 @@ class MetadataResponse_v8(Response):
     )
 
 
-class _MetadataRequest(Request, ABC):
+_MetadataResponseType = TypeVar('_MetadataResponseType', bound=_MetadataResponse)
 
+
+class _MetadataRequest(Request[_MetadataResponseType], ABC):
+    API_KEY = 3
     @property
     @abstractmethod
     def ALL_TOPICS(self) -> Optional[List[str]]:
@@ -208,8 +215,8 @@ class _MetadataRequest(Request, ABC):
         ...
 
 
-class MetadataRequest_v0(_MetadataRequest):
-    API_KEY = 3
+@final
+class MetadataRequest_v0(_MetadataRequest[MetadataResponse_v0]):
     API_VERSION = 0
     RESPONSE_TYPE = MetadataResponse_v0
     SCHEMA = Schema(
@@ -219,8 +226,8 @@ class MetadataRequest_v0(_MetadataRequest):
     NO_TOPICS = [] # v0 does not support a 'no topics' request, so we'll just ask for ALL
 
 
-class MetadataRequest_v1(_MetadataRequest):
-    API_KEY = 3
+@final
+class MetadataRequest_v1(_MetadataRequest[MetadataResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = MetadataResponse_v1
     SCHEMA = MetadataRequest_v0.SCHEMA
@@ -228,8 +235,8 @@ class MetadataRequest_v1(_MetadataRequest):
     NO_TOPICS = [] # Empty array (len 0) for topics returns no topics
 
 
-class MetadataRequest_v2(_MetadataRequest):
-    API_KEY = 3
+@final
+class MetadataRequest_v2(_MetadataRequest[MetadataResponse_v2]):
     API_VERSION = 2
     RESPONSE_TYPE = MetadataResponse_v2
     SCHEMA = MetadataRequest_v1.SCHEMA
@@ -237,7 +244,7 @@ class MetadataRequest_v2(_MetadataRequest):
     NO_TOPICS = []
 
 
-class MetadataRequest_v3(_MetadataRequest):
+class MetadataRequest_v3(_MetadataRequest[MetadataResponse_v3]):
     API_KEY = 3
     API_VERSION = 3
     RESPONSE_TYPE = MetadataResponse_v3
@@ -246,7 +253,7 @@ class MetadataRequest_v3(_MetadataRequest):
     NO_TOPICS = []
 
 
-class MetadataRequest_v4(_MetadataRequest):
+class MetadataRequest_v4(_MetadataRequest[MetadataResponse_v4]):
     API_KEY = 3
     API_VERSION = 4
     RESPONSE_TYPE = MetadataResponse_v4
@@ -258,12 +265,11 @@ class MetadataRequest_v4(_MetadataRequest):
     NO_TOPICS = []
 
 
-class MetadataRequest_v5(_MetadataRequest):
+class MetadataRequest_v5(_MetadataRequest[MetadataResponse_v5]):
     """
     The v5 metadata request is the same as v4.
     An additional field for offline_replicas has been added to the v5 metadata response
     """
-    API_KEY = 3
     API_VERSION = 5
     RESPONSE_TYPE = MetadataResponse_v5
     SCHEMA = MetadataRequest_v4.SCHEMA
@@ -271,8 +277,7 @@ class MetadataRequest_v5(_MetadataRequest):
     NO_TOPICS = []
 
 
-class MetadataRequest_v6(_MetadataRequest):
-    API_KEY = 3
+class MetadataRequest_v6(_MetadataRequest[MetadataResponse_v6]):
     API_VERSION = 6
     RESPONSE_TYPE = MetadataResponse_v6
     SCHEMA = MetadataRequest_v5.SCHEMA
@@ -280,8 +285,7 @@ class MetadataRequest_v6(_MetadataRequest):
     NO_TOPICS = []
 
 
-class MetadataRequest_v7(_MetadataRequest):
-    API_KEY = 3
+class MetadataRequest_v7(_MetadataRequest[MetadataResponse_v7]):
     API_VERSION = 7
     RESPONSE_TYPE = MetadataResponse_v7
     SCHEMA = MetadataRequest_v6.SCHEMA
@@ -289,8 +293,7 @@ class MetadataRequest_v7(_MetadataRequest):
     NO_TOPICS = []
 
 
-class MetadataRequest_v8(_MetadataRequest):
-    API_KEY = 3
+class MetadataRequest_v8(_MetadataRequest[MetadataResponse_v8]):
     API_VERSION = 8
     RESPONSE_TYPE = MetadataResponse_v8
     SCHEMA = Schema(
@@ -308,7 +311,7 @@ MetadataRequest: List[Type[_MetadataRequest]] = [
     MetadataRequest_v3, MetadataRequest_v4, MetadataRequest_v5,
     MetadataRequest_v6, MetadataRequest_v7, MetadataRequest_v8,
 ]
-MetadataResponse: List[Type[Response]] = [
+MetadataResponse: List[Type[_MetadataResponse]] = [
     MetadataResponse_v0, MetadataResponse_v1, MetadataResponse_v2,
     MetadataResponse_v3, MetadataResponse_v4, MetadataResponse_v5,
     MetadataResponse_v6, MetadataResponse_v7, MetadataResponse_v8,

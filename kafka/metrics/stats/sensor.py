@@ -1,8 +1,9 @@
 import threading
 import time
+from typing import List, Set, Tuple
 
 from kafka.errors import QuotaViolationError
-from kafka.metrics import KafkaMetric
+from kafka.metrics import KafkaMetric, MetricConfig
 
 
 class Sensor(object):
@@ -17,15 +18,15 @@ class Sensor(object):
                  '_stats', '_config', '_inactive_sensor_expiration_time_ms',
                  '_last_record_time')
 
-    def __init__(self, registry, name, parents, config,
-                 inactive_sensor_expiration_time_seconds) -> None:
+    def __init__(self, registry, name, parents: List[Sensor], config: MetricConfig,
+                 inactive_sensor_expiration_time_seconds: int) -> None:
         if not name:
             raise ValueError('name must be non-empty')
         self._lock = threading.RLock()
         self._registry = registry
         self._name = name
         self._parents = parents or []
-        self._metrics = []
+        self._metrics: List[KafkaMetric] = []
         self._stats = []
         self._config = config
         self._inactive_sensor_expiration_time_ms = (
@@ -33,7 +34,7 @@ class Sensor(object):
         self._last_record_time = time.time() * 1000
         self._check_forest(set())
 
-    def _check_forest(self, sensors) -> None:
+    def _check_forest(self, sensors: Set['Sensor']) -> None:
         """Validate that this sensor doesn't end up referencing itself."""
         if self in sensors:
             raise ValueError('Circular dependency in sensors: %s is its own'
@@ -43,7 +44,7 @@ class Sensor(object):
             parent._check_forest(sensors)
 
     @property
-    def name(self) -> None:
+    def name(self) -> str:
         """
         The name this sensor is registered with.
         This name will be unique among all registered sensors.
@@ -51,10 +52,10 @@ class Sensor(object):
         return self._name
 
     @property
-    def metrics(self) -> None:
+    def metrics(self) -> Tuple[KafkaMetric, ...]:
         return tuple(self._metrics)
 
-    def record(self, value=1.0, time_ms=None) -> None:
+    def record(self, value: float = 1.0, time_ms: Optional[int] = None) -> None:
         """
         Record a value at a known time.
         Arguments:
@@ -77,7 +78,7 @@ class Sensor(object):
         for parent in self._parents:
             parent.record(value, time_ms)
 
-    def _check_quotas(self, time_ms) -> None:
+    def _check_quotas(self, time_ms: int) -> None:
         """
         Check if we have violated our quota for any metric that
         has a configured quota

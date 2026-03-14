@@ -31,13 +31,13 @@ class Struct(metaclass=abc.ABCMeta):
                                  % (list(self.SCHEMA.names),
                                     ', '.join(kwargs.keys())))
 
-    def encode(self) -> None:
+    def encode(self) -> bytes:
         return self.SCHEMA.encode(
             [getattr(self, name) for name in self.SCHEMA.names]
         )
 
     @classmethod
-    def decode(cls, data) -> Self:
+    def decode(cls, data: BytesIO) -> Self:
         if isinstance(data, bytes):
             data = BytesIO(data)
         return cls(*cls.SCHEMA.decode(data))
@@ -47,16 +47,16 @@ class Struct(metaclass=abc.ABCMeta):
             raise KeyError("%s is not in the schema" % name)
         return getattr(self, name)
 
-    def __repr__(self) -> None:
+    def __repr__(self) -> str:
         key_vals = []
         for name, field in zip(self.SCHEMA.names, self.SCHEMA.fields):
             key_vals.append('%s=%s' % (name, field.repr(getattr(self, name))))
         return self.__class__.__name__ + '(' + ', '.join(key_vals) + ')'
 
-    def __hash__(self) -> None:
+    def __hash__(self) -> int:
         return hash(self.encode())
 
-    def __eq__(self, other) -> None:
+    def __eq__(self, other: Any) -> bool:
         if self.SCHEMA != other.SCHEMA:
             return False
         for attr in self.SCHEMA.names:

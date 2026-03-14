@@ -11,12 +11,12 @@ class ResourceType(IntEnum):
     The ANY value is only valid in a filter context
     """
 
-    UNKNOWN = 0,
-    ANY = 1,
-    CLUSTER = 4,
-    DELEGATION_TOKEN = 6,
-    GROUP = 3,
-    TOPIC = 2,
+    UNKNOWN = 0
+    ANY = 1
+    CLUSTER = 4
+    DELEGATION_TOKEN = 6
+    GROUP = 3
+    TOPIC = 2
     TRANSACTIONAL_ID = 5
 
 
@@ -26,20 +26,20 @@ class ACLOperation(IntEnum):
     The ANY value is only valid in a filter context
     """
 
-    UNKNOWN = 0,
-    ANY = 1,
-    ALL = 2,
-    READ = 3,
-    WRITE = 4,
-    CREATE = 5,
-    DELETE = 6,
-    ALTER = 7,
-    DESCRIBE = 8,
-    CLUSTER_ACTION = 9,
-    DESCRIBE_CONFIGS = 10,
-    ALTER_CONFIGS = 11,
-    IDEMPOTENT_WRITE = 12,
-    CREATE_TOKENS = 13,
+    UNKNOWN = 0
+    ANY = 1
+    ALL = 2
+    READ = 3
+    WRITE = 4
+    CREATE = 5
+    DELETE = 6
+    ALTER = 7
+    DESCRIBE = 8
+    CLUSTER_ACTION = 9
+    DESCRIBE_CONFIGS = 10
+    ALTER_CONFIGS = 11
+    IDEMPOTENT_WRITE = 12
+    CREATE_TOKENS = 13
     DESCRIBE_TOKENS = 13
 
 
@@ -49,9 +49,9 @@ class ACLPermissionType(IntEnum):
     The ANY value is only valid in a filter context
     """
 
-    UNKNOWN = 0,
-    ANY = 1,
-    DENY = 2,
+    UNKNOWN = 0
+    ANY = 1
+    DENY = 2
     ALLOW = 3
 
 
@@ -63,10 +63,10 @@ class ACLResourcePatternType(IntEnum):
     https://cwiki.apache.org/confluence/display/KAFKA/KIP-290%3A+Support+for+Prefixed+ACLs
     """
 
-    UNKNOWN = 0,
-    ANY = 1,
-    MATCH = 2,
-    LITERAL = 3,
+    UNKNOWN = 0
+    ANY = 1
+    MATCH = 2
+    LITERAL = 3
     PREFIXED = 4
 
 

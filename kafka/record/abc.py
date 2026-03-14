@@ -1,6 +1,6 @@
 import abc
-from collections.abc import Iterator, Sequence
-from typing import TYPE_CHECKING, List, Literal, Optional, Tuple
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     from kafka.record.default_records import DefaultRecordMetadata
@@ -35,13 +35,13 @@ class ABCRecord(object, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def key(self) -> bytes | None:
+    def key(self) -> Optional[bytes]:
         """ Bytes key or None
         """
 
     @property
     @abc.abstractmethod
-    def value(self) -> bytes | None:
+    def value(self) -> Optional[bytes]:
         """ Bytes value or None
         """
 
@@ -139,22 +139,22 @@ class ABCRecords(object, metaclass=abc.ABCMeta):
     __slots__ = ()
 
     @abc.abstractmethod
-    def __init__(self, buffer: Sequence[bytes]) -> None:
+    def __init__(self, buffer: Union[bytes, bytearray, memoryview]) -> None:
         """ Initialize with bytes-like object conforming to the buffer
             interface (ie. bytes, bytearray, memoryview etc.).
         """
 
     @abc.abstractmethod
-    def size_in_bytes(self) -> None:
+    def size_in_bytes(self) -> int:
         """ Returns the size of inner buffer.
         """
 
     @abc.abstractmethod
-    def next_batch(self) -> None:
+    def next_batch(self) -> ABCRecordBatch:
         """ Return next batch of records (ABCRecordBatch instances).
         """
 
     @abc.abstractmethod
-    def has_next(self) -> None:
+    def has_next(self) -> bool:
         """ True if there are more batches to read, False otherwise.
         """

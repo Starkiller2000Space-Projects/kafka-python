@@ -1,4 +1,5 @@
 from enum import IntEnum
+from typing import Dict, Optional
 
 
 class ConfigResourceType(IntEnum):
@@ -17,19 +18,19 @@ class ConfigResource(object):
     """
 
     def __init__(
-            self,
-            resource_type,
-            name,
-            configs=None
+        self,
+        resource_type: ConfigResourceType,
+        name: str,
+        configs: Optional[Dict[str, str]] = None
     ) -> None:
         if not isinstance(resource_type, (ConfigResourceType)):
-            resource_type = ConfigResourceType[str(resource_type).upper()] # pylint: disable-msg=unsubscriptable-object
+            resource_type = ConfigResourceType[str(resource_type).upper()]
         self.resource_type = resource_type
         self.name = name
-        self.configs = configs
+        self.configs = configs or {}
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         return "ConfigResource %s=%s" % (self.resource_type, self.name)
 
-    def __repr__(self) -> None:
+    def __repr__(self) -> str:
         return "ConfigResource(%s, %s, %s)" % (self.resource_type, self.name, self.configs)

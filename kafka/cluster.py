@@ -5,7 +5,7 @@ import random
 import re
 import threading
 import time
-from typing import Dict, Set
+from typing import Dict, Set, Union
 
 from kafka import errors as Errors
 from kafka.conn import get_ip_port_afi
@@ -77,7 +77,7 @@ class ClusterMetadata(object):
             brokers[node_id] = BrokerMetadata(node_id, host, port, None)
         return brokers
 
-    def is_bootstrap(self, node_id) -> None:
+    def is_bootstrap(self, node_id: int) -> bool:
         return node_id in self._bootstrap_brokers
 
     def brokers(self) -> Set[BrokerMetadata]:
@@ -88,7 +88,7 @@ class ClusterMetadata(object):
         """
         return set(self._brokers.values()) or set(self._bootstrap_brokers.values())
 
-    def broker_metadata(self, broker_id) -> None:
+    def broker_metadata(self, broker_id: Union[int, str]) -> None:
         """Get BrokerMetadata
 
         Arguments:

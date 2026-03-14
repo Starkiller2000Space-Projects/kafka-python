@@ -1,19 +1,20 @@
 import abc
 from collections.abc import Sequence
-from typing import Any, Tuple
+from io import BytesIO
+from typing import Any, Generic, Tuple, TypeVar
+
+ValueType = TypeVar('ValueType')
 
 
-class AbstractType(object, metaclass=abc.ABCMeta):
-    @classmethod
+class AbstractType(object, Generic[ValueType], metaclass=abc.ABCMeta):
+
     @abc.abstractmethod
-    def encode(cls, value: Sequence[Any]) -> bytes: # pylint: disable=no-self-argument
+    def encode(self, value: ValueType) -> bytes:
         pass
 
-    @classmethod
     @abc.abstractmethod
-    def decode(cls, data: bytes) -> Tuple[Any, ...]: # pylint: disable=no-self-argument
+    def decode(self, data: BytesIO) -> ValueType:
         pass
 
-    @classmethod
-    def repr(cls, value) -> str:
+    def repr(self, value: ValueType) -> str:
         return repr(value)

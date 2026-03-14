@@ -640,10 +640,10 @@ class StickyPartitionAssignor(AbstractPartitionAssignor):
             )
 
         member_partitions = []
-        for topic, partitions in decoded_user_data.previous_assignment:     # pylint: disable=no-member
+        for topic, partitions in decoded_user_data.previous_assignment:     
             member_partitions.extend([TopicPartition(topic, partition) for partition in partitions])
         return StickyAssignorMemberMetadataV1(
-            # pylint: disable=no-member
+            
             partitions=member_partitions, generation=decoded_user_data.generation, subscription=metadata.topics
         )
 

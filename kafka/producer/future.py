@@ -63,7 +63,7 @@ class FutureRecordMetadata(Future):
                 "Timeout after waiting for %s secs." % (timeout,))
         assert self.is_done
         if self.failed():
-            raise self.exception # pylint: disable-msg=raising-bad-type
+            raise self.exception 
         return self.value
 
 
