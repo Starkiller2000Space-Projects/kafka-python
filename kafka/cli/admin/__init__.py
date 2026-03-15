@@ -3,9 +3,10 @@ import json
 import logging
 from collections.abc import Iterable, Sequence
 from pprint import pprint
-from typing import Any, Optional, Protocol
+from typing import Dict, Optional, Protocol, cast
 
 from kafka.admin.client import KafkaAdminClient
+from kafka.admin.types import KafkaAdminClientParams
 
 from .cluster import ClusterSubCommand
 from .configs import ConfigsSubCommand
@@ -37,9 +38,9 @@ def main_parser() -> argparse.ArgumentParser:
 _LOGGING_LEVELS = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
 
 
-def build_kwargs(props: Iterable[str]) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {}
-    v: Any
+def build_kwargs(props: Iterable[str]) -> KafkaAdminClientParams:
+    kwargs: Dict[str, object] = {}
+    v: object
     for prop in props or []:
         k, v = prop.split('=')
         try:
@@ -53,13 +54,13 @@ def build_kwargs(props: Iterable[str]) -> dict[str, Any]:
         elif v == 'True':
             v = True
         kwargs[k] = v
-    return kwargs
+    return cast(KafkaAdminClientParams, kwargs)
 
 
 class SubCommand(Protocol):
 
     @classmethod
-    def add_subparser(cls, subparsers: Any) -> None:
+    def add_subparser(cls, subparsers: object) -> None:
         ...
 
 
@@ -79,7 +80,8 @@ def run_cli(args: Optional[Sequence[str]] = None) -> int:
     logger = logging.getLogger(__name__)
 
     kwargs = build_kwargs(config.extra_config)
-    client = KafkaAdminClient(bootstrap_servers=config.bootstrap_servers, **kwargs)
+    kwargs['bootstrap_servers'] = config.bootstrap_servers
+    client = KafkaAdminClient(**kwargs)
     try:
         result = config.command(client, config)
         if config.format == 'raw':

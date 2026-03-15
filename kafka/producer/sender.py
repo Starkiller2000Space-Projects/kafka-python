@@ -4,11 +4,17 @@ import heapq
 import logging
 import threading
 import time
+from typing import DefaultDict, List, Tuple
+
+from typing_extensions import Never, Unpack
 
 from kafka import errors as Errors
+from kafka.client_async import KafkaClient
 from kafka.metrics.measurable import AnonMeasurable
 from kafka.metrics.stats import Avg, Max, Rate
+from kafka.producer.record_accumulator import RecordAccumulator
 from kafka.producer.transaction_manager import ProducerIdAndEpoch
+from kafka.producer.types import SenderParams
 from kafka.protocol.init_producer_id import InitProducerIdRequest
 from kafka.protocol.produce import ProduceRequest
 from kafka.structs import TopicPartition
@@ -42,7 +48,7 @@ class Sender(threading.Thread):
         'client_id': 'kafka-python-' + __version__,
     }
 
-    def __init__(self, client, metadata, accumulator, **configs) -> None:
+    def __init__(self, client: KafkaClient, metadata: Never, accumulator: RecordAccumulator, **configs: Unpack[SenderParams]) -> None:
         super(Sender, self).__init__()
         self.config = copy.copy(self.DEFAULT_CONFIG)
         for key in self.config:
@@ -62,7 +68,7 @@ class Sender(threading.Thread):
             self._sensors = None
         self._transaction_manager = self.config['transaction_manager']
         # A per-partition queue of batches ordered by creation time for tracking the in-flight batches
-        self._in_flight_batches = collections.defaultdict(list)
+        self._in_flight_batches: DefaultDict[TopicPartition, List[Tuple[int, ]]] = collections.defaultdict(list)
 
     def _maybe_remove_from_inflight_batches(self, batch) -> None:
         try:
@@ -78,7 +84,7 @@ class Sender(threading.Thread):
         queue.pop()
         heapq.heapify(queue)
 
-    def _get_expired_inflight_batches(self, now=None) -> None:
+    def _get_expired_inflight_batches(self, now: Optional[Never] = None) -> None:
         """Get the in-flight batches that has reached delivery timeout."""
         expired_batches = []
         to_remove = []

@@ -1,9 +1,10 @@
 import argparse
 import logging
 from collections.abc import Iterable, Sequence
-from typing import Any, Optional
+from typing import Dict, Optional, cast
 
 from kafka import KafkaConsumer
+from kafka.consumer.types import KafkaConsumerParams
 from kafka.errors import KafkaError
 
 
@@ -38,9 +39,9 @@ def main_parser() -> argparse.ArgumentParser:
 _LOGGING_LEVELS = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
 
 
-def build_kwargs(props: Iterable[str]) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {}
-    v: Any
+def build_kwargs(props: Iterable[str]) -> KafkaConsumerParams:
+    kwargs: Dict[str, object] = {}
+    v: object
     for prop in props or []:
         k, v = prop.split('=')
         try:
@@ -54,7 +55,7 @@ def build_kwargs(props: Iterable[str]) -> dict[str, Any]:
         elif v == 'True':
             v = True
         kwargs[k] = v
-    return kwargs
+    return cast(KafkaConsumerParams, kwargs)
 
 
 def run_cli(args: Optional[Sequence[str]] = None) -> Optional[int]:
@@ -67,7 +68,9 @@ def run_cli(args: Optional[Sequence[str]] = None) -> Optional[int]:
     logger = logging.getLogger(__name__)
 
     kwargs = build_kwargs(config.extra_config)
-    consumer = KafkaConsumer(bootstrap_servers=config.bootstrap_servers, group_id=config.group, **kwargs)
+    kwargs['bootstrap_servers'] = config.bootstrap_servers
+    kwargs['group_id'] = config.group
+    consumer = KafkaConsumer(**kwargs)
     consumer.subscribe(config.topics)
     try:
         for m in consumer:

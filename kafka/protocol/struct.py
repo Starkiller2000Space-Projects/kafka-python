@@ -1,6 +1,6 @@
 import abc
 from io import BytesIO
-from typing import Any
+from typing import object
 
 from typing_extensions import Self
 
@@ -17,7 +17,7 @@ class Struct(metaclass=abc.ABCMeta):
         """An instance of Schema() representing the structure"""
         ...
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: object, **kwargs: object) -> None:
         if len(args) == len(self.SCHEMA):
             for i, name in enumerate(self.SCHEMA.names):
                 setattr(self, name, args[i])
@@ -42,7 +42,7 @@ class Struct(metaclass=abc.ABCMeta):
             data = BytesIO(data)
         return cls(*cls.SCHEMA.decode(data))
 
-    def get_item(self, name: str) -> Any:
+    def get_item(self, name: str) -> object:
         if name not in self.SCHEMA.names:
             raise KeyError("%s is not in the schema" % name)
         return getattr(self, name)
@@ -56,7 +56,7 @@ class Struct(metaclass=abc.ABCMeta):
     def __hash__(self) -> int:
         return hash(self.encode())
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if self.SCHEMA != other.SCHEMA:
             return False
         for attr in self.SCHEMA.names:

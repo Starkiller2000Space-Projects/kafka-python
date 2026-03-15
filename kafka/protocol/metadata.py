@@ -1,11 +1,48 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Type, TypeVar, final
+from collections.abc import Iterable
+from typing import List, Optional, Type, TypedDict, TypeVar, final
+
+from typing_extensions import NotRequired
 
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import Array, BitField, Boolean, Int16, Int32, Schema, String
 
 
-class _MetadataResponse(Response):
+class _MetadataResponsePartitionDict(TypedDict):
+    error_code: int
+    partition: int
+    leader: int
+    replicas: List[int]
+    isr: List[int]
+    leader_epoch: NotRequired[int]  # added in v7
+    offline_replicas: NotRequired[List[int]]  # added in v5
+
+
+class _MetadataResponseTopicDict(TypedDict):
+    error_code: int
+    topic: str
+    partitions: List[_MetadataResponsePartitionDict]
+    is_internal: NotRequired[bool]  # added in v1
+    authorized_operations: NotRequired[Iterable[int]]  # added in v8
+
+
+class _MetadataResponseBrokerDict(TypedDict):
+    node_id: int
+    host: str
+    port: int
+    rack: NotRequired[str]  # added in v1
+
+
+class _MetadataResponseDict(TypedDict):
+    brokers: List[_MetadataResponseBrokerDict]
+    topics: NotRequired[List[_MetadataResponseTopicDict]]
+    throttle_time_ms: NotRequired[int]  # added in v3
+    cluster_id: NotRequired[str]  # added in v2
+    controller_id: NotRequired[int]  # added in v1
+    authorized_operations: NotRequired[Iterable[int]]  # added in v8
+
+
+class _MetadataResponse(Response[_MetadataResponseDict]):
     API_KEY = 3
 
 

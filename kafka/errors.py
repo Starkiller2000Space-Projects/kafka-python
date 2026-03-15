@@ -2,7 +2,7 @@ import inspect
 import sys
 from abc import ABC
 from collections.abc import Iterator
-from typing import Any, Dict, Type
+from typing import Dict, Type
 
 
 class KafkaError(RuntimeError):
@@ -16,7 +16,7 @@ class KafkaError(RuntimeError):
         return '{0}: {1}'.format(self.__class__.__name__,
                                super(KafkaError, self).__str__())
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         return self.__class__ == other.__class__ and self.args == other.args
 
 
@@ -25,7 +25,7 @@ class Cancelled(KafkaError):
 
 
 class CommitFailedError(KafkaError):
-    def __init__(self, *args: Any) -> None:
+    def __init__(self, *args: object) -> None:
         if not args:
             args = ("Commit cannot be completed since the group has already"
                     " rebalanced and assigned the partitions to another member.",)

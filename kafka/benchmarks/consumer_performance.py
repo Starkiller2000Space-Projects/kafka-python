@@ -7,21 +7,22 @@ import sys
 import threading
 import time
 import traceback
-from typing import Any, Optional
+from typing import Optional
 
 from kafka import KafkaConsumer
+from kafka.consumer.types import KafkaConsumerParams
 
 
 class ConsumerPerformance(object):
     @staticmethod
     def run(args: argparse.Namespace) -> None:
         try:
-            props = {}
-            v: Any
+            props: KafkaConsumerParams = {}
+            v: object
             for prop in args.consumer_config:
                 k, v = prop.split('=')
                 try:
-                    v = int(v)
+                    v = int(v)  # type: ignore[call-overload]
                 except ValueError:
                     pass
                 if v == 'None':
@@ -30,7 +31,7 @@ class ConsumerPerformance(object):
                     v = False
                 elif v == 'True':
                     v = True
-                props[k] = v
+                props[k] = v  # type: ignore[literal-required]
 
             print('Initializing Consumer...')
             props['bootstrap_servers'] = args.bootstrap_servers

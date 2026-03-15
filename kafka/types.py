@@ -78,6 +78,6 @@ class KafkaClientParams(AuthParams, total=False):
 
     # additional fields
     bootstrap_topics_filter: Set[str]
-    wakeup_timeout_ms
-    sock_chunk_bytes
-    sock_chunk_buffer_count
+    wakeup_timeout_ms: int
+    sock_chunk_bytes: int
+    sock_chunk_buffer_count: int

@@ -2,7 +2,7 @@ import functools
 import logging
 import threading
 from collections.abc import Callable, Iterable
-from typing import Any, Generic, ParamSpec, TypeVar
+from typing import Generic, ParamSpec, TypeVar
 
 from typing_extensions import Self
 

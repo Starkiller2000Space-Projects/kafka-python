@@ -11,7 +11,6 @@ from collections.abc import Iterable
 from pathlib import Path
 from test.service import ExternalService, SpawnedService
 from test.testutil import env_kafka_version, random_string
-from typing import Any
 from urllib.parse import urlparse
 
 import py
@@ -84,25 +83,25 @@ class Fixture(object):
         return os.path.join(cls.project_root, "servers", "resources", "default", filename)
 
     @classmethod
-    def run_script(cls, script: str, *args: Iterable[Any]) -> None:
+    def run_script(cls, script: str, *args: Iterable[object]) -> None:
         result = [os.path.join(cls.kafka_root, 'bin', script)]
         result.extend([str(arg) for arg in args])
         return result
 
     @classmethod
-    def kafka_run_class_args(cls, *args: Iterable[Any]) -> list[str]:
+    def kafka_run_class_args(cls, *args: Iterable[object]) -> List[str]:
         result = [os.path.join(cls.kafka_root, 'bin', 'kafka-run-class.sh')]
         result.extend([str(arg) for arg in args])
         return result
 
-    def kafka_run_class_env(self) -> dict[str, str]:
+    def kafka_run_class_env(self) -> Dict[str, str]:
         env = os.environ.copy()
         env['KAFKA_LOG4J_OPTS'] = "-Dlog4j.configuration=file:%s" % \
                                   (self.test_resource("log4j.properties"),)
         return env
 
     @classmethod
-    def render_template(cls, source_file: str, target_file, binding: dict[str, Any]) -> None:
+    def render_template(cls, source_file: str, target_file, binding: Dict[str, object]) -> None:
         log.info('Rendering %s from template %s', target_file.strpath, source_file)
         with open(source_file, "r") as handle:
             template = handle.read()

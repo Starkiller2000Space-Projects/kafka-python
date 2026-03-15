@@ -5,11 +5,12 @@ import random
 import re
 import threading
 import time
-from typing import Dict, Set, Union
+from typing import Dict, Optional, Set, Union
 
 from kafka import errors as Errors
 from kafka.conn import get_ip_port_afi
 from kafka.future import Future
+from kafka.protocol.find_coordinator import _FindCoordinatorResponse
 from kafka.structs import BrokerMetadata, PartitionMetadata, TopicPartition
 
 log = logging.getLogger(__name__)
@@ -370,7 +371,7 @@ class ClusterMetadata(object):
         """Remove a previously added listener callback"""
         self._listeners.remove(listener)
 
-    def add_coordinator(self, response, coord_type, coord_key) -> None:
+    def add_coordinator(self, response: _FindCoordinatorResponse, coord_type: str, coord_key: str) -> Optional[str]:
         """Update with metadata for a group or txn coordinator
 
         Arguments:

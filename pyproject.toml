@@ -61,6 +61,7 @@ exclude_gitignore = true
 disallow_untyped_defs = true
 disallow_untyped_decorators = true
 follow_untyped_imports = true
+disallow_any_explicit = true
 enable_error_code = ["deprecated"]
 
 [tool.pylint.TYPECHECK]
@@ -78,3 +79,8 @@ addopts = ["--durations=10", "--timeout=300"]
 
 [tool.coverage.run]
 omit = ["kafka/vendor/*"]
+
+
+[tool.flake8]
+ignore = ['E501']
+exclude = ['venv/*',]

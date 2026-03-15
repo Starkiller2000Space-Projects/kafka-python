@@ -2,9 +2,10 @@ import argparse
 import logging
 import sys
 from collections.abc import Iterable, Sequence
-from typing import Any, Dict, Optional
+from typing import Dict, Optional, cast
 
 from kafka import KafkaProducer
+from kafka.producer.types import KafkaProducerParams
 
 
 def main_parser() -> argparse.ArgumentParser:
@@ -33,9 +34,9 @@ def main_parser() -> argparse.ArgumentParser:
 _LOGGING_LEVELS = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
 
 
-def build_kwargs(props: Iterable[str]) -> Dict[str, Any]:
-    kwargs: dict[str, Any] = {}
-    v: Any
+def build_kwargs(props: Iterable[str]) -> KafkaProducerParams:
+    kwargs: Dict[str, object] = {}
+    v: object
     for prop in props or []:
         k, v = prop.split('=')
         try:
@@ -49,7 +50,7 @@ def build_kwargs(props: Iterable[str]) -> Dict[str, Any]:
         elif v == 'True':
             v = True
         kwargs[k] = v
-    return kwargs
+    return cast(KafkaProducerParams, kwargs)
 
 
 def run_cli(args: Optional[Sequence[str]] = None) -> int:
@@ -60,9 +61,10 @@ def run_cli(args: Optional[Sequence[str]] = None) -> int:
     logger = logging.getLogger(__name__)
 
     kwargs = build_kwargs(config.extra_config)
-    producer = KafkaProducer(bootstrap_servers=config.bootstrap_servers, **kwargs)
+    kwargs['bootstrap_servers'] = config.bootstrap_servers
+    producer = KafkaProducer(**kwargs)
 
-    def log_result(res_or_err: Any) -> None:
+    def log_result(res_or_err: object) -> None:
         if isinstance(res_or_err, Exception):
             logger.error("Error producing message", exc_info=res_or_err)
         else:

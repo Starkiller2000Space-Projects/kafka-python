@@ -1,6 +1,7 @@
 import logging
 import time
 from enum import IntEnum
+from typing import List, Optional, Tuple
 
 import kafka.errors as Errors
 from kafka.producer.future import FutureProduceResult, FutureRecordMetadata
@@ -49,7 +50,7 @@ class ProducerBatch(object):
     def has_sequence(self) -> None:
         return self.records.has_sequence if self.records else False
 
-    def try_append(self, timestamp_ms, key, value, headers, now=None) -> None:
+    def try_append(self, timestamp_ms: int, key: bytes, value: bytes, headers: List[Tuple[str, bytes]], now: Optional[float] = None) -> Optional[FutureRecordMetadata]:
         metadata = self.records.append(timestamp_ms, key, value, headers)
         if metadata is None:
             return None

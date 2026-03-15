@@ -3,7 +3,7 @@ import uuid
 from collections.abc import Callable, Iterable, Sequence
 from io import BytesIO
 from struct import error
-from typing import Any, Dict, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Dict, Optional, Set, Tuple, Type, TypeVar, Union
 
 from kafka.protocol.abstract import AbstractType
 
@@ -170,13 +170,13 @@ class Schema(AbstractType):
     names: Tuple[str]
     fields: Tuple[AbstractType]
 
-    def __init__(self, *fields: Tuple[str, Union[AbstractType[Any], Type[AbstractType[Any]]]]) -> None:
+    def __init__(self, *fields: Tuple[str, Union[AbstractType, Type[AbstractType]]]) -> None:
         if fields:
             self.names, self.fields = zip(*fields)
         else:
             self.names, self.fields = (), ()
 
-    def encode(self, item: Sequence[Any]) -> bytes:
+    def encode(self, item: Sequence[object]) -> bytes:
         if len(item) != len(self.fields):
             raise ValueError('Item field count does not match Schema')
         return b''.join([
@@ -184,13 +184,13 @@ class Schema(AbstractType):
             for i, field in enumerate(self.fields)
         ])
 
-    def decode(self, data: BytesIO) -> Tuple[Any, ...]:
+    def decode(self, data: BytesIO) -> Tuple[object, ...]:
         return tuple([field.decode(data) for field in self.fields])
 
     def __len__(self) -> int:
         return len(self.fields)
 
-    def repr(self, value: Any) -> str:
+    def repr(self, value: object) -> str:
         key_vals = []
         try:
             for i in range(len(self)):
@@ -204,8 +204,8 @@ class Schema(AbstractType):
             return repr(value)
 
 
-class Array(AbstractType[Optional[Sequence[Any]]]):
-    def __init__(self, *array_of: Union[Tuple[str, Union[AbstractType[Any], Type[AbstractType[Any]]]], Union[AbstractType[Any], Type[AbstractType[Any]]]]) -> None:
+class Array(AbstractType[Optional[Sequence[object]]]):
+    def __init__(self, *array_of: Union[Tuple[str, Union[AbstractType, Type[AbstractType]]], Union[AbstractType, Type[AbstractType]]]) -> None:
         if len(array_of) > 1:
             self.array_of = Schema(*array_of)
         elif len(array_of) == 1 and (isinstance(array_of[0], AbstractType) or
@@ -214,7 +214,7 @@ class Array(AbstractType[Optional[Sequence[Any]]]):
         else:
             raise ValueError('Array instantiated with no array_of type')
 
-    def encode(self, items: Sequence[Any]) -> bytes:
+    def encode(self, items: Sequence[object]) -> bytes:
         if items is None:
             return Int32.encode(-1)
         encoded_items = [self.array_of.encode(item) for item in items]
@@ -223,13 +223,13 @@ class Array(AbstractType[Optional[Sequence[Any]]]):
             encoded_items
         )
 
-    def decode(self, data: BytesIO) -> Sequence[Any]:
+    def decode(self, data: BytesIO) -> Sequence[object]:
         length = Int32.decode(data)
         if length == -1:
             return None
         return [self.array_of.decode(data) for _ in range(length)]
 
-    def repr(self, list_of_items: Sequence[Any]) -> str:
+    def repr(self, list_of_items: Sequence[object]) -> str:
         if list_of_items is None:
             return 'NULL'
         return '[' + ', '.join([self.array_of.repr(item) for item in list_of_items]) + ']'
@@ -373,7 +373,7 @@ class CompactBytes(AbstractType[bytes]):
 
 
 class CompactArray(Array):
-    def encode(self, items: Sequence[Any]) -> bytes:
+    def encode(self, items: Optional[Sequence[object]]) -> bytes:
         if items is None:
             return UnsignedVarInt32.encode(0)
         return b''.join(
@@ -381,7 +381,7 @@ class CompactArray(Array):
             [self.array_of.encode(item) for item in items]
         )
 
-    def decode(self, data: BytesIO) -> Sequence[Any]:
+    def decode(self, data: BytesIO) -> Optional[Sequence[object]]:
         length = UnsignedVarInt32.decode(data) - 1
         if length == -1:
             return None

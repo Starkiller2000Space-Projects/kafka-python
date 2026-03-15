@@ -1,7 +1,7 @@
 import abc
 from collections.abc import Sequence
 from io import BytesIO
-from typing import Any, Generic, Tuple, TypeVar
+from typing import Generic, Tuple, TypeVar
 
 ValueType = TypeVar('ValueType')
 

@@ -1009,7 +1009,7 @@ class KafkaClient(object):
         """
         return self._api_versions
 
-    def check_version(self, node_id: Optional[str] = None, timeout: Optional[float] = None, **kwargs: Any) -> Union[Tuple[int, int], Tuple[int, int, int]]:
+    def check_version(self, node_id: Optional[str] = None, timeout: Optional[float] = None, **kwargs: object) -> Union[Tuple[int, int], Tuple[int, int, int]]:
         """Attempt to guess the version of a Kafka broker.
 
         Keyword Arguments:

@@ -1,26 +1,21 @@
-import selectors
-import ssl
 from collections.abc import Callable
-from typing import Any, Literal
-
-import gssapi
+from typing import List, Literal, Optional, Union
 
 from kafka.types import AuthParams
 
 from ..coordinator.assignors.abstract import AbstractPartitionAssignor
 from ..metrics.metrics_reporter import AbstractMetricsReporter
-from ..sasl.oauth import AbstractTokenProvider
 
 
 class KafkaConsumerParams(AuthParams, total=False):
     """Kafka consumer config params."""
 
-    bootstrap_servers: str | list[str]
+    bootstrap_servers: Union[str, List[str]]
     client_id: str
-    group_id: str | None
+    group_id: Optional[str]
     group_instance_id: str
-    key_deserializer: Callable[[bytes], Any]
-    value_deserializer: Callable[[bytes], Any]
+    key_deserializer: Callable[[bytes], object]
+    value_deserializer: Callable[[bytes], object]
     enable_incremental_fetch_sessions: bool
     fetch_min_bytes: int
     fetch_max_wait_ms: int
@@ -39,17 +34,17 @@ class KafkaConsumerParams(AuthParams, total=False):
     isolation_level: Literal['read_committed', 'read_uncommitted']
     allow_auto_create_topics: bool
     metadata_max_age_ms: int
-    partition_assignment_strategy: list[AbstractPartitionAssignor]
+    partition_assignment_strategy: List[AbstractPartitionAssignor]
     max_poll_records: int
     max_poll_interval_ms: int
     session_timeout_ms: int
     heartbeat_interval_ms: int
     receive_buffer_bytes: int
     send_buffer_bytes: int
-    socket_options: list[int]
+    socket_options: List[int]
     consumer_timeout_ms: int
     connections_max_idle_ms: int
-    metric_reporters: list[AbstractMetricsReporter]
+    metric_reporters: List[AbstractMetricsReporter]
     metrics_enabled: bool
     metrics_num_samples: int
     metrics_sample_window_ms: int

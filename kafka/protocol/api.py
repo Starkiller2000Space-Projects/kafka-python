@@ -1,5 +1,6 @@
 import abc
-from typing import Any, Dict, Generic, Optional, Type, TypeVar
+from collections.abc import Mapping
+from typing import Dict, Generic, Optional, Type, TypeVar, cast
 
 from kafka.protocol.struct import Struct
 from kafka.protocol.types import Array, Int16, Int32, Schema, String, TaggedFields
@@ -76,7 +77,7 @@ class Request(Struct, Generic[ResponseType], metaclass=abc.ABCMeta):
         """Override this method if an api request does not always generate a response"""
         return True
 
-    def to_object(self) -> Dict[str, Any]:
+    def to_object(self) -> Dict[str, object]:
         return _to_object(self.SCHEMA, self)
 
     def build_header(self, correlation_id: int, client_id: str) -> RequestHeader:
@@ -85,7 +86,10 @@ class Request(Struct, Generic[ResponseType], metaclass=abc.ABCMeta):
         return RequestHeader(self, correlation_id=correlation_id, client_id=client_id)
 
 
-class Response(Struct, metaclass=abc.ABCMeta):
+DictSchema = TypeVar('DictSchema', bound=Mapping[str, object])
+
+
+class Response(Struct, Generic[DictSchema], metaclass=abc.ABCMeta):
     FLEXIBLE_VERSION = False
 
     @property
@@ -100,8 +104,8 @@ class Response(Struct, metaclass=abc.ABCMeta):
         """Integer of api request/response version"""
         pass
 
-    def to_object(self) -> Dict[str, Any]:
-        return _to_object(self.SCHEMA, self)
+    def to_object(self) -> DictSchema:
+        return cast(DictSchema, _to_object(self.SCHEMA, self))
 
     @classmethod
     def parse_header(cls, read_buffer) -> None:
@@ -110,8 +114,8 @@ class Response(Struct, metaclass=abc.ABCMeta):
         return ResponseHeader.decode(read_buffer)
 
 
-def _to_object(schema: 'Schema', data: 'Struct') -> Dict[str, Any]:
-    obj: Dict[str, Any] = {}
+def _to_object(schema: 'Schema', data: 'Struct') -> Dict[str, object]:
+    obj: Dict[str, object] = {}
     for idx, (name, _type) in enumerate(zip(schema.names, schema.fields)):
         if isinstance(data, Struct):
             val = data.get_item(name)

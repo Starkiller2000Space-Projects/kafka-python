@@ -459,7 +459,7 @@ def test_reporter(metrics) -> None:
 class ConstantMeasurable(AbstractMeasurable):
     _value = 0.0
 
-    def measure(self, config, now) -> None:
+    def measure(self, config: MetricConfig, now: int) -> float:
         return self._value
 
 

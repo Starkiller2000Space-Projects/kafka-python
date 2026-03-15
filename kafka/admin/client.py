@@ -5,7 +5,7 @@ import socket
 import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any, DefaultDict, Dict, List, Literal, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import DefaultDict, Dict, List, Literal, Optional, Set, Tuple, Type, TypedDict, TypeVar, Union, cast
 
 from typing_extensions import Unpack
 
@@ -27,13 +27,16 @@ from kafka.protocol.admin import (AlterConfigsRequest, CreateAclsRequest, Create
                                   DeleteAclsRequest, DeleteGroupsRequest, DeleteRecordsRequest, DeleteTopicsRequest,
                                   DescribeAclsRequest, DescribeConfigsRequest, DescribeGroupsRequest,
                                   DescribeLogDirsRequest, ElectionType, ElectLeadersRequest, ListGroupsRequest,
-                                  _DeleteAclsResponse, _DeleteGroupsResponse, _DescribeConfigsRequest,
-                                  _DescribeConfigsResponse, _DescribeGroupsRequest, _DescribeGroupsResponse,
-                                  _ListGroupsRequest, _ListGroupsResponse)
+                                  _CreateAclResponse, _CreateTopicsResponse, _DeleteAclsResponse, _DeleteGroupsResponse,
+                                  _DeleteRecordsResponseDict, _DeleteRecordsResponsePartition, _DeleteTopicsResponse,
+                                  _DescribeAclsResponse, _DescribeConfigsRequest, _DescribeConfigsResponse,
+                                  _DescribeGroupsRequest, _DescribeGroupsResponse, _ElectLeadersRequest,
+                                  _ElectLeadersResponse, _ListGroupsRequest, _ListGroupsResponse)
 from kafka.protocol.api import Request, Response
 from kafka.protocol.commit import OffsetFetchRequest, _OffsetFetchRequest, _OffsetFetchResponse
-from kafka.protocol.find_coordinator import FindCoordinatorRequest
-from kafka.protocol.metadata import MetadataRequest, _MetadataResponse
+from kafka.protocol.find_coordinator import FindCoordinatorRequest, _FindCoordinatorResponse
+from kafka.protocol.metadata import (MetadataRequest, _MetadataResponse, _MetadataResponseDict,
+                                     _MetadataResponseTopicDict)
 from kafka.protocol.types import Array
 from kafka.structs import GroupInformation, MemberInformation, OffsetAndMetadata, TopicPartition
 from kafka.version import __version__
@@ -43,6 +46,12 @@ log = logging.getLogger(__name__)
 
 ReturnType = TypeVar('ReturnType')
 ResponseType = TypeVar('ResponseType', bound=Response)
+
+
+class ACLCreationResult(TypedDict):
+
+    succeeded: List[ACL]
+    failed: List[Tuple[ACL, Type[Errors.BrokerResponseError]]]
 
 
 class KafkaAdminClient(object):
@@ -303,9 +312,9 @@ class KafkaAdminClient(object):
             request = FindCoordinatorRequest[version](group_id)
         elif version <= 2:
             request = FindCoordinatorRequest[version](group_id, 0)
-        return request  
+        return request
 
-    def _find_coordinator_id_process_response(self, response: Response) -> None:
+    def _find_coordinator_id_process_response(self, response: _FindCoordinatorResponse) -> int:
         """Process a FindCoordinatorResponse.
 
         Arguments:
@@ -443,7 +452,7 @@ class KafkaAdminClient(object):
                     .format(request, response))
         return True
 
-    def _parse_topic_partition_request_response(self, request: Request, response: Response, tries: int) -> bool:
+    def _parse_topic_partition_request_response(self, request: _ElectLeadersRequest, response: _ElectLeadersResponse, tries: int) -> bool:
         for topic, partition_results in response.replication_election_results:
             for partition_id, error_code, *_ in partition_results:
                 error_type = Errors.for_code(error_code)
@@ -460,7 +469,7 @@ class KafkaAdminClient(object):
         return True
 
     @staticmethod
-    def _convert_new_topic_request(new_topic: NewTopic) -> Tuple[str, int, int, List[Tuple[int, List[str]]], List[Tuple[str, Any]]]:
+    def _convert_new_topic_request(new_topic: NewTopic) -> Tuple[str, int, int, List[Tuple[int, List[str]]], List[Tuple[str, object]]]:
         """
         Build the tuple required by CreateTopicsRequest from a NewTopic object.
 
@@ -485,7 +494,7 @@ class KafkaAdminClient(object):
             ]
         )
 
-    def create_topics(self, new_topics, timeout_ms=None, validate_only=False) -> None:
+    def create_topics(self, new_topics: List[NewTopic], timeout_ms: Optional[float] = None, validate_only: bool = False) -> _CreateTopicsResponse:
         """Create new topics in the cluster.
 
         Arguments:
@@ -519,9 +528,9 @@ class KafkaAdminClient(object):
             )
         # TODO convert structs to a more pythonic interface
         # TODO raise exceptions if errors
-        return self._send_request_to_controller(request)  
+        return self._send_request_to_controller(request)
 
-    def delete_topics(self, topics, timeout_ms=None) -> None:
+    def delete_topics(self, topics: List[str], timeout_ms: Optional[float] = None) -> _DeleteTopicsResponse:
         """Delete topics from the cluster.
 
         Arguments:
@@ -543,7 +552,7 @@ class KafkaAdminClient(object):
             )
         )
 
-    def _process_metadata_response(self, metadata_response: _MetadataResponse) -> Dict[str, Any]:
+    def _process_metadata_response(self, metadata_response: _MetadataResponse) -> _MetadataResponseDict:
         obj = metadata_response.to_object()
         if 'authorized_operations' in obj:
             obj['authorized_operations'] = list(map(lambda acl: acl.name, valid_acl_operations(obj['authorized_operations'])))
@@ -552,7 +561,7 @@ class KafkaAdminClient(object):
                 t['authorized_operations'] = list(map(lambda acl: acl.name, valid_acl_operations(t['authorized_operations'])))
         return obj
 
-    def _get_cluster_metadata(self, topics: Optional[Iterable[str]] = None, auto_topic_creation: bool = False) -> Dict[str, Any]:
+    def _get_cluster_metadata(self, topics: Optional[Iterable[str]] = None, auto_topic_creation: bool = False) -> _MetadataResponseDict:
         """
         topics == None means "get all topics"
         """
@@ -580,7 +589,7 @@ class KafkaAdminClient(object):
 
         return self._process_metadata_response(self.send_request(request))
 
-    def list_topics(self) -> None:
+    def list_topics(self) -> List[str]:
         """Retrieve a list of all topic names in the cluster.
 
         Returns:
@@ -589,7 +598,7 @@ class KafkaAdminClient(object):
         metadata = self._get_cluster_metadata(topics=None)
         return [t['topic'] for t in metadata['topics']]
 
-    def describe_topics(self, topics=None) -> None:
+    def describe_topics(self, topics: Optional[List[str]] = None) -> List[_MetadataResponseTopicDict]:
         """Fetch metadata for the specified topics or all topics if None.
 
         Keyword Arguments:
@@ -602,7 +611,7 @@ class KafkaAdminClient(object):
         metadata = self._get_cluster_metadata(topics=topics)
         return metadata['topics']
 
-    def describe_cluster(self) -> None:
+    def describe_cluster(self) -> _MetadataResponseDict:
         """
         Fetch cluster-wide metadata such as the list of brokers, the controller ID,
         and the cluster ID.
@@ -616,7 +625,7 @@ class KafkaAdminClient(object):
         return metadata
 
     @staticmethod
-    def _convert_describe_acls_response_to_acls(describe_response) -> None:
+    def _convert_describe_acls_response_to_acls(describe_response: _DescribeAclsResponse) -> Tuple[List[ACL], Type[Errors.BrokerResponseError]]:
         """Convert a DescribeAclsResponse into a list of ACL objects and a KafkaError.
 
         Arguments:
@@ -629,7 +638,7 @@ class KafkaAdminClient(object):
         version = describe_response.API_VERSION
 
         error = Errors.for_code(describe_response.error_code)
-        acl_list = []
+        acl_list: List[ACL] = []
         for resources in describe_response.resources:
             if version == 0:
                 resource_type, resource_name, acls = resources
@@ -658,7 +667,7 @@ class KafkaAdminClient(object):
 
         return (acl_list, error,)
 
-    def describe_acls(self, acl_filter) -> None:
+    def describe_acls(self, acl_filter: ACLFilter) -> Tuple[List[ACL], Type[Errors.BrokerResponseError]]:
         """Describe a set of ACLs
 
         Used to return a set of ACLs matching the supplied ACLFilter.
@@ -693,7 +702,7 @@ class KafkaAdminClient(object):
                 permission_type=acl_filter.permission_type
 
             )
-        response = self.send_request(request)  
+        response = self.send_request(request)
         error_type = Errors.for_code(response.error_code)
         if error_type is not Errors.NoError:
             # optionally we could retry if error_type.retriable
@@ -704,7 +713,7 @@ class KafkaAdminClient(object):
         return self._convert_describe_acls_response_to_acls(response)
 
     @staticmethod
-    def _convert_create_acls_resource_request_v0(acl) -> None:
+    def _convert_create_acls_resource_request_v0(acl: ACL) -> Tuple[ResourceType, str, str, str, ACLOperation, ACLPermissionType]:
         """Convert an ACL object into the CreateAclsRequest v0 format.
 
         Arguments:
@@ -724,7 +733,7 @@ class KafkaAdminClient(object):
         )
 
     @staticmethod
-    def _convert_create_acls_resource_request_v1(acl) -> None:
+    def _convert_create_acls_resource_request_v1(acl: ACL) -> Tuple[ResourceType, str, ACLResourcePatternType, str, str, ACLOperation, ACLPermissionType]:
         """Convert an ACL object into the CreateAclsRequest v1 format.
 
         Arguments:
@@ -744,7 +753,7 @@ class KafkaAdminClient(object):
         )
 
     @staticmethod
-    def _convert_create_acls_response_to_acls(acls, create_response) -> None:
+    def _convert_create_acls_response_to_acls(acls: Sequence[ACL], create_response: _CreateAclResponse) -> ACLCreationResult:
         """Parse CreateAclsResponse and correlate success/failure with original ACL objects.
 
         Arguments:
@@ -780,7 +789,7 @@ class KafkaAdminClient(object):
 
         return {"succeeded": creations_success, "failed": creations_error}
 
-    def create_acls(self, acls) -> None:
+    def create_acls(self, acls: Sequence[ACL]) -> ACLCreationResult:
         """Create a list of ACLs
 
         This endpoint only accepts a list of concrete ACL objects, no ACLFilters.
@@ -806,11 +815,11 @@ class KafkaAdminClient(object):
             request = CreateAclsRequest[version](
                 creations=[self._convert_create_acls_resource_request_v1(acl) for acl in acls]
             )
-        response = self.send_request(request)  
+        response = self.send_request(request)
         return self._convert_create_acls_response_to_acls(acls, response)
 
     @staticmethod
-    def _convert_delete_acls_resource_request_v0(acl) -> None:
+    def _convert_delete_acls_resource_request_v0(acl: ACLFilter) -> Tuple[ResourceType, str, str, str, ACLOperation, ACLPermissionType]:
         """Convert an ACLFilter object into the DeleteAclsRequest v0 format.
 
         Arguments:
@@ -829,7 +838,7 @@ class KafkaAdminClient(object):
         )
 
     @staticmethod
-    def _convert_delete_acls_resource_request_v1(acl) -> None:
+    def _convert_delete_acls_resource_request_v1(acl: ACLFilter) -> Tuple[ResourceType, str, ACLResourcePatternType, str, str, ACLOperation, ACLPermissionType]:
         """Convert an ACLFilter object into the DeleteAclsRequest v1 format.
 
         Arguments:
@@ -1130,7 +1139,7 @@ class KafkaAdminClient(object):
 
         return leader2partitions
 
-    def delete_records(self, records_to_delete: Dict[TopicPartition, int], timeout_ms: Optional[float] = None, partition_leader_id: Optional[int] = None) -> Dict[TopicPartition, Dict[str, Any]]:
+    def delete_records(self, records_to_delete: Dict[TopicPartition, int], timeout_ms: Optional[float] = None, partition_leader_id: Optional[int] = None) -> Dict[TopicPartition, _DeleteRecordsResponsePartition]:
         """Delete records whose offset is smaller than the given offset of the corresponding partition.
 
         :param records_to_delete: ``{TopicPartition: int}``: The earliest available offsets for the
@@ -1146,7 +1155,7 @@ class KafkaAdminClient(object):
             guaranteed to be zero, otherwise an exception is raised.
         """
         timeout_ms = self._validate_timeout(timeout_ms)
-        responses: List[Dict[str, Any]] = []
+        responses: List[_DeleteRecordsResponseDict] = []
         version = self._client.api_version(DeleteRecordsRequest, max_version=0)
 
         # We want to make as few requests as possible
@@ -1175,7 +1184,7 @@ class KafkaAdminClient(object):
             response = self.send_request(request, node_id=leader)
             responses.append(response.to_object())
 
-        partition2result: Dict[TopicPartition, Dict[str, Any]] = {}
+        partition2result: Dict[TopicPartition, _DeleteRecordsResponsePartition] = {}
         partition2error: Dict[TopicPartition, int] = {}
         for response_data in responses:
             for topic in response_data["topics"]:

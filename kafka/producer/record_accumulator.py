@@ -3,9 +3,13 @@ import copy
 import logging
 import threading
 import time
+from typing import DefaultDict, Deque, Dict, List, Optional, Tuple
+
+from typing_extensions import Unpack
 
 import kafka.errors as Errors
 from kafka.producer.producer_batch import ProducerBatch
+from kafka.producer.types import RecordAccumulatorParams
 from kafka.record.memory_records import MemoryRecordsBuilder
 from kafka.structs import TopicPartition
 
@@ -13,21 +17,21 @@ log = logging.getLogger(__name__)
 
 
 class AtomicInteger(object):
-    def __init__(self, val=0) -> None:
+    def __init__(self, val: int = 0) -> None:
         self._lock = threading.Lock()
         self._val = val
 
-    def increment(self) -> None:
+    def increment(self) -> int:
         with self._lock:
             self._val += 1
             return self._val
 
-    def decrement(self) -> None:
+    def decrement(self) -> int:
         with self._lock:
             self._val -= 1
             return self._val
 
-    def get(self) -> None:
+    def get(self) -> int:
         return self._val
 
 
@@ -61,7 +65,7 @@ class RecordAccumulator(object):
             produce request upon receiving an error. This avoids exhausting
             all retries in a short period of time. Default: 100
     """
-    DEFAULT_CONFIG = {
+    DEFAULT_CONFIG: RecordAccumulatorParams = {
         'batch_size': 16384,
         'compression_attrs': 0,
         'linger_ms': 0,
@@ -72,7 +76,7 @@ class RecordAccumulator(object):
         'message_version': 2,
     }
 
-    def __init__(self, **configs) -> None:
+    def __init__(self, **configs: Unpack[RecordAccumulatorParams]) -> None:
         self.config = copy.copy(self.DEFAULT_CONFIG)
         for key in self.config:
             if key in configs:
@@ -82,8 +86,8 @@ class RecordAccumulator(object):
         self._transaction_manager = self.config['transaction_manager']
         self._flushes_in_progress = AtomicInteger()
         self._appends_in_progress = AtomicInteger()
-        self._batches = collections.defaultdict(collections.deque) # TopicPartition: [ProducerBatch]
-        self._tp_locks = {None: threading.Lock()} # TopicPartition: Lock, plus a lock to add entries
+        self._batches: DefaultDict[TopicPartition, Deque[ProducerBatch]] = collections.defaultdict(collections.deque)  # TopicPartition: [ProducerBatch]
+        self._tp_locks: Dict[Optional[TopicPartition], threading.Lock] = {None: threading.Lock()}  # TopicPartition: Lock, plus a lock to add entries
         self._incomplete = IncompleteProducerBatches()
         # The following variables should only be accessed by the sender thread,
         # so we don't need to protect them w/ locking.
@@ -95,21 +99,21 @@ class RecordAccumulator(object):
             raise Errors.KafkaConfigurationError("Must set delivery_timeout_ms higher than linger_ms + request_timeout_ms")
 
     @property
-    def delivery_timeout_ms(self) -> None:
+    def delivery_timeout_ms(self) -> int:
         return self.config['delivery_timeout_ms']
 
     @property
-    def next_expiry_time_ms(self) -> None:
+    def next_expiry_time_ms(self) -> float:
         return self._next_batch_expiry_time_ms
 
-    def _tp_lock(self, tp) -> None:
+    def _tp_lock(self, tp: TopicPartition) -> threading.Lock:
         if tp not in self._tp_locks:
             with self._tp_locks[None]:
                 if tp not in self._tp_locks:
                     self._tp_locks[tp] = threading.Lock()
         return self._tp_locks[tp]
 
-    def append(self, tp, timestamp_ms, key, value, headers, now=None) -> None:
+    def append(self, tp: TopicPartition, timestamp_ms: int, key: bytes, value: bytes, headers: List[Tuple[str, bytes]], now: Optional[float] = None) -> None:
         """Add a record to the accumulator, return the append result.
 
         The append result will contain the future metadata, and flag for
