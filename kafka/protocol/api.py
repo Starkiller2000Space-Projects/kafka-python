@@ -50,9 +50,10 @@ class ResponseHeaderV2(ResponseHeader):
 
 
 ResponseType = TypeVar('ResponseType', bound='Response')
+DictSchema = TypeVar('DictSchema', bound=Mapping[str, object])
 
 
-class Request(Struct, Generic[ResponseType], metaclass=abc.ABCMeta):
+class Request(Struct, Generic[ResponseType, DictSchema], metaclass=abc.ABCMeta):
     FLEXIBLE_VERSION = False
 
     @property
@@ -77,16 +78,13 @@ class Request(Struct, Generic[ResponseType], metaclass=abc.ABCMeta):
         """Override this method if an api request does not always generate a response"""
         return True
 
-    def to_object(self) -> Dict[str, object]:
-        return _to_object(self.SCHEMA, self)
+    def to_object(self) -> DictSchema:
+        return cast(DictSchema, _to_object(self.SCHEMA, self))
 
     def build_header(self, correlation_id: int, client_id: str) -> RequestHeader:
         if self.FLEXIBLE_VERSION:
             return RequestHeaderV2(self, correlation_id=correlation_id, client_id=client_id)
         return RequestHeader(self, correlation_id=correlation_id, client_id=client_id)
-
-
-DictSchema = TypeVar('DictSchema', bound=Mapping[str, object])
 
 
 class Response(Struct, Generic[DictSchema], metaclass=abc.ABCMeta):

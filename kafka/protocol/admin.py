@@ -1,14 +1,33 @@
 from abc import ABC
 from enum import IntEnum
-from typing import List, Literal, Tuple, Type, TypedDict, TypeVar, final
+from typing import List, Set, Tuple, Type, TypedDict, TypeVar, Union, final
+
+from typing_extensions import NotRequired
 
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import (Array, BitField, Boolean, Bytes, CompactArray, CompactString, Float64, Int8, Int16,
                                   Int32, Int64, Schema, String, TaggedFields)
 
 
-class _CreateTopicsResponse(Response):
+class _CreateTopicsResponseTopicErrorDict(TypedDict):
+    topic: str
+    error_code: int
+    error_message: NotRequired[str]  # added in v1
+
+
+class _CreateTopicsResponseDict(TypedDict):
+    topic_errors: List[_CreateTopicsResponseTopicErrorDict]
+    throttle_time_ms: NotRequired[int]  # added in v2
+
+
+class _CreateTopicsResponse(Response[_CreateTopicsResponseDict]):
     API_KEY = 19
+
+    topic_errors: List[Union[
+        Tuple[str, int],
+        Tuple[str, int, str],  # api version >=1
+    ]]
+    throttle_time_ms: int  # added in v2
 
 
 @final
@@ -50,11 +69,41 @@ class CreateTopicsResponse_v3(_CreateTopicsResponse):
     SCHEMA = CreateTopicsResponse_v2.SCHEMA
 
 
+class _CreateTopicsRequestConfigDict(TypedDict):
+    config_key: str
+    config_value: str
+
+
+class _CreateTopicsRequestReplicaAssignmentDict(TypedDict):
+    partition_id: int
+    replicas: List[int]
+
+
+class _CreateTopicsRequestItemDict(TypedDict):
+    topic: str
+    num_partitions: int
+    replication_factor: int
+    replica_assignment: List[_CreateTopicsRequestReplicaAssignmentDict]
+    configs: List[_CreateTopicsRequestConfigDict]
+
+
+class _CreateTopicsRequestDict(TypedDict):
+    create_topic_requests: List[_CreateTopicsRequestItemDict]
+    timeout: int
+    validate_only: NotRequired[bool]  # added in v1
+
+
 _CreateTopicsResponseType = TypeVar('_CreateTopicsResponseType', bound=_CreateTopicsResponse)
 
 
-class _CreateTopicsRequest(Request[_CreateTopicsResponseType]):
+class _CreateTopicsRequest(Request[_CreateTopicsResponseType, _CreateTopicsRequestDict]):
     API_KEY = 19
+
+    create_topic_requests: List[Union[
+        Tuple[str, int, int, List[Tuple[int, List[int]]], List[Tuple[str, str]]]
+    ]]
+    timeout: int
+    validate_only: bool  # added in v1
 
 
 @final
@@ -120,8 +169,21 @@ CreateTopicsResponse: List[Type[_CreateTopicsResponse]] = [
 ]
 
 
-class _DeleteTopicsResponse(Response):
+class _DeleteTopicsResponseTopicErrorDict(TypedDict):
+    topic: str
+    error_code: int
+
+
+class _DeleteTopicsResponseDict(TypedDict):
+    topic_error_codes: List[_DeleteTopicsResponseTopicErrorDict]
+    throttle_time_ms: NotRequired[int]  # added in v1
+
+
+class _DeleteTopicsResponse(Response[_DeleteTopicsResponseDict]):
     API_KEY = 20
+
+    topic_error_codes: List[Tuple[str, int]]
+    throttle_time_ms: int  # added in v1
 
 
 @final
@@ -157,10 +219,15 @@ class DeleteTopicsResponse_v3(_DeleteTopicsResponse):
     SCHEMA = DeleteTopicsResponse_v1.SCHEMA
 
 
+class _DeleteTopicsRequestDict(TypedDict):
+    topics: List[str]
+    timeout: int
+
+
 _DeleteTopicsResponseType = TypeVar('_DeleteTopicsResponseType', bound=_DeleteTopicsResponse)
 
 
-class _DeleteTopicsRequest(Request[_DeleteTopicsResponseType]):
+class _DeleteTopicsRequest(Request[_DeleteTopicsResponseType, _DeleteTopicsRequestDict]):
     API_KEY = 20
     SCHEMA = Schema(
         ('topics', Array(String('utf-8'))),
@@ -181,21 +248,18 @@ class DeleteTopicsRequest_v0(_DeleteTopicsRequest[DeleteTopicsResponse_v0]):
 class DeleteTopicsRequest_v1(_DeleteTopicsRequest[DeleteTopicsResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = DeleteTopicsResponse_v1
-    SCHEMA = DeleteTopicsRequest_v0.SCHEMA
 
 
 @final
 class DeleteTopicsRequest_v2(_DeleteTopicsRequest[DeleteTopicsResponse_v2]):
     API_VERSION = 2
     RESPONSE_TYPE = DeleteTopicsResponse_v2
-    SCHEMA = DeleteTopicsRequest_v0.SCHEMA
 
 
 @final
 class DeleteTopicsRequest_v3(_DeleteTopicsRequest[DeleteTopicsResponse_v3]):
     API_VERSION = 3
     RESPONSE_TYPE = DeleteTopicsResponse_v3
-    SCHEMA = DeleteTopicsRequest_v0.SCHEMA
 
 
 DeleteTopicsRequest: List[Type[_DeleteTopicsRequest]] = [
@@ -208,27 +272,24 @@ DeleteTopicsResponse: List[Type[_DeleteTopicsResponse]] = [
 ]
 
 
-class _DeleteRecordsResponsePartition(TypedDict):
+class _DeleteRecordsResponsePartitionDict(TypedDict):
     partition_index: int
     low_watermark: int
     error_code: int
 
 
-class _DeleteRecordsResponseTopic(TypedDict):
+class _DeleteRecordsResponseTopicDict(TypedDict):
     name: str
-    partitions: List[_DeleteRecordsResponsePartition]
+    partitions: List[_DeleteRecordsResponsePartitionDict]
 
 
 class _DeleteRecordsResponseDict(TypedDict):
-
     throttle_time_ms: int
-    topics: List[_DeleteRecordsResponseTopic]
+    topics: List[_DeleteRecordsResponseTopicDict]
 
 
-@final
-class DeleteRecordsResponse_v0(Response[_DeleteRecordsResponseDict]):
+class _DeleteRecordsResponse(Response[_DeleteRecordsResponseDict]):
     API_KEY = 21
-    API_VERSION = 0
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
         ('topics', Array(
@@ -239,12 +300,35 @@ class DeleteRecordsResponse_v0(Response[_DeleteRecordsResponseDict]):
                 ('error_code', Int16))))),
     )
 
+    throttle_time_ms: int
+    topics: List[Tuple[str, List[Tuple[int, int, int]]]]
+
 
 @final
-class DeleteRecordsRequest_v0(Request[DeleteRecordsResponse_v0]):
-    API_KEY = 21
+class DeleteRecordsResponse_v0(_DeleteRecordsResponse):
     API_VERSION = 0
-    RESPONSE_TYPE = DeleteRecordsResponse_v0
+
+
+class _DeleteRecordsRequestPartitionDict(TypedDict):
+    partition_index: int
+    offset: int
+
+
+class _DeleteRecordsRequestTopicDict(TypedDict):
+    name: str
+    partitions: List[_DeleteRecordsRequestPartitionDict]
+
+
+class _DeleteRecordsRequestDict(TypedDict):
+    topics: List[_DeleteRecordsRequestTopicDict]
+    timeout_ms: int
+
+
+_DeleteRecordsResponseType = TypeVar('_DeleteRecordsResponseType', bound=_DeleteRecordsResponse)
+
+
+class _DeleteRecordsRequest(Request[_DeleteRecordsResponseType, _DeleteRecordsRequestDict]):
+    API_KEY = 21
     SCHEMA = Schema(
         ('topics', Array(
             ('name', String('utf-8')),
@@ -254,27 +338,48 @@ class DeleteRecordsRequest_v0(Request[DeleteRecordsResponse_v0]):
         ('timeout_ms', Int32)
     )
 
+    topics: List[Tuple[str, List[Tuple[int, int]]]]
+    timeout_ms: int
 
-DeleteRecordsResponse: List[Type[DeleteRecordsResponse_v0]] = [DeleteRecordsResponse_v0]
-DeleteRecordsRequest: List[Type[DeleteRecordsRequest_v0]] = [DeleteRecordsRequest_v0]
+
+@final
+class DeleteRecordsRequest_v0(_DeleteRecordsRequest[DeleteRecordsResponse_v0]):
+    API_VERSION = 0
+    RESPONSE_TYPE = DeleteRecordsResponse_v0
 
 
-class _ListGroupsResponse(Response):
+DeleteRecordsResponse: List[Type[_DeleteRecordsResponse]] = [DeleteRecordsResponse_v0]
+DeleteRecordsRequest: List[Type[_DeleteRecordsRequest]] = [DeleteRecordsRequest_v0]
+
+
+class _ListGroupsResponseGroupDict(TypedDict):
+    group: str
+    protocol_type: str
+
+
+class _ListGroupsResponseDict(TypedDict):
+    error_code: int
+    groups: List[_ListGroupsResponseGroupDict]
+    throttle_time_ms: NotRequired[int]  # added in v1
+
+
+class _ListGroupsResponse(Response[_ListGroupsResponseDict]):
     API_KEY = 16
+
+    error_code: int
+    groups: List[Tuple[str, str]]
+    throttle_time_ms: int  # added in v1
+
+
+@final
+class ListGroupsResponse_v0(_ListGroupsResponse):
+    API_VERSION = 0
     SCHEMA = Schema(
         ('error_code', Int16),
         ('groups', Array(
             ('group', String('utf-8')),
             ('protocol_type', String('utf-8'))))
     )
-
-    error_code: int
-    groups: List[Tuple[str, str]]
-
-
-@final
-class ListGroupsResponse_v0(_ListGroupsResponse):
-    API_VERSION = 0
 
 
 @final
@@ -288,21 +393,21 @@ class ListGroupsResponse_v1(_ListGroupsResponse):
             ('protocol_type', String('utf-8'))))
     )
 
-    throttle_time_ms: int
-
 
 @final
 class ListGroupsResponse_v2(_ListGroupsResponse):
     API_VERSION = 2
     SCHEMA = ListGroupsResponse_v1.SCHEMA
 
-    throttle_time_ms: int
+
+class _ListGroupsRequestDict(TypedDict):
+    pass
 
 
 _ListGroupResponseType = TypeVar('_ListGroupResponseType', bound=_ListGroupsResponse)
 
 
-class _ListGroupsRequest(Request[_ListGroupResponseType]):
+class _ListGroupsRequest(Request[_ListGroupResponseType, _ListGroupsRequestDict]):
     API_KEY = 16
     SCHEMA = Schema()
 
@@ -321,7 +426,7 @@ class ListGroupsRequest_v1(_ListGroupsRequest[ListGroupsResponse_v1]):
 
 @final
 class ListGroupsRequest_v2(_ListGroupsRequest[ListGroupsResponse_v2]):
-    API_VERSION = 1
+    API_VERSION = 2
     RESPONSE_TYPE = ListGroupsResponse_v2
 
 
@@ -335,10 +440,37 @@ ListGroupsResponse: List[Type[_ListGroupsResponse]] = [
 ]
 
 
-class _DescribeGroupsResponse(Response, ABC):
+class _DescribeGroupsResponseMemberDict(TypedDict):
+    member_id: str
+    client_id: str
+    client_host: str
+    member_metadata: bytes
+    member_assignment: bytes
+
+
+class _DescribeGroupsResponseGroupDict(TypedDict):
+    error_code: int
+    group: str
+    state: str
+    protocol_type: str
+    protocol: str
+    members: List[_DescribeGroupsResponseMemberDict]
+    authorized_operations: NotRequired[Set[int]]  # added in v3
+
+
+class _DescribeGroupsResponseDict(TypedDict):
+    throttle_time_ms: NotRequired[int]  # added in v1
+    groups: List[_DescribeGroupsResponseGroupDict]
+
+
+class _DescribeGroupsResponse(Response[_DescribeGroupsResponseDict]):
     API_KEY = 15
 
-    groups: List[Tuple]
+    throttle_time_ms: int  # added in v1
+    groups: List[Union[
+        Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]]],  # v0-v2
+        Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]], Set[int]]  # v3
+    ]]
 
 
 @final
@@ -358,8 +490,6 @@ class DescribeGroupsResponse_v0(_DescribeGroupsResponse):
                 ('member_metadata', Bytes),
                 ('member_assignment', Bytes)))))
     )
-
-    groups: List[Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]]]]
 
 
 @final
@@ -381,17 +511,11 @@ class DescribeGroupsResponse_v1(_DescribeGroupsResponse):
                 ('member_assignment', Bytes)))))
     )
 
-    throttle_time_ms: int
-    groups: List[Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]]]]
-
 
 @final
 class DescribeGroupsResponse_v2(_DescribeGroupsResponse):
     API_VERSION = 2
     SCHEMA = DescribeGroupsResponse_v1.SCHEMA
-
-    throttle_time_ms: int
-    groups: List[Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]]]]
 
 
 @final
@@ -414,20 +538,23 @@ class DescribeGroupsResponse_v3(_DescribeGroupsResponse):
             ('authorized_operations', BitField)))
     )
 
-    throttle_time_ms: int
-    groups: List[Tuple[int, str, str, str, str, List[Tuple[str, str, str, bytes, bytes]], Set[int]]]
+
+class _DescribeGroupsRequestDict(TypedDict):
+    groups: List[str]
+    include_authorized_operations: NotRequired[bool]  # added in v3
 
 
 _DescribeGroupsResponseType = TypeVar('_DescribeGroupsResponseType', bound=_DescribeGroupsResponse)
 
 
-class _DescribeGroupsRequest(Request[_DescribeGroupsResponseType], ABC):
+class _DescribeGroupsRequest(Request[_DescribeGroupsResponseType, _DescribeGroupsRequestDict]):
     API_KEY = 15
     SCHEMA = Schema(
         ('groups', Array(String('utf-8')))
     )
 
     groups: List[str]
+    include_authorized_operations: bool  # added in v3
 
 
 @final
@@ -440,14 +567,12 @@ class DescribeGroupsRequest_v0(_DescribeGroupsRequest[DescribeGroupsResponse_v0]
 class DescribeGroupsRequest_v1(_DescribeGroupsRequest[DescribeGroupsResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = DescribeGroupsResponse_v1
-    SCHEMA = DescribeGroupsRequest_v0.SCHEMA
 
 
 @final
 class DescribeGroupsRequest_v2(_DescribeGroupsRequest[DescribeGroupsResponse_v2]):
     API_VERSION = 2
     RESPONSE_TYPE = DescribeGroupsResponse_v2
-    SCHEMA = DescribeGroupsRequest_v0.SCHEMA
 
 
 @final
@@ -458,8 +583,6 @@ class DescribeGroupsRequest_v3(_DescribeGroupsRequest[DescribeGroupsResponse_v3]
         ('groups', Array(String('utf-8'))),
         ('include_authorized_operations', Boolean)
     )
-
-    include_authorized_operations: bool
 
 
 DescribeGroupsRequest: List[Type[_DescribeGroupsRequest]] = [
@@ -472,11 +595,44 @@ DescribeGroupsResponse: List[Type[_DescribeGroupsResponse]] = [
 ]
 
 
-class _DescribeAclsResponse(Response):
+class _DescribeAclsResponseAclDict(TypedDict):
+    principal: str
+    host: str
+    operation: int
+    permission_type: int
+
+
+class _DescribeAclsResponseResourceV0Dict(TypedDict):
+    resource_type: int
+    resource_name: str
+    acls: List[_DescribeAclsResponseAclDict]
+
+
+class _DescribeAclsResponseResourceV1Dict(TypedDict):
+    resource_type: int
+    resource_name: str
+    resource_pattern_type: int
+    acls: List[_DescribeAclsResponseAclDict]
+
+
+class _DescribeAclsResponseDict(TypedDict):
+    throttle_time_ms: int
+    error_code: int
+    error_message: str
+    resources: List[Union[_DescribeAclsResponseResourceV0Dict, _DescribeAclsResponseResourceV1Dict]]
+
+
+class _DescribeAclsResponse(Response[_DescribeAclsResponseDict]):
     API_KEY = 29
 
+    throttle_time_ms: int
     error_code: int
-    resources: List[Tuple]
+    error_message: str
+    resources: List[Union[
+        Tuple[int, str, List[Tuple[str, str, int, int]]],  # v0
+        Tuple[int, str, int, List[Tuple[str, str, int, int]]]  # v1+
+    ]]
+
 
 @final
 class DescribeAclsResponse_v0(_DescribeAclsResponse):
@@ -494,8 +650,6 @@ class DescribeAclsResponse_v0(_DescribeAclsResponse):
                 ('operation', Int8),
                 ('permission_type', Int8)))))
     )
-
-    resources: List[Tuple[int, str, List[Tuple[str, str, int, int]]]]
 
 
 @final
@@ -516,8 +670,6 @@ class DescribeAclsResponse_v1(_DescribeAclsResponse):
                 ('permission_type', Int8)))))
     )
 
-    resources: List[Tuple[int, str, int, List[Tuple[str, str, int, int]]]]
-
 
 @final
 class DescribeAclsResponse_v2(_DescribeAclsResponse):
@@ -525,11 +677,29 @@ class DescribeAclsResponse_v2(_DescribeAclsResponse):
     SCHEMA = DescribeAclsResponse_v1.SCHEMA
 
 
+class _DescribeAclsRequestDict(TypedDict):
+    resource_type: int
+    resource_name: str
+    principal: str
+    host: str
+    operation: int
+    permission_type: int
+    resource_pattern_type_filter: NotRequired[int]  # added in v1
+
+
 _DescribeAclsResponseType = TypeVar('_DescribeAclsResponseType', bound=_DescribeAclsResponse)
 
 
-class _DescribeAclsRequest(Request[_DescribeAclsResponseType], ABC):
+class _DescribeAclsRequest(Request[_DescribeAclsResponseType, _DescribeAclsRequestDict]):
     API_KEY = 29
+
+    resource_type: int
+    resource_name: str
+    principal: str
+    host: str
+    operation: int
+    permission_type: int
+    resource_pattern_type_filter: int  # added in v1
 
 
 @final
@@ -575,7 +745,17 @@ DescribeAclsRequest: List[Type[_DescribeAclsRequest]] = [DescribeAclsRequest_v0,
 DescribeAclsResponse: List[Type[_DescribeAclsResponse]] = [DescribeAclsResponse_v0, DescribeAclsResponse_v1, DescribeAclsResponse_v2]
 
 
-class _CreateAclResponse(Response, ABC):
+class _CreateAclsResponseCreationDict(TypedDict):
+    error_code: int
+    error_message: str
+
+
+class _CreateAclsResponseDict(TypedDict):
+    throttle_time_ms: int
+    creation_responses: List[_CreateAclsResponseCreationDict]
+
+
+class _CreateAclResponse(Response[_CreateAclsResponseDict]):
     API_KEY = 30
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -598,11 +778,33 @@ class CreateAclsResponse_v1(_CreateAclResponse):
     API_VERSION = 1
 
 
+class _CreateAclsRequestCreationV0Dict(TypedDict):
+    resource_type: int
+    resource_name: str
+    principal: str
+    host: str
+    operation: int
+    permission_type: int
+
+
+class _CreateAclsRequestCreationV1Dict(_CreateAclsRequestCreationV0Dict):
+    resource_pattern_type: int
+
+
+class _CreateAclsRequestDict(TypedDict):
+    creations: List[Union[_CreateAclsRequestCreationV0Dict, _CreateAclsRequestCreationV1Dict]]
+
+
 _CreateAclResponseType = TypeVar('_CreateAclResponseType', bound=_CreateAclResponse)
 
 
-class _CreateAclRequest(Request[_CreateAclResponseType], ABC):
+class _CreateAclRequest(Request[_CreateAclResponseType, _CreateAclsRequestDict]):
     API_KEY = 30
+
+    creations: List[Union[
+        Tuple[int, str, str, str, int, int],                     # v0
+        Tuple[int, str, int, str, str, int, int]                 # v1
+    ]]
 
 
 @final
@@ -640,11 +842,41 @@ CreateAclsRequest: List[Type[_CreateAclRequest]] = [CreateAclsRequest_v0, Create
 CreateAclsResponse: List[Type[_CreateAclResponse]] = [CreateAclsResponse_v0, CreateAclsResponse_v1]
 
 
-class _DeleteAclsResponse(Response):
+class _DeleteAclsResponseMatchingAclV0Dict(TypedDict):
+    error_code: int
+    error_message: str
+    resource_type: int
+    resource_name: str
+    principal: str
+    host: str
+    operation: int
+    permission_type: int
+
+
+class _DeleteAclsResponseMatchingAclV1Dict(_DeleteAclsResponseMatchingAclV0Dict):
+    resource_pattern_type: int  # added in v1
+
+
+class _DeleteAclsResponseFilterResponseDict(TypedDict):
+    error_code: int
+    error_message: str
+    matching_acls: List[Union[_DeleteAclsResponseMatchingAclV0Dict, _DeleteAclsResponseMatchingAclV1Dict]]
+
+
+class _DeleteAclsResponseDict(TypedDict):
+    throttle_time_ms: int
+    filter_responses: List[_DeleteAclsResponseFilterResponseDict]
+
+
+class _DeleteAclsResponse(Response[_DeleteAclsResponseDict]):
     API_KEY = 31
 
     throttle_time_ms: int
-    filter_responses: List[Tuple[int, str, List[Tuple]]]
+    filter_responses: List[Union[
+        Tuple[int, str, List[Tuple[int, str, int, str, str, str, int, int]]],                # v0
+        Tuple[int, str, List[Tuple[int, str, int, str, int, str, str, int, int]]]             # v1
+    ]]
+
 
 @final
 class DeleteAclsResponse_v0(_DeleteAclsResponse):
@@ -664,8 +896,6 @@ class DeleteAclsResponse_v0(_DeleteAclsResponse):
                 ('operation', Int8),
                 ('permission_type', Int8)))))
     )
-
-    filter_responses: List[Tuple[int, str, List[Tuple[int, str, int, str, str, str, int, int]]]]
 
 
 @final
@@ -688,14 +918,34 @@ class DeleteAclsResponse_v1(_DeleteAclsResponse):
                 ('permission_type', Int8)))))
     )
 
-    filter_responses: List[Tuple[int, str, List[Tuple[int, str, int, str, int, str, str, int, int]]]]
+
+class _DeleteAclsRequestFilterV0Dict(TypedDict):
+    resource_type: int
+    resource_name: str
+    principal: str
+    host: str
+    operation: int
+    permission_type: int
+
+
+class _DeleteAclsRequestFilterV1Dict(_DeleteAclsRequestFilterV0Dict):
+    resource_pattern_type_filter: int  # added in v1
+
+
+class _DeleteAclsRequestDict(TypedDict):
+    filters: List[Union[_DeleteAclsRequestFilterV0Dict, _DeleteAclsRequestFilterV1Dict]]
 
 
 _DeleteAclsResponseType = TypeVar('_DeleteAclsResponseType', bound=_DeleteAclsResponse)
 
 
-class _DeleteAclsRequest(Request[_DeleteAclsResponseType]):
+class _DeleteAclsRequest(Request[_DeleteAclsResponseType, _DeleteAclsRequestDict]):
     API_KEY = 31
+
+    filters: List[Union[
+        Tuple[int, str, str, str, int, int],               # v0
+        Tuple[int, str, int, str, str, int, int]           # v1
+    ]]
 
 
 @final
@@ -733,9 +983,20 @@ DeleteAclsRequest: List[Type[_DeleteAclsRequest]] = [DeleteAclsRequest_v0, Delet
 DeleteAclsResponse: List[Type[_DeleteAclsResponse]] = [DeleteAclsResponse_v0, DeleteAclsResponse_v1]
 
 
-class AlterConfigsResponse_v0(Response):
+class _AlterConfigsResponseResourceDict(TypedDict):
+    error_code: int
+    error_message: str
+    resource_type: int
+    resource_name: str
+
+
+class _AlterConfigsResponseDict(TypedDict):
+    throttle_time_ms: int
+    resources: List[_AlterConfigsResponseResourceDict]
+
+
+class _AlterConfigsResponse(Response[_AlterConfigsResponseDict]):
     API_KEY = 33
-    API_VERSION = 0
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
         ('resources', Array(
@@ -745,17 +1006,41 @@ class AlterConfigsResponse_v0(Response):
             ('resource_name', String('utf-8'))))
     )
 
-
-class AlterConfigsResponse_v1(Response):
-    API_KEY = 33
-    API_VERSION = 1
-    SCHEMA = AlterConfigsResponse_v0.SCHEMA
+    throttle_time_ms: int
+    resources: List[Tuple[int, str, int, str]]
 
 
-class AlterConfigsRequest_v0(Request):
-    API_KEY = 33
+@final
+class AlterConfigsResponse_v0(_AlterConfigsResponse):
     API_VERSION = 0
-    RESPONSE_TYPE = AlterConfigsResponse_v0
+
+
+@final
+class AlterConfigsResponse_v1(_AlterConfigsResponse):
+    API_VERSION = 1
+
+
+class _AlterConfigsRequestConfigEntryDict(TypedDict):
+    config_name: str
+    config_value: str
+
+
+class _AlterConfigsRequestResourceDict(TypedDict):
+    resource_type: int
+    resource_name: str
+    config_entries: List[_AlterConfigsRequestConfigEntryDict]
+
+
+class _AlterConfigsRequestDict(TypedDict):
+    resources: List[_AlterConfigsRequestResourceDict]
+    validate_only: bool
+
+
+_AlterConfigsResponseType = TypeVar('_AlterConfigsResponseType', bound=_AlterConfigsResponse)
+
+
+class _AlterConfigsRequest(Request[_AlterConfigsResponseType, _AlterConfigsRequestDict]):
+    API_KEY = 33
     SCHEMA = Schema(
         ('resources', Array(
             ('resource_type', Int8),
@@ -766,18 +1051,72 @@ class AlterConfigsRequest_v0(Request):
         ('validate_only', Boolean)
     )
 
-class AlterConfigsRequest_v1(Request):
-    API_KEY = 33
+    resources: List[Tuple[int, str, List[Tuple[str, str]]]]
+    validate_only: bool
+
+
+@final
+class AlterConfigsRequest_v0(_AlterConfigsRequest[AlterConfigsResponse_v0]):
+    API_VERSION = 0
+    RESPONSE_TYPE = AlterConfigsResponse_v0
+
+
+@final
+class AlterConfigsRequest_v1(_AlterConfigsRequest[AlterConfigsResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = AlterConfigsResponse_v1
-    SCHEMA = AlterConfigsRequest_v0.SCHEMA
-
-AlterConfigsRequest = [AlterConfigsRequest_v0, AlterConfigsRequest_v1]
-AlterConfigsResponse = [AlterConfigsResponse_v0, AlterConfigsRequest_v1]
 
 
-class _DescribeConfigsResponse(Response):
+AlterConfigsRequest: List[Type[_AlterConfigsRequest]] = [AlterConfigsRequest_v0, AlterConfigsRequest_v1]
+AlterConfigsResponse: List[Type[_AlterConfigsResponse]] = [AlterConfigsResponse_v0, AlterConfigsResponse_v1]
+
+
+class _DescribeConfigsResponseConfigEntryV0Dict(TypedDict):
+    config_names: str
+    config_value: str
+    read_only: bool
+    is_default: bool
+    is_sensitive: bool
+
+
+class _DescribeConfigsResponseConfigEntryV1Dict(TypedDict):
+    config_names: str
+    config_value: str
+    read_only: bool
+    config_source: int
+    is_sensitive: bool
+    config_synonyms: List[Tuple[str, str, int]]
+
+
+class _DescribeConfigsResponseResourceV0Dict(TypedDict):
+    error_code: int
+    error_message: str
+    resource_type: int
+    resource_name: str
+    config_entries: List[_DescribeConfigsResponseConfigEntryV0Dict]
+
+
+class _DescribeConfigsResponseResourceV1Dict(TypedDict):
+    error_code: int
+    error_message: str
+    resource_type: int
+    resource_name: str
+    config_entries: List[_DescribeConfigsResponseConfigEntryV1Dict]
+
+
+class _DescribeConfigsResponseDict(TypedDict):
+    throttle_time_ms: int
+    resources: List[Union[_DescribeConfigsResponseResourceV0Dict, _DescribeConfigsResponseResourceV1Dict]]
+
+
+class _DescribeConfigsResponse(Response[_DescribeConfigsResponseDict]):
     API_KEY = 32
+
+    throttle_time_ms: int
+    resources: List[Union[
+        Tuple[int, str, int, str, List[Tuple[str, str, bool, bool, bool]]],  # v0
+        Tuple[int, str, int, str, List[Tuple[str, str, bool, int, bool, List[Tuple[str, str, int]]]]]  # v1+
+    ]]
 
 
 @final
@@ -799,6 +1138,7 @@ class DescribeConfigsResponse_v0(_DescribeConfigsResponse):
     )
 
 
+@final
 class DescribeConfigsResponse_v1(_DescribeConfigsResponse):
     API_VERSION = 1
     SCHEMA = Schema(
@@ -821,32 +1161,31 @@ class DescribeConfigsResponse_v1(_DescribeConfigsResponse):
     )
 
 
+@final
 class DescribeConfigsResponse_v2(_DescribeConfigsResponse):
     API_VERSION = 2
-    SCHEMA = Schema(
-        ('throttle_time_ms', Int32),
-        ('resources', Array(
-            ('error_code', Int16),
-            ('error_message', String('utf-8')),
-            ('resource_type', Int8),
-            ('resource_name', String('utf-8')),
-            ('config_entries', Array(
-                ('config_names', String('utf-8')),
-                ('config_value', String('utf-8')),
-                ('read_only', Boolean),
-                ('config_source', Int8),
-                ('is_sensitive', Boolean),
-                ('config_synonyms', Array(
-                    ('config_name', String('utf-8')),
-                    ('config_value', String('utf-8')),
-                    ('config_source', Int8)))))))
-    )
+    SCHEMA = DescribeConfigsResponse_v1.SCHEMA
+
+
+class _DescribeConfigsRequestResourceDict(TypedDict):
+    resource_type: int
+    resource_name: str
+    config_names: List[str]
+
+
+class _DescribeConfigsRequestDict(TypedDict):
+    resources: List[_DescribeConfigsRequestResourceDict]
+    include_synonyms: NotRequired[bool]  # added in v1
+
 
 _DescribeConfigsResponseType = TypeVar('_DescribeConfigsResponseType', bound=_DescribeConfigsResponse)
 
 
-class _DescribeConfigsRequest(Request[_DescribeConfigsResponseType], ABC):
+class _DescribeConfigsRequest(Request[_DescribeConfigsResponseType, _DescribeConfigsRequestDict]):
     API_KEY = 32
+
+    resources: List[Tuple[int, str, List[str]]]
+    include_synonyms: bool  # added in v1
 
 
 @final
@@ -891,9 +1230,31 @@ DescribeConfigsResponse: List[Type[_DescribeConfigsResponse]] = [
 ]
 
 
-class DescribeLogDirsResponse_v0(Response):
+class _DescribeLogDirsResponsePartitionDict(TypedDict):
+    partition_index: int
+    partition_size: int
+    offset_lag: int
+    is_future_key: bool
+
+
+class _DescribeLogDirsResponseTopicDict(TypedDict):
+    name: str
+    partitions: List[_DescribeLogDirsResponsePartitionDict]
+
+
+class _DescribeLogDirsResponseLogDirDict(TypedDict):
+    error_code: int
+    log_dir: str
+    topics: List[_DescribeLogDirsResponseTopicDict]
+
+
+class _DescribeLogDirsResponseDict(TypedDict):
+    throttle_time_ms: int
+    log_dirs: List[_DescribeLogDirsResponseLogDirDict]
+
+
+class _DescribeLogDirsResponse(Response[_DescribeLogDirsResponseDict]):
     API_KEY = 35
-    API_VERSION = 0
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
         ('log_dirs', Array(
@@ -911,29 +1272,71 @@ class DescribeLogDirsResponse_v0(Response):
         ))
     )
 
+    throttle_time_ms: int
+    log_dirs: List[Tuple[int, str, List[Tuple[str, List[Tuple[int, int, int, bool]]]]]]
 
-class DescribeLogDirsRequest_v0(Request):
+
+@final
+class DescribeLogDirsResponse_v0(_DescribeLogDirsResponse):
+    API_VERSION = 0
+
+
+class _DescribeLogDirsRequestTopicDict(TypedDict):
+    topic: str
+    partitions: int
+
+
+class _DescribeLogDirsRequestDict(TypedDict):
+    topics: List[_DescribeLogDirsRequestTopicDict]
+
+
+_DescribeLogDirsResponseType = TypeVar('_DescribeLogDirsResponseType', bound=_DescribeLogDirsResponse)
+
+
+class _DescribeLogDirsRequest(Request[_DescribeLogDirsResponseType, _DescribeLogDirsRequestDict]):
     API_KEY = 35
+    SCHEMA = Schema(
+        ('topics', Array(
+            ('topic', String('utf-8')),
+            ('partitions', Int32)
+        ))
+    )
+
+    topics: List[Tuple[str, int]]
+
+
+@final
+class DescribeLogDirsRequest_v0(_DescribeLogDirsRequest[DescribeLogDirsResponse_v0]):
     API_VERSION = 0
     RESPONSE_TYPE = DescribeLogDirsResponse_v0
-    SCHEMA = Schema(
-                     ('topics', Array(
-                         ('topic', String('utf-8')),
-                         ('partitions', Int32)
-                         ))
-                 )
 
 
-DescribeLogDirsResponse = [
+DescribeLogDirsResponse: List[Type[_DescribeLogDirsResponse]] = [
     DescribeLogDirsResponse_v0,
 ]
-DescribeLogDirsRequest = [
+DescribeLogDirsRequest: List[Type[_DescribeLogDirsRequest]] = [
     DescribeLogDirsRequest_v0,
 ]
 
 
-class SaslAuthenticateResponse_v0(Response):
+class _SaslAuthenticateResponseDict(TypedDict):
+    error_code: int
+    error_message: str
+    sasl_auth_bytes: bytes
+    session_lifetime_ms: NotRequired[int]  # added in v1
+
+
+class _SaslAuthenticateResponse(Response[_SaslAuthenticateResponseDict]):
     API_KEY = 36
+
+    error_code: int
+    error_message: str
+    sasl_auth_bytes: bytes
+    session_lifetime_ms: int  # added in v1
+
+
+@final
+class SaslAuthenticateResponse_v0(_SaslAuthenticateResponse):
     API_VERSION = 0
     SCHEMA = Schema(
         ('error_code', Int16),
@@ -942,8 +1345,8 @@ class SaslAuthenticateResponse_v0(Response):
     )
 
 
-class SaslAuthenticateResponse_v1(Response):
-    API_KEY = 36
+@final
+class SaslAuthenticateResponse_v1(_SaslAuthenticateResponse):
     API_VERSION = 1
     SCHEMA = Schema(
         ('error_code', Int16),
@@ -953,33 +1356,55 @@ class SaslAuthenticateResponse_v1(Response):
     )
 
 
-class SaslAuthenticateRequest_v0(Request):
+class _SaslAuthenticateRequestDict(TypedDict):
+    sasl_auth_bytes: bytes
+
+
+_SaslAuthenticateResponseType = TypeVar('_SaslAuthenticateResponseType', bound=_SaslAuthenticateResponse)
+
+
+class _SaslAuthenticateRequest(Request[_SaslAuthenticateResponseType, _SaslAuthenticateRequestDict]):
     API_KEY = 36
-    API_VERSION = 0
-    RESPONSE_TYPE = SaslAuthenticateResponse_v0
     SCHEMA = Schema(
         ('sasl_auth_bytes', Bytes)
     )
 
+    sasl_auth_bytes: bytes
 
-class SaslAuthenticateRequest_v1(Request):
-    API_KEY = 36
+
+@final
+class SaslAuthenticateRequest_v0(_SaslAuthenticateRequest[SaslAuthenticateResponse_v0]):
+    API_VERSION = 0
+    RESPONSE_TYPE = SaslAuthenticateResponse_v0
+
+
+@final
+class SaslAuthenticateRequest_v1(_SaslAuthenticateRequest[SaslAuthenticateResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = SaslAuthenticateResponse_v1
-    SCHEMA = SaslAuthenticateRequest_v0.SCHEMA
 
 
-SaslAuthenticateRequest = [
+SaslAuthenticateRequest: List[Type[_SaslAuthenticateRequest]] = [
     SaslAuthenticateRequest_v0, SaslAuthenticateRequest_v1,
 ]
-SaslAuthenticateResponse = [
+SaslAuthenticateResponse: List[Type[_SaslAuthenticateResponse]] = [
     SaslAuthenticateResponse_v0, SaslAuthenticateResponse_v1,
 ]
 
 
-class CreatePartitionsResponse_v0(Response):
+class _CreatePartitionsResponseTopicErrorDict(TypedDict):
+    topic: str
+    error_code: int
+    error_message: str
+
+
+class _CreatePartitionsResponseDict(TypedDict):
+    throttle_time_ms: int
+    topic_errors: List[_CreatePartitionsResponseTopicErrorDict]
+
+
+class _CreatePartitionsResponse(Response[_CreatePartitionsResponseDict]):
     API_KEY = 37
-    API_VERSION = 0
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
         ('topic_errors', Array(
@@ -988,17 +1413,41 @@ class CreatePartitionsResponse_v0(Response):
             ('error_message', String('utf-8'))))
     )
 
-
-class CreatePartitionsResponse_v1(Response):
-    API_KEY = 37
-    API_VERSION = 1
-    SCHEMA = CreatePartitionsResponse_v0.SCHEMA
+    throttle_time_ms: int
+    topic_errors: List[Tuple[str, int, str]]
 
 
-class CreatePartitionsRequest_v0(Request):
-    API_KEY = 37
+@final
+class CreatePartitionsResponse_v0(_CreatePartitionsResponse):
     API_VERSION = 0
-    RESPONSE_TYPE = CreatePartitionsResponse_v0
+
+
+@final
+class CreatePartitionsResponse_v1(_CreatePartitionsResponse):
+    API_VERSION = 1
+
+
+class _CreatePartitionsRequestNewPartitionsDict(TypedDict):
+    count: int
+    assignment: List[List[int]]
+
+
+class _CreatePartitionsRequestTopicPartitionsDict(TypedDict):
+    topic: str
+    new_partitions: _CreatePartitionsRequestNewPartitionsDict
+
+
+class _CreatePartitionsRequestDict(TypedDict):
+    topic_partitions: List[_CreatePartitionsRequestTopicPartitionsDict]
+    timeout: int
+    validate_only: bool
+
+
+_CreatePartitionsResponseType = TypeVar('_CreatePartitionsResponseType', bound=_CreatePartitionsResponse)
+
+
+class _CreatePartitionsRequest(Request[_CreatePartitionsResponseType, _CreatePartitionsRequestDict]):
+    API_KEY = 37
     SCHEMA = Schema(
         ('topic_partitions', Array(
             ('topic', String('utf-8')),
@@ -1009,24 +1458,42 @@ class CreatePartitionsRequest_v0(Request):
         ('validate_only', Boolean)
     )
 
+    topic_partitions: List[Tuple[str, Tuple[int, List[List[int]]]]]
+    timeout: int
+    validate_only: bool
 
-class CreatePartitionsRequest_v1(Request):
-    API_KEY = 37
+
+@final
+class CreatePartitionsRequest_v0(_CreatePartitionsRequest[CreatePartitionsResponse_v0]):
+    API_VERSION = 0
+    RESPONSE_TYPE = CreatePartitionsResponse_v0
+
+
+@final
+class CreatePartitionsRequest_v1(_CreatePartitionsRequest[CreatePartitionsResponse_v1]):
     API_VERSION = 1
-    SCHEMA = CreatePartitionsRequest_v0.SCHEMA
     RESPONSE_TYPE = CreatePartitionsResponse_v1
 
 
-CreatePartitionsRequest = [
+CreatePartitionsRequest: List[Type[_CreatePartitionsRequest]] = [
     CreatePartitionsRequest_v0, CreatePartitionsRequest_v1,
 ]
-CreatePartitionsResponse = [
+CreatePartitionsResponse: List[Type[_CreatePartitionsResponse]] = [
     CreatePartitionsResponse_v0, CreatePartitionsResponse_v1,
 ]
 
 
-class _DeleteGroupsResponse(Response, ABC):
+class _DeleteGroupsResponseResultDict(TypedDict):
+    group_id: str
+    error_code: int
 
+
+class _DeleteGroupsResponseDict(TypedDict):
+    throttle_time_ms: int
+    results: List[_DeleteGroupsResponseResultDict]
+
+
+class _DeleteGroupsResponse(Response[_DeleteGroupsResponseDict], ABC):
     SCHEMA = Schema(
         ("throttle_time_ms", Int32),
         ("results", Array(
@@ -1038,32 +1505,41 @@ class _DeleteGroupsResponse(Response, ABC):
     results: List[Tuple[str, int]]
 
 
+@final
 class DeleteGroupsResponse_v0(_DeleteGroupsResponse):
     API_KEY = 42
     API_VERSION = 0
 
 
+@final
 class DeleteGroupsResponse_v1(_DeleteGroupsResponse):
     API_KEY = 42
     API_VERSION = 1
 
 
+class _DeleteGroupsRequestDict(TypedDict):
+    groups_names: List[str]
+
+
 _DeleteGroupsResponseType = TypeVar('_DeleteGroupsResponseType', bound=_DeleteGroupsResponse)
 
 
-class _DeleteGroupsRequest(Request[_DeleteGroupsResponseType], ABC):
+class _DeleteGroupsRequest(Request[_DeleteGroupsResponseType, _DeleteGroupsRequestDict], ABC):
     SCHEMA = Schema(
         ("groups_names", Array(String("utf-8")))
     )
 
     groups_names: List[str]
 
+
+@final
 class DeleteGroupsRequest_v0(_DeleteGroupsRequest[DeleteGroupsResponse_v0]):
     API_KEY = 42
     API_VERSION = 0
     RESPONSE_TYPE = DeleteGroupsResponse_v0
 
 
+@final
 class DeleteGroupsRequest_v1(_DeleteGroupsRequest[DeleteGroupsResponse_v1]):
     API_KEY = 42
     API_VERSION = 1
@@ -1079,9 +1555,30 @@ DeleteGroupsResponse: List[Type[_DeleteGroupsResponse]] = [
 ]
 
 
-class DescribeClientQuotasResponse_v0(Response):
+class _DescribeClientQuotasResponseEntityDict(TypedDict):
+    entity_type: str
+    entity_name: str
+
+
+class _DescribeClientQuotasResponseEntryValueDict(TypedDict):
+    name: str
+    value: float
+
+
+class _DescribeClientQuotasResponseEntryDict(TypedDict):
+    entity: List[_DescribeClientQuotasResponseEntityDict]
+    values: List[_DescribeClientQuotasResponseEntryValueDict]
+
+
+class _DescribeClientQuotasResponseDict(TypedDict):
+    throttle_time_ms: int
+    error_code: int
+    error_message: str
+    entries: List[_DescribeClientQuotasResponseEntryDict]
+
+
+class _DescribeClientQuotasResponse(Response[_DescribeClientQuotasResponseDict]):
     API_KEY = 48
-    API_VERSION = 0
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
         ('error_code', Int16),
@@ -1095,11 +1592,33 @@ class DescribeClientQuotasResponse_v0(Response):
                 ('value', Float64))))),
     )
 
+    throttle_time_ms: int
+    error_code: int
+    error_message: str
+    entries: List[Tuple[List[Tuple[str, str]], List[Tuple[str, float]]]]
 
-class DescribeClientQuotasRequest_v0(Request):
-    API_KEY = 48
+
+@final
+class DescribeClientQuotasResponse_v0(_DescribeClientQuotasResponse):
     API_VERSION = 0
-    RESPONSE_TYPE = DescribeClientQuotasResponse_v0
+
+
+class _DescribeClientQuotasRequestComponentDict(TypedDict):
+    entity_type: str
+    match_type: int
+    match: str
+
+
+class _DescribeClientQuotasRequestDict(TypedDict):
+    components: List[_DescribeClientQuotasRequestComponentDict]
+    strict: bool
+
+
+_DescribeClientQuotasResponseType = TypeVar('_DescribeClientQuotasResponseType', bound=_DescribeClientQuotasResponse)
+
+
+class _DescribeClientQuotasRequest(Request[_DescribeClientQuotasResponseType, _DescribeClientQuotasRequestDict]):
+    API_KEY = 48
     SCHEMA = Schema(
         ('components', Array(
             ('entity_type', String('utf-8')),
@@ -1109,19 +1628,45 @@ class DescribeClientQuotasRequest_v0(Request):
         ('strict', Boolean)
     )
 
+    components: List[Tuple[str, int, str]]
+    strict: bool
 
-DescribeClientQuotasRequest = [
+
+@final
+class DescribeClientQuotasRequest_v0(_DescribeClientQuotasRequest[DescribeClientQuotasResponse_v0]):
+    API_VERSION = 0
+    RESPONSE_TYPE = DescribeClientQuotasResponse_v0
+
+
+DescribeClientQuotasRequest: List[Type[_DescribeClientQuotasRequest]] = [
     DescribeClientQuotasRequest_v0,
 ]
 
-DescribeClientQuotasResponse = [
+DescribeClientQuotasResponse: List[Type[_DescribeClientQuotasResponse]] = [
     DescribeClientQuotasResponse_v0,
 ]
 
 
-class AlterPartitionReassignmentsResponse_v0(Response):
+class _AlterPartitionReassignmentsResponsePartitionDict(TypedDict):
+    partition_index: int
+    error_code: int
+    error_message: str
+
+
+class _AlterPartitionReassignmentsResponseTopicDict(TypedDict):
+    name: str
+    partitions: List[_AlterPartitionReassignmentsResponsePartitionDict]
+
+
+class _AlterPartitionReassignmentsResponseDict(TypedDict):
+    throttle_time_ms: int
+    error_code: int
+    error_message: str
+    responses: List[_AlterPartitionReassignmentsResponseTopicDict]
+
+
+class _AlterPartitionReassignmentsResponse(Response[_AlterPartitionReassignmentsResponseDict]):
     API_KEY = 45
-    API_VERSION = 0
     SCHEMA = Schema(
         ("throttle_time_ms", Int32),
         ("error_code", Int16),
@@ -1140,12 +1685,38 @@ class AlterPartitionReassignmentsResponse_v0(Response):
     )
     FLEXIBLE_VERSION = True
 
+    throttle_time_ms: int
+    error_code: int
+    error_message: str
+    responses: List[Tuple[str, List[Tuple[int, int, str]]]]
 
-class AlterPartitionReassignmentsRequest_v0(Request):
+
+@final
+class AlterPartitionReassignmentsResponse_v0(_AlterPartitionReassignmentsResponse):
+    API_VERSION = 0
+
+
+class _AlterPartitionReassignmentsRequestPartitionDict(TypedDict):
+    partition_index: int
+    replicas: List[int]
+
+
+class _AlterPartitionReassignmentsRequestTopicDict(TypedDict):
+    name: str
+    partitions: List[_AlterPartitionReassignmentsRequestPartitionDict]
+
+
+class _AlterPartitionReassignmentsRequestDict(TypedDict):
+    timeout_ms: int
+    topics: List[_AlterPartitionReassignmentsRequestTopicDict]
+
+
+_AlterPartitionReassignmentsResponseType = TypeVar('_AlterPartitionReassignmentsResponseType', bound=_AlterPartitionReassignmentsResponse)
+
+
+class _AlterPartitionReassignmentsRequest(Request[_AlterPartitionReassignmentsResponseType, _AlterPartitionReassignmentsRequestDict]):
     FLEXIBLE_VERSION = True
     API_KEY = 45
-    API_VERSION = 0
-    RESPONSE_TYPE = AlterPartitionReassignmentsResponse_v0
     SCHEMA = Schema(
         ("timeout_ms", Int32),
         ("topics", CompactArray(
@@ -1160,15 +1731,46 @@ class AlterPartitionReassignmentsRequest_v0(Request):
         ("tags", TaggedFields)
     )
 
-
-AlterPartitionReassignmentsRequest = [AlterPartitionReassignmentsRequest_v0]
-
-AlterPartitionReassignmentsResponse = [AlterPartitionReassignmentsResponse_v0]
+    timeout_ms: int
+    topics: List[Tuple[str, List[Tuple[int, List[int]]]]]
 
 
-class ListPartitionReassignmentsResponse_v0(Response):
-    API_KEY = 46
+@final
+class AlterPartitionReassignmentsRequest_v0(_AlterPartitionReassignmentsRequest[AlterPartitionReassignmentsResponse_v0]):
     API_VERSION = 0
+    RESPONSE_TYPE = AlterPartitionReassignmentsResponse_v0
+
+
+AlterPartitionReassignmentsRequest: List[Type[_AlterPartitionReassignmentsRequest]] = [
+    AlterPartitionReassignmentsRequest_v0,
+]
+
+AlterPartitionReassignmentsResponse: List[Type[_AlterPartitionReassignmentsResponse]] = [
+    AlterPartitionReassignmentsResponse_v0,
+]
+
+
+class _ListPartitionReassignmentsResponsePartitionDict(TypedDict):
+    partition_index: int
+    replicas: List[int]
+    adding_replicas: List[int]
+    removing_replicas: List[int]
+
+
+class _ListPartitionReassignmentsResponseTopicDict(TypedDict):
+    name: str
+    partitions: List[_ListPartitionReassignmentsResponsePartitionDict]
+
+
+class _ListPartitionReassignmentsResponseDict(TypedDict):
+    throttle_time_ms: int
+    error_code: int
+    error_message: str
+    topics: List[_ListPartitionReassignmentsResponseTopicDict]
+
+
+class _ListPartitionReassignmentsResponse(Response[_ListPartitionReassignmentsResponseDict]):
+    API_KEY = 46
     SCHEMA = Schema(
         ("throttle_time_ms", Int32),
         ("error_code", Int16),
@@ -1188,12 +1790,33 @@ class ListPartitionReassignmentsResponse_v0(Response):
     )
     FLEXIBLE_VERSION = True
 
+    throttle_time_ms: int
+    error_code: int
+    error_message: str
+    topics: List[Tuple[str, List[Tuple[int, List[int], List[int], List[int]]]]]
 
-class ListPartitionReassignmentsRequest_v0(Request):
+
+@final
+class ListPartitionReassignmentsResponse_v0(_ListPartitionReassignmentsResponse):
+    API_VERSION = 0
+
+
+class _ListPartitionReassignmentsRequestTopicDict(TypedDict):
+    name: str
+    partition_index: List[int]
+
+
+class _ListPartitionReassignmentsRequestDict(TypedDict):
+    timeout_ms: int
+    topics: List[_ListPartitionReassignmentsRequestTopicDict]
+
+
+_ListPartitionReassignmentsResponseType = TypeVar('_ListPartitionReassignmentsResponseType', bound=_ListPartitionReassignmentsResponse)
+
+
+class _ListPartitionReassignmentsRequest(Request[_ListPartitionReassignmentsResponseType, _ListPartitionReassignmentsRequestDict]):
     FLEXIBLE_VERSION = True
     API_KEY = 46
-    API_VERSION = 0
-    RESPONSE_TYPE = ListPartitionReassignmentsResponse_v0
     SCHEMA = Schema(
         ("timeout_ms", Int32),
         ("topics", CompactArray(
@@ -1204,13 +1827,43 @@ class ListPartitionReassignmentsRequest_v0(Request):
         ("tags", TaggedFields)
     )
 
-
-ListPartitionReassignmentsRequest = [ListPartitionReassignmentsRequest_v0]
-
-ListPartitionReassignmentsResponse = [ListPartitionReassignmentsResponse_v0]
+    timeout_ms: int
+    topics: List[Tuple[str, List[int]]]
 
 
-class _ElectLeadersResponse(Response):
+@final
+class ListPartitionReassignmentsRequest_v0(_ListPartitionReassignmentsRequest[ListPartitionReassignmentsResponse_v0]):
+    API_VERSION = 0
+    RESPONSE_TYPE = ListPartitionReassignmentsResponse_v0
+
+
+ListPartitionReassignmentsRequest: List[Type[_ListPartitionReassignmentsRequest]] = [
+    ListPartitionReassignmentsRequest_v0,
+]
+
+ListPartitionReassignmentsResponse: List[Type[_ListPartitionReassignmentsResponse]] = [
+    ListPartitionReassignmentsResponse_v0,
+]
+
+
+class _ElectLeadersResponsePartitionResultDict(TypedDict):
+    partition_id: int
+    error_code: int
+    error_message: str
+
+
+class _ElectLeadersResponseReplicationElectionResultDict(TypedDict):
+    topic: str
+    partition_result: List[_ElectLeadersResponsePartitionResultDict]
+
+
+class _ElectLeadersResponseDict(TypedDict):
+    throttle_time_ms: int
+    error_code: int
+    replication_election_results: List[_ElectLeadersResponseReplicationElectionResultDict]
+
+
+class _ElectLeadersResponse(Response[_ElectLeadersResponseDict]):
     API_KEY = 43
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
@@ -1235,10 +1888,26 @@ class ElectLeadersResponse_v0(_ElectLeadersResponse):
     API_VERSION = 1
 
 
+@final
+class ElectLeadersResponse_v1(_ElectLeadersResponse):
+    API_VERSION = 1
+
+
+class _ElectLeadersRequestTopicPartitionsDict(TypedDict):
+    topic: str
+    partition_ids: List[int]
+
+
+class _ElectLeadersRequestDict(TypedDict):
+    election_type: int
+    topic_partitions: List[_ElectLeadersRequestTopicPartitionsDict]
+    timeout: int
+
+
 _ElectLeadersResponseType = TypeVar('_ElectLeadersResponseType', bound=_ElectLeadersResponse)
 
 
-class _ElectLeadersRequest(Request[_ElectLeadersResponseType]):
+class _ElectLeadersRequest(Request[_ElectLeadersResponseType, _ElectLeadersRequestDict]):
     API_KEY = 43
     SCHEMA = Schema(
         ('election_type', Int8),
@@ -1260,10 +1929,7 @@ class ElectLeadersRequest_v0(_ElectLeadersRequest[ElectLeadersResponse_v0]):
     RESPONSE_TYPE = ElectLeadersResponse_v0
 
 
-class ElectLeadersResponse_v1(_ElectLeadersResponse):
-    API_VERSION = 1
-
-
+@final
 class ElectLeadersRequest_v1(_ElectLeadersRequest[ElectLeadersResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = ElectLeadersResponse_v1

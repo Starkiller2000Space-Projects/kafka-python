@@ -1,12 +1,33 @@
 from io import BytesIO
+from typing import List, Tuple, Type, TypeVar, final
+
+from typing_extensions import NotRequired, TypedDict
 
 from kafka.protocol.api import Request, Response
 from kafka.protocol.types import Array, CompactArray, CompactString, Int16, Int32, Schema, TaggedFields
 
 
-class BaseApiVersionsResponse(Response):
+class _ApiVersionsResponseApiVersionDict(TypedDict):
+    api_key: int
+    min_version: int
+    max_version: int
+
+
+class _ApiVersionsResponseDict(TypedDict):
+    error_code: int
+    api_versions: List[_ApiVersionsResponseApiVersionDict]
+    throttle_time_ms: NotRequired[int]  # added in v1
+
+
+class _ApiVersionsResponse(Response[_ApiVersionsResponseDict]):
     API_KEY = 18
-    API_VERSION = 0
+
+    error_code: int
+    api_versions: List[Tuple[int, int, int]]
+    throttle_time_ms: int  # added in v1
+
+
+class BaseApiVersionsResponse(_ApiVersionsResponse):
     SCHEMA = Schema(
         ('error_code', Int16),
         ('api_versions', Array(
@@ -16,7 +37,7 @@ class BaseApiVersionsResponse(Response):
     )
 
     @classmethod
-    def decode(cls, data) -> None:
+    def decode(cls, data: BytesIO) -> bytes:
         if isinstance(data, bytes):
             data = BytesIO(data)
         # Check error_code, decode as v0 if any error
@@ -28,8 +49,8 @@ class BaseApiVersionsResponse(Response):
         return super(BaseApiVersionsResponse, cls).decode(data)
 
 
-class ApiVersionsResponse_v0(Response):
-    API_KEY = 18
+@final
+class ApiVersionsResponse_v0(_ApiVersionsResponse):
     API_VERSION = 0
     SCHEMA = Schema(
         ('error_code', Int16),
@@ -40,8 +61,8 @@ class ApiVersionsResponse_v0(Response):
     )
 
 
+@final
 class ApiVersionsResponse_v1(BaseApiVersionsResponse):
-    API_KEY = 18
     API_VERSION = 1
     SCHEMA = Schema(
         ('error_code', Int16),
@@ -53,14 +74,14 @@ class ApiVersionsResponse_v1(BaseApiVersionsResponse):
     )
 
 
+@final
 class ApiVersionsResponse_v2(BaseApiVersionsResponse):
-    API_KEY = 18
     API_VERSION = 2
     SCHEMA = ApiVersionsResponse_v1.SCHEMA
 
 
+@final
 class ApiVersionsResponse_v3(BaseApiVersionsResponse):
-    API_KEY = 18
     API_VERSION = 3
     SCHEMA = Schema(
         ('error_code', Int16),
@@ -75,35 +96,50 @@ class ApiVersionsResponse_v3(BaseApiVersionsResponse):
     # Note: ApiVersions Response does not send FLEXIBLE_VERSION header!
 
 
+@final
 class ApiVersionsResponse_v4(BaseApiVersionsResponse):
-    API_KEY = 18
     API_VERSION = 4
     SCHEMA = ApiVersionsResponse_v3.SCHEMA
 
 
-class ApiVersionsRequest_v0(Request):
+class _ApiVersionsRequestDict(TypedDict):
+    client_software_name: NotRequired[str]  # added in v3
+    client_software_version: NotRequired[str]  # added in v3
+
+
+_ApiVersionsResponseType = TypeVar('_ApiVersionsResponseType', bound=_ApiVersionsResponse)
+
+
+class _ApiVersionsRequest(Request[_ApiVersionsResponseType, _ApiVersionsRequestDict]):
     API_KEY = 18
+
+    client_software_name: str  # added in v3
+    client_software_version: str  # added in v3
+
+
+@final
+class ApiVersionsRequest_v0(_ApiVersionsRequest[ApiVersionsResponse_v0]):
     API_VERSION = 0
     RESPONSE_TYPE = ApiVersionsResponse_v0
     SCHEMA = Schema()
 
 
-class ApiVersionsRequest_v1(Request):
-    API_KEY = 18
+@final
+class ApiVersionsRequest_v1(_ApiVersionsRequest[ApiVersionsResponse_v1]):
     API_VERSION = 1
     RESPONSE_TYPE = ApiVersionsResponse_v1
     SCHEMA = ApiVersionsRequest_v0.SCHEMA
 
 
-class ApiVersionsRequest_v2(Request):
-    API_KEY = 18
+@final
+class ApiVersionsRequest_v2(_ApiVersionsRequest[ApiVersionsResponse_v2]):
     API_VERSION = 2
     RESPONSE_TYPE = ApiVersionsResponse_v2
     SCHEMA = ApiVersionsRequest_v1.SCHEMA
 
 
-class ApiVersionsRequest_v3(Request):
-    API_KEY = 18
+@final
+class ApiVersionsRequest_v3(_ApiVersionsRequest[ApiVersionsResponse_v3]):
     API_VERSION = 3
     RESPONSE_TYPE = ApiVersionsResponse_v3
     SCHEMA = Schema(
@@ -114,19 +150,19 @@ class ApiVersionsRequest_v3(Request):
     FLEXIBLE_VERSION = True
 
 
-class ApiVersionsRequest_v4(Request):
-    API_KEY = 18
+@final
+class ApiVersionsRequest_v4(_ApiVersionsRequest[ApiVersionsResponse_v4]):
     API_VERSION = 4
     RESPONSE_TYPE = ApiVersionsResponse_v4
     SCHEMA = ApiVersionsRequest_v3.SCHEMA
     FLEXIBLE_VERSION = True
 
 
-ApiVersionsRequest = [
+ApiVersionsRequest: List[Type[_ApiVersionsRequest]] = [
     ApiVersionsRequest_v0, ApiVersionsRequest_v1, ApiVersionsRequest_v2,
     ApiVersionsRequest_v3, ApiVersionsRequest_v4,
 ]
-ApiVersionsResponse = [
+ApiVersionsResponse: List[Type[_ApiVersionsResponse]] = [
     ApiVersionsResponse_v0, ApiVersionsResponse_v1, ApiVersionsResponse_v2,
     ApiVersionsResponse_v3, ApiVersionsResponse_v4,
 ]
