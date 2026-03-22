@@ -9,23 +9,28 @@ class BaseApiVersionsResponse(Response):
     API_VERSION = 0
     SCHEMA = Schema(
         ('error_code', Int16),
-        ('api_versions', Array(
+        ('api_keys', Array(
             ('api_key', Int16),
             ('min_version', Int16),
             ('max_version', Int16)))
     )
+    ALIASES = {'api_versions': 'api_keys'}
 
     @classmethod
-    def decode(cls, data):
+    def decode(cls, data, header=False, framed=False):
         if isinstance(data, bytes):
             data = BytesIO(data)
         # Check error_code, decode as v0 if any error
         curr = data.tell()
+        if framed:
+            nbytes = Int32.decode(data)
+        if header:
+            cls.parse_header(data) # Note: non-flexible header
         err = Int16.decode(data)
         data.seek(curr)
         if err != 0:
-            return ApiVersionsResponse_v0.decode(data)
-        return super(BaseApiVersionsResponse, cls).decode(data)
+            return ApiVersionsResponse_v0.decode(data, header=header, framed=framed)
+        return super(BaseApiVersionsResponse, cls).decode(data, header=header, framed=framed)
 
 
 class ApiVersionsResponse_v0(Response):
@@ -33,11 +38,12 @@ class ApiVersionsResponse_v0(Response):
     API_VERSION = 0
     SCHEMA = Schema(
         ('error_code', Int16),
-        ('api_versions', Array(
+        ('api_keys', Array(
             ('api_key', Int16),
             ('min_version', Int16),
             ('max_version', Int16)))
     )
+    ALIASES = {'api_versions': 'api_keys'}
 
 
 class ApiVersionsResponse_v1(BaseApiVersionsResponse):
@@ -45,7 +51,7 @@ class ApiVersionsResponse_v1(BaseApiVersionsResponse):
     API_VERSION = 1
     SCHEMA = Schema(
         ('error_code', Int16),
-        ('api_versions', Array(
+        ('api_keys', Array(
             ('api_key', Int16),
             ('min_version', Int16),
             ('max_version', Int16))),
@@ -64,13 +70,13 @@ class ApiVersionsResponse_v3(BaseApiVersionsResponse):
     API_VERSION = 3
     SCHEMA = Schema(
         ('error_code', Int16),
-        ('api_versions', CompactArray(
+        ('api_keys', CompactArray(
             ('api_key', Int16),
             ('min_version', Int16),
             ('max_version', Int16),
-            ('_tagged_fields', TaggedFields))),
+            ('tags', TaggedFields))),
         ('throttle_time_ms', Int32),
-        ('_tagged_fields', TaggedFields)
+        ('tags', TaggedFields)
     )
     # Note: ApiVersions Response does not send FLEXIBLE_VERSION header!
 
@@ -84,32 +90,28 @@ class ApiVersionsResponse_v4(BaseApiVersionsResponse):
 class ApiVersionsRequest_v0(Request):
     API_KEY = 18
     API_VERSION = 0
-    RESPONSE_TYPE = ApiVersionsResponse_v0
     SCHEMA = Schema()
 
 
 class ApiVersionsRequest_v1(Request):
     API_KEY = 18
     API_VERSION = 1
-    RESPONSE_TYPE = ApiVersionsResponse_v1
     SCHEMA = ApiVersionsRequest_v0.SCHEMA
 
 
 class ApiVersionsRequest_v2(Request):
     API_KEY = 18
     API_VERSION = 2
-    RESPONSE_TYPE = ApiVersionsResponse_v2
     SCHEMA = ApiVersionsRequest_v1.SCHEMA
 
 
 class ApiVersionsRequest_v3(Request):
     API_KEY = 18
     API_VERSION = 3
-    RESPONSE_TYPE = ApiVersionsResponse_v3
     SCHEMA = Schema(
         ('client_software_name', CompactString('utf-8')),
         ('client_software_version', CompactString('utf-8')),
-        ('_tagged_fields', TaggedFields)
+        ('tags', TaggedFields)
     )
     FLEXIBLE_VERSION = True
 
@@ -117,7 +119,6 @@ class ApiVersionsRequest_v3(Request):
 class ApiVersionsRequest_v4(Request):
     API_KEY = 18
     API_VERSION = 4
-    RESPONSE_TYPE = ApiVersionsResponse_v4
     SCHEMA = ApiVersionsRequest_v3.SCHEMA
     FLEXIBLE_VERSION = True
 

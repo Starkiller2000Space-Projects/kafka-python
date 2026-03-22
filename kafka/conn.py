@@ -11,16 +11,12 @@ import time
 import kafka.errors as Errors
 from kafka.future import Future
 from kafka.metrics.stats import Avg, Count, Max, Rate
-from kafka.protocol.admin import DescribeAclsRequest, DescribeClientQuotasRequest, ListGroupsRequest
 from kafka.protocol.api_versions import ApiVersionsRequest
-from kafka.protocol.broker_api_versions import BROKER_API_VERSIONS
-from kafka.protocol.commit import OffsetFetchRequest
-from kafka.protocol.fetch import FetchRequest
-from kafka.protocol.find_coordinator import FindCoordinatorRequest
-from kafka.protocol.list_offsets import ListOffsetsRequest
-from kafka.protocol.metadata import MetadataRequest
+from kafka.protocol.broker_api_versions import (
+    BROKER_API_VERSIONS, VERSION_CHECKS,
+    infer_broker_version_from_api_versions,
+)
 from kafka.protocol.parser import KafkaProtocol
-from kafka.protocol.produce import ProduceRequest
 from kafka.protocol.sasl_authenticate import SaslAuthenticateRequest
 from kafka.protocol.sasl_handshake import SaslHandshakeRequest
 from kafka.protocol.types import Int32
@@ -216,12 +212,6 @@ class BrokerConnection(object):
         'socks5_proxy': None,
     }
     SECURITY_PROTOCOLS = ('PLAINTEXT', 'SSL', 'SASL_PLAINTEXT', 'SASL_SSL')
-    VERSION_CHECKS = (
-        ((0, 9), ListGroupsRequest[0]()),
-        ((0, 8, 2), FindCoordinatorRequest[0]('kafka-python-default-group')),
-        ((0, 8, 1), OffsetFetchRequest[0]('kafka-python-default-group', [])),
-        ((0, 8, 0), MetadataRequest[0]([])),
-    )
 
     def __init__(self, host, port, afi, **configs):
         self.host = host
@@ -295,7 +285,7 @@ class BrokerConnection(object):
 
     def _new_protocol_parser(self):
         return KafkaProtocol(
-            ident='%s:%d' % (self.host, self.port),
+            ident=f'node={self.node_id}[{self.host}:{self.port}]',
             client_id=self.config['client_id'],
             api_version=self.config['api_version'])
 
@@ -326,7 +316,7 @@ class BrokerConnection(object):
     def connect_blocking(self, timeout=float('inf')):
         if self.connected():
             return True
-        timeout += time.time()
+        timeout += time.monotonic()
         # First attempt to perform dns lookup
         # note that the underlying interface, socket.getaddrinfo,
         # has no explicit timeout so we may exceed the user-specified timeout
@@ -335,7 +325,7 @@ class BrokerConnection(object):
         # Loop once over all returned dns entries
         selector = None
         while self._gai:
-            while time.time() < timeout:
+            while time.monotonic() < timeout:
                 self.connect()
                 if self.connected():
                     if selector is not None:
@@ -359,7 +349,7 @@ class BrokerConnection(object):
         """Attempt to connect and return ConnectionState"""
         if self.state is ConnectionStates.DISCONNECTED and not self.blacked_out():
             self.state = ConnectionStates.CONNECTING
-            self.last_attempt = time.time()
+            self.last_attempt = time.monotonic()
             next_lookup = self._next_afi_sockaddr()
             if not next_lookup:
                 self.close(Errors.KafkaConnectionError('DNS failure'))
@@ -464,7 +454,7 @@ class BrokerConnection(object):
                               ConnectionStates.DISCONNECTED):
             # Connection timed out
             request_timeout = self.config['request_timeout_ms'] / 1000.0
-            if time.time() > request_timeout + self.last_attempt:
+            if time.monotonic() > request_timeout + self.last_attempt:
                 log.error('%s: Connection attempt timed out', self)
                 self.close(Errors.KafkaConnectionError('timeout'))
                 return self.state
@@ -545,8 +535,7 @@ class BrokerConnection(object):
                 if version >= 3:
                     request = ApiVersionsRequest[version](
                         client_software_name=self.config['client_software_name'],
-                        client_software_version=self.config['client_software_version'],
-                        _tagged_fields={})
+                        client_software_version=self.config['client_software_version'])
                 else:
                     request = ApiVersionsRequest[version]()
                 future = Future()
@@ -557,8 +546,8 @@ class BrokerConnection(object):
                 self._api_versions_future = future
                 self.state = ConnectionStates.API_VERSIONS_RECV
                 self.config['state_change_callback'](self.node_id, self._sock, self)
-            elif self._check_version_idx < len(self.VERSION_CHECKS):
-                version, request = self.VERSION_CHECKS[self._check_version_idx]
+            elif self._check_version_idx < len(VERSION_CHECKS):
+                version, request = VERSION_CHECKS[self._check_version_idx]
                 future = Future()
                 self._api_versions_check_timeout /= 2
                 response = self._send(request, blocking=True, request_timeout_ms=self._api_versions_check_timeout)
@@ -589,7 +578,7 @@ class BrokerConnection(object):
             future.failure(error_type())
             if error_type is Errors.UnsupportedVersionError:
                 self._api_versions_idx -= 1
-                for api_version_data in response.api_versions:
+                for api_version_data in response.api_keys:
                     api_key, min_version, max_version = api_version_data[:3]
                     # If broker provides a lower max_version, skip to that
                     if api_key == response.API_KEY:
@@ -604,9 +593,9 @@ class BrokerConnection(object):
             return
         self._api_versions = dict([
             (api_version_data[0], (api_version_data[1], api_version_data[2]))
-            for api_version_data in response.api_versions
+            for api_version_data in response.api_keys
         ])
-        self._api_version = self._infer_broker_version_from_api_versions(self._api_versions)
+        self._api_version = infer_broker_version_from_api_versions(self._api_versions)
         log.info('%s: Broker version identified as %s', self, '.'.join(map(str, self._api_version)))
         future.success(self._api_version)
         self.connect()
@@ -677,11 +666,11 @@ class BrokerConnection(object):
             self.close(error=error)
             return future.failure(error_type(self))
 
-        if self.config['sasl_mechanism'] not in response.enabled_mechanisms:
+        if self.config['sasl_mechanism'] not in response.mechanisms:
             future.failure(
                 Errors.UnsupportedSaslMechanismError(
                     'Kafka broker does not support %s sasl mechanism. Enabled mechanisms are: %s'
-                    % (self.config['sasl_mechanism'], response.enabled_mechanisms)))
+                    % (self.config['sasl_mechanism'], response.mechanisms)))
         else:
             self._sasl_authenticate(future)
 
@@ -776,7 +765,7 @@ class BrokerConnection(object):
         if version == 1:
             ((correlation_id, response),) = self._protocol.receive_bytes(data)
             (future, timestamp, _timeout) = self.in_flight_requests.pop(correlation_id)
-            latency_ms = (time.time() - timestamp) * 1000
+            latency_ms = (time.monotonic() - timestamp) * 1000
             if self._sensors:
                 self._sensors.request_time.record(latency_ms)
             log.debug('%s: Response %d (%s ms): %s', self, correlation_id, latency_ms, response)
@@ -834,7 +823,7 @@ class BrokerConnection(object):
         Return the number of milliseconds to wait until connection is no longer throttled.
         """
         if self._throttle_time is not None:
-            remaining_ms = (self._throttle_time - time.time()) * 1000
+            remaining_ms = (self._throttle_time - time.monotonic()) * 1000
             if remaining_ms > 0:
                 return remaining_ms
             else:
@@ -855,7 +844,7 @@ class BrokerConnection(object):
             elif self.config["socks5_proxy"] and Socks5Wrapper.use_remote_lookup(self.config["socks5_proxy"]):
                 return 0
             else:
-                time_waited = time.time() - self.last_attempt
+                time_waited = time.monotonic() - self.last_attempt
                 return max(self._reconnect_backoff - time_waited, 0) * 1000
         else:
             # When connecting or connected, we should be able to delay
@@ -1006,7 +995,7 @@ class BrokerConnection(object):
             log.debug('%s: Request %d (timeout_ms %s): %s', self, correlation_id, request_timeout_ms, request)
             if request.expect_response():
                 assert correlation_id not in self.in_flight_requests, 'Correlation ID already in-flight!'
-                sent_time = time.time()
+                sent_time = time.monotonic()
                 timeout_at = sent_time + (request_timeout_ms / 1000)
                 self.in_flight_requests[correlation_id] = (future, sent_time, timeout_at)
             else:
@@ -1093,7 +1082,7 @@ class BrokerConnection(object):
         # Client side throttling enabled in v2.0 brokers
         # prior to that throttling (if present) was managed broker-side
         if self.config['api_version'] is not None and self.config['api_version'] >= (2, 0):
-            throttle_time = time.time() + throttle_time_ms / 1000
+            throttle_time = time.monotonic() + throttle_time_ms / 1000
             self._throttle_time = max(throttle_time, self._throttle_time or 0)
         log.warning("%s: %s throttled by broker (%d ms)", self,
                     response.__class__.__name__, throttle_time_ms)
@@ -1129,7 +1118,7 @@ class BrokerConnection(object):
             except KeyError:
                 self.close(Errors.KafkaConnectionError('Received unrecognized correlation id'))
                 return ()
-            latency_ms = (time.time() - timestamp) * 1000
+            latency_ms = (time.monotonic() - timestamp) * 1000
             if self._sensors:
                 self._sensors.request_time.record(latency_ms)
 
@@ -1193,7 +1182,7 @@ class BrokerConnection(object):
         return self.next_ifr_request_timeout_ms() == 0
 
     def timed_out_ifrs(self):
-        now = time.time()
+        now = time.monotonic()
         ifrs = sorted(self.in_flight_requests.values(), reverse=True, key=lambda ifr: ifr[2])
         return list(filter(lambda ifr: ifr[2] <= now, ifrs))
 
@@ -1204,7 +1193,7 @@ class BrokerConnection(object):
                     return v[2]
                 next_timeout = min(map(get_timeout,
                                    self.in_flight_requests.values()))
-                return max(0, (next_timeout - time.time()) * 1000)
+                return max(0, (next_timeout - time.monotonic()) * 1000)
             else:
                 return float('inf')
 
@@ -1215,52 +1204,6 @@ class BrokerConnection(object):
         if self._api_versions is None:
             self.check_version()
         return self._api_versions
-
-    def _infer_broker_version_from_api_versions(self, api_versions):
-        # The logic here is to check the list of supported request versions
-        # in reverse order. As soon as we find one that works, return it
-        test_cases = [
-            # format (<broker version>, <needed struct>)
-            # Make sure to update consumer_integration test check when adding newer versions.
-            # ((3, 9), FetchRequest[17]),
-            # ((3, 8), ProduceRequest[11]),
-            # ((3, 7), FetchRequest[16]),
-            # ((3, 6), AddPartitionsToTxnRequest[4]),
-            # ((3, 5), FetchRequest[15]),
-            # ((3, 4), StopReplicaRequest[3]), # broker-internal api...
-            # ((3, 3), DescribeAclsRequest[3]),
-            # ((3, 2), JoinGroupRequest[9]),
-            # ((3, 1), FetchRequest[13]),
-            # ((3, 0), ListOffsetsRequest[7]),
-            # ((2, 8), ProduceRequest[9]),
-            # ((2, 7), FetchRequest[12]),
-            # ((2, 6), ListGroupsRequest[4]),
-            # ((2, 5), JoinGroupRequest[7]),
-            ((2, 6), DescribeClientQuotasRequest[0]),
-            ((2, 5), DescribeAclsRequest[2]),
-            ((2, 4), ProduceRequest[8]),
-            ((2, 3), FetchRequest[11]),
-            ((2, 2), ListOffsetsRequest[5]),
-            ((2, 1), FetchRequest[10]),
-            ((2, 0), FetchRequest[8]),
-            ((1, 1), FetchRequest[7]),
-            ((1, 0), MetadataRequest[5]),
-            ((0, 11), MetadataRequest[4]),
-            ((0, 10, 2), OffsetFetchRequest[2]),
-            ((0, 10, 1), MetadataRequest[2]),
-        ]
-
-        # Get the best match of test cases
-        for broker_version, proto_struct in sorted(test_cases, reverse=True):
-            if proto_struct.API_KEY not in api_versions:
-                continue
-            min_version, max_version = api_versions[proto_struct.API_KEY]
-            if min_version <= proto_struct.API_VERSION <= max_version:
-                return broker_version
-
-        # We know that ApiVersionsResponse is only supported in 0.10+
-        # so if all else fails, choose that
-        return (0, 10, 0)
 
     def check_version(self, timeout=2, **kwargs):
         """Attempt to guess the broker version.
@@ -1275,8 +1218,8 @@ class BrokerConnection(object):
 
         Raises: NodeNotReadyError on timeout
         """
-        timeout_at = time.time() + timeout
-        if not self.connect_blocking(timeout_at - time.time()):
+        timeout_at = time.monotonic() + timeout
+        if not self.connect_blocking(timeout_at - time.monotonic()):
             raise Errors.NodeNotReadyError()
         else:
             return self._api_version

@@ -540,10 +540,6 @@ class BaseCoordinator(object):
 
         # send a join group request to the coordinator
         log.info("(Re-)joining group %s", self.group_id)
-        member_metadata = [
-            (protocol, metadata if isinstance(metadata, bytes) else metadata.encode())
-            for protocol, metadata in self.group_protocols()
-        ]
         version = self._client.api_version(JoinGroupRequest, max_version=5)
         if version == 0:
             request = JoinGroupRequest[version](
@@ -551,7 +547,7 @@ class BaseCoordinator(object):
                 self.config['session_timeout_ms'],
                 self._generation.member_id,
                 self.protocol_type(),
-                member_metadata)
+                self.group_protocols())
         elif version <= 4:
             request = JoinGroupRequest[version](
                 self.group_id,
@@ -559,7 +555,7 @@ class BaseCoordinator(object):
                 self.config['max_poll_interval_ms'],
                 self._generation.member_id,
                 self.protocol_type(),
-                member_metadata)
+                self.group_protocols())
         else:
             request = JoinGroupRequest[version](
                 self.group_id,
@@ -568,13 +564,13 @@ class BaseCoordinator(object):
                 self._generation.member_id,
                 self.group_instance_id,
                 self.protocol_type(),
-                member_metadata)
+                self.group_protocols())
 
         # create the request for the coordinator
         log.debug("Sending JoinGroup (%s) to coordinator %s", request, self.coordinator_id)
         future = Future()
         _f = self._client.send(self.coordinator_id, request)
-        _f.add_callback(self._handle_join_group_response, future, time.time())
+        _f.add_callback(self._handle_join_group_response, future, time.monotonic())
         _f.add_errback(self._failed_request, self.coordinator_id,
                        request, future)
         return future
@@ -598,7 +594,7 @@ class BaseCoordinator(object):
         error_type = Errors.for_code(response.error_code)
         if error_type is Errors.NoError:
             if self._sensors:
-                self._sensors.join_latency.record((time.time() - send_time) * 1000)
+                self._sensors.join_latency.record((time.monotonic() - send_time) * 1000)
             with self._lock:
                 if self.state is not MemberState.REBALANCING:
                     # if the consumer was woken up before a rebalance completes,
@@ -608,10 +604,10 @@ class BaseCoordinator(object):
                 else:
                     self._generation = Generation(response.generation_id,
                                                   response.member_id,
-                                                  response.group_protocol)
+                                                  response.protocol_name)
 
                 log.info("Successfully joined group %s %s", self.group_id, self._generation)
-                if response.leader_id == response.member_id:
+                if response.leader == response.member_id:
                     log.info("Elected group leader -- performing partition"
                              " assignments using %s", self._generation.protocol)
                     self._on_join_leader(response).chain(future)
@@ -701,15 +697,14 @@ class BaseCoordinator(object):
             Future: resolves to member assignment encoded-bytes
         """
         try:
-            members = [GroupMember(*member) if response.API_VERSION >= 5 else GroupMember(member[0], None, member[1])
+            members = [GroupMember(
+                           member_id=member[0],
+                           group_instance_id=member[1] if response.API_VERSION >= 5 else None,
+                           metadata=member[2] if response.API_VERSION >= 5 else member[1])
                        for member in response.members]
-            group_assignment = self._perform_assignment(response.leader_id,
-                                                        response.group_protocol,
+            group_assignment = self._perform_assignment(response.leader,
+                                                        response.protocol_name,
                                                         members)
-            for member_id, assignment in group_assignment.items():
-                if not isinstance(assignment, bytes):
-                    group_assignment[member_id] = assignment.encode()
-
         except Exception as e:
             return Future().failure(e)
 
@@ -744,7 +739,7 @@ class BaseCoordinator(object):
 
         future = Future()
         _f = self._client.send(self.coordinator_id, request)
-        _f.add_callback(self._handle_sync_group_response, future, time.time())
+        _f.add_callback(self._handle_sync_group_response, future, time.monotonic())
         _f.add_errback(self._failed_request, self.coordinator_id,
                        request, future)
         return future
@@ -754,8 +749,8 @@ class BaseCoordinator(object):
         error_type = Errors.for_code(response.error_code)
         if error_type is Errors.NoError:
             if self._sensors:
-                self._sensors.sync_latency.record((time.time() - send_time) * 1000)
-            future.success(response.member_assignment)
+                self._sensors.sync_latency.record((time.monotonic() - send_time) * 1000)
+            future.success(response.assignment)
             return
 
         # Always rejoin on error
@@ -810,12 +805,12 @@ class BaseCoordinator(object):
                   self.group_id, node_id, request)
         future = Future()
         _f = self._client.send(node_id, request)
-        _f.add_callback(self._handle_group_coordinator_response, future)
+        _f.add_callback(self._handle_find_coordinator_response, future)
         _f.add_errback(self._failed_request, node_id, request, future)
         return future
 
-    def _handle_group_coordinator_response(self, future, response):
-        log.debug("Received group coordinator response %s", response)
+    def _handle_find_coordinator_response(self, future, response):
+        log.debug("Received find coordinator response %s", response)
 
         error_type = Errors.for_code(response.error_code)
         if error_type is Errors.NoError:
@@ -997,14 +992,14 @@ class BaseCoordinator(object):
         heartbeat_log.debug("Sending HeartbeatRequest to %s: %s", self.coordinator_id, request)
         future = Future()
         _f = self._client.send(self.coordinator_id, request)
-        _f.add_callback(self._handle_heartbeat_response, future, time.time())
+        _f.add_callback(self._handle_heartbeat_response, future, time.monotonic())
         _f.add_errback(self._failed_request, self.coordinator_id,
                        request, future)
         return future
 
     def _handle_heartbeat_response(self, future, send_time, response):
         if self._sensors:
-            self._sensors.heartbeat_latency.record((time.time() - send_time) * 1000)
+            self._sensors.heartbeat_latency.record((time.monotonic() - send_time) * 1000)
         heartbeat_log.debug("Received heartbeat response for group %s: %s",
                             self.group_id, response)
         error_type = Errors.for_code(response.error_code)

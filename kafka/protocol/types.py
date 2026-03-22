@@ -9,9 +9,13 @@ def _pack(f, value):
     try:
         return f(value)
     except error as e:
+        try:
+            fmt = f.__self__.format
+        except AttributeError:
+            fmt = 'unknown'
         raise ValueError("Error encountered when attempting to convert value: "
                         "{!r} to struct format: '{}', hit error: {}"
-                        .format(value, f, e))
+                        .format(value, fmt, e))
 
 
 def _unpack(f, data):
@@ -19,9 +23,13 @@ def _unpack(f, data):
         (value,) = f(data)
         return value
     except error as e:
+        try:
+            fmt = f.__self__.format
+        except AttributeError:
+            fmt = 'unknown'
         raise ValueError("Error encountered when attempting to convert value: "
                         "{!r} to struct format: '{}', hit error: {}"
-                        .format(data, f, e))
+                        .format(data, fmt, e))
 
 
 class Int8(AbstractType):
@@ -94,13 +102,18 @@ class UUID(AbstractType):
 
     @classmethod
     def encode(cls, value):
+        if value is None:
+            value = cls.ZERO_UUID
         if isinstance(value, uuid.UUID):
             return value.bytes
         return uuid.UUID(value).bytes
 
     @classmethod
     def decode(cls, data):
-        return uuid.UUID(bytes=data.read(16))
+        val = uuid.UUID(bytes=data.read(16))
+        if val == cls.ZERO_UUID:
+            return None
+        return val
 
 
 class String(AbstractType):
@@ -128,8 +141,9 @@ class Bytes(AbstractType):
     def encode(cls, value):
         if value is None:
             return Int32.encode(-1)
-        else:
-            return Int32.encode(len(value)) + value
+        elif not isinstance(value, bytes):
+            value = value.encode()
+        return Int32.encode(len(value)) + value
 
     @classmethod
     def decode(cls, data):
@@ -166,7 +180,13 @@ class Schema(AbstractType):
         else:
             self.names, self.fields = (), ()
 
+    def has_tagged_fields(self):
+        return len(self.fields) and self.fields[-1] is TaggedFields
+
     def encode(self, item):
+        # Add empty tags to item if missing
+        if self.has_tagged_fields() and len(item) == len(self.fields) - 1:
+            item = [*item, {}]
         if len(item) != len(self.fields):
             raise ValueError('Item field count does not match Schema')
         return b''.join([
@@ -175,7 +195,11 @@ class Schema(AbstractType):
         ])
 
     def decode(self, data):
-        return tuple([field.decode(data) for field in self.fields])
+        decoded = [field.decode(data) for field in self.fields]
+        # Drop empty tags from tuple decoding
+        if self.has_tagged_fields() and decoded[-1] == {}:
+            decoded.pop()
+        return tuple(decoded)
 
     def __len__(self):
         return len(self.fields)
@@ -331,12 +355,15 @@ class TaggedFields(AbstractType):
 
     @classmethod
     def encode(cls, value):
+        if value is None:
+            value = {}
         ret = UnsignedVarInt32.encode(len(value))
         for k, v in value.items():
             # do we allow for other data types ?? It could get complicated really fast
             assert isinstance(v, bytes), 'Value {} is not a byte array'.format(v)
-            assert isinstance(k, int) and k > 0, 'Key {} is not a positive integer'.format(k)
+            assert isinstance(k, int) and k >= 0, 'Key {} is not a non-negative integer'.format(k)
             ret += UnsignedVarInt32.encode(k)
+            ret += UnsignedVarInt32.encode(len(v))
             ret += v
         return ret
 
@@ -379,10 +406,15 @@ class CompactArray(Array):
 class BitField(AbstractType):
     @classmethod
     def decode(cls, data):
-        return cls.from_32_bit_field(Int32.decode(data))
+        vals = cls.from_32_bit_field(Int32.decode(data))
+        if vals == {31}:
+            vals = None
+        return vals
 
     @classmethod
     def encode(cls, vals):
+        if vals is None:
+            vals = {31}
         # to_32_bit_field returns unsigned val, so we need to
         # encode >I to avoid crash if/when byte 31 is set
         # (note that decode as signed still works fine)

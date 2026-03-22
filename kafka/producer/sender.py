@@ -177,7 +177,7 @@ class Sender(threading.Thread):
         self._client.poll(timeout_ms=poll_timeout_ms)
 
     def _send_producer_data(self, now=None):
-        now = time.time() if now is None else now
+        now = time.monotonic() if now is None else now
         # get the list of partitions with data ready to send
         result = self._accumulator.ready(self._metadata, now=now)
         ready_nodes, next_ready_check_delay, unknown_leaders_exist = result
@@ -232,7 +232,7 @@ class Sender(threading.Thread):
         for expired_batch in expired_batches:
             error_message = "Expiring %d record(s) for %s: %s ms has passed since batch creation" % (
                 expired_batch.record_count, expired_batch.topic_partition,
-                int((time.time() - expired_batch.created) * 1000))
+                int((time.monotonic() - expired_batch.created) * 1000))
             self._fail_batch(expired_batch, PartitionResponse(error=Errors.KafkaTimeoutError, error_message=error_message))
 
         if self._sensors:
@@ -273,7 +273,7 @@ class Sender(threading.Thread):
             log.debug('%s: Sending Produce Request: %r', str(self), request)
             (self._client.send(node_id, request, wakeup=False)
                  .add_callback(
-                     self._handle_produce_response, node_id, time.time(), batches)
+                     self._handle_produce_response, node_id, time.monotonic(), batches)
                  .add_errback(
                      self._failed_produce, batches, node_id))
         return poll_timeout_ms
@@ -405,7 +405,7 @@ class Sender(threading.Thread):
             batches_by_partition = dict([(batch.topic_partition, batch)
                                          for batch in batches])
 
-            for topic, partitions in response.topics:
+            for topic, partitions in response.responses:
                 for partition_info in partitions:
                     log_append_time = -1
                     log_start_offset = -1
@@ -609,17 +609,17 @@ class Sender(threading.Thread):
         if version >= 3:
             return ProduceRequest[version](
                 transactional_id=transactional_id,
-                required_acks=acks,
-                timeout=timeout,
-                topics=topic_partition_data,
+                acks=acks,
+                timeout_ms=timeout,
+                topic_data=topic_partition_data,
             )
         else:
             if transactional_id is not None:
                 log.warning('%s: Broker does not support ProduceRequest v3+, required for transactional_id', str(self))
             return ProduceRequest[version](
-                required_acks=acks,
-                timeout=timeout,
-                topics=topic_partition_data,
+                acks=acks,
+                timeout_ms=timeout,
+                topic_data=topic_partition_data,
             )
 
     def wakeup(self):

@@ -7,20 +7,23 @@ class SaslHandshakeResponse_v0(Response):
     API_VERSION = 0
     SCHEMA = Schema(
         ('error_code', Int16),
-        ('enabled_mechanisms', Array(String('utf-8')))
+        ('mechanisms', Array(String('utf-8')))
     )
+    ALIASES = {
+        'enabled_mechanisms': 'mechanisms',
+    }
 
 
 class SaslHandshakeResponse_v1(Response):
     API_KEY = 17
     API_VERSION = 1
     SCHEMA = SaslHandshakeResponse_v0.SCHEMA
+    ALIASES = SaslHandshakeResponse_v0.ALIASES
 
 
 class SaslHandshakeRequest_v0(Request):
     API_KEY = 17
     API_VERSION = 0
-    RESPONSE_TYPE = SaslHandshakeResponse_v0
     SCHEMA = Schema(
         ('mechanism', String('utf-8'))
     )
@@ -29,7 +32,6 @@ class SaslHandshakeRequest_v0(Request):
 class SaslHandshakeRequest_v1(Request):
     API_KEY = 17
     API_VERSION = 1
-    RESPONSE_TYPE = SaslHandshakeResponse_v1
     SCHEMA = SaslHandshakeRequest_v0.SCHEMA
 
 

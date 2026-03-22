@@ -2,6 +2,7 @@
 
 import collections
 import io
+import math
 import time
 from unittest.mock import call
 
@@ -125,7 +126,7 @@ def test_complete_batch_transaction(sender, transaction_manager):
     (Errors.TransactionalIdAuthorizationFailedError, False),
 ])
 def test_complete_batch_error(sender, error, refresh_metadata):
-    sender._client.cluster._last_successful_refresh_ms = (time.time() - 10) * 1000
+    sender._client.cluster._last_successful_refresh_ms = (time.monotonic() - 10) * 1000
     sender._client.cluster._need_update = False
     sender.config['retries'] = 0
     assert sender._client.cluster.ttl() > 0
@@ -243,12 +244,12 @@ def test_run_once():
 
 
 def test__send_producer_data_expiry_time_reset(sender, accumulator, mocker):
-    now = time.time()
+    now = time.monotonic()
     tp = TopicPartition('foo', 0)
     mocker.patch.object(sender, '_failed_produce')
     result = accumulator.append(tp, 0, b'key', b'value', [], now=now)
     poll_timeout_ms = sender._send_producer_data(now=now)
-    assert poll_timeout_ms == accumulator.config['delivery_timeout_ms']
+    assert math.isclose(poll_timeout_ms, accumulator.config['delivery_timeout_ms'])
     sender._failed_produce.assert_not_called()
     now += accumulator.config['delivery_timeout_ms']
     poll_timeout_ms = sender._send_producer_data(now=now)

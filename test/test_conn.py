@@ -8,7 +8,7 @@ import pytest
 
 from kafka.conn import BrokerConnection, ConnectionStates
 from kafka.future import Future
-from kafka.conn import BrokerConnection, ConnectionStates, SSLWantWriteError
+from kafka.conn import BrokerConnection, ConnectionStates, SSLWantWriteError, VERSION_CHECKS
 from kafka.metrics.metrics import Metrics
 from kafka.metrics.stats.sensor import Sensor
 from kafka.protocol.api import RequestHeader
@@ -91,7 +91,7 @@ def test_api_versions_check(_socket, mocker):
     assert conn._try_api_versions_check() is False
     assert conn.connecting() is True
 
-    conn._check_version_idx = len(conn.VERSION_CHECKS)
+    conn._check_version_idx = len(VERSION_CHECKS)
     conn._api_versions_future = None
     assert conn._try_api_versions_check() is False
     assert conn.connecting() is False
@@ -122,7 +122,7 @@ def test_connect_timeout(_socket, conn):
 
 
 def test_blacked_out(conn):
-    with mock.patch("time.time", return_value=1000):
+    with mock.patch("time.monotonic", return_value=1000):
         conn.last_attempt = 0
         assert conn.blacked_out() is False
         conn.last_attempt = 1000
@@ -131,7 +131,7 @@ def test_blacked_out(conn):
 
 def test_connection_delay(conn, mocker):
     mocker.patch.object(conn, '_reconnect_jitter_pct', return_value=1.0)
-    with mock.patch("time.time", return_value=1000):
+    with mock.patch("time.monotonic", return_value=1000):
         conn.last_attempt = 1000
         assert conn.connection_delay() == conn.config['reconnect_backoff_ms']
         conn.state = ConnectionStates.CONNECTING
@@ -201,7 +201,7 @@ def test_send_no_response(_socket, conn):
     conn.connect()
     assert conn.state is ConnectionStates.CONNECTED
     req = ProduceRequest[0](required_acks=0, timeout=0, topics=())
-    header = RequestHeader(req, client_id=conn.config['client_id'])
+    header = RequestHeader(req.API_KEY, req.API_VERSION, 0, conn.config['client_id'])
     payload_bytes = len(header.encode()) + len(req.encode())
     third = payload_bytes // 3
     remainder = payload_bytes % 3
@@ -218,7 +218,7 @@ def test_send_response(_socket, conn):
     conn.connect()
     assert conn.state is ConnectionStates.CONNECTED
     req = MetadataRequest[0]([])
-    header = RequestHeader(req, client_id=conn.config['client_id'])
+    header = RequestHeader(req.API_KEY, req.API_VERSION, 0, conn.config['client_id'])
     payload_bytes = len(header.encode()) + len(req.encode())
     third = payload_bytes // 3
     remainder = payload_bytes % 3
@@ -237,10 +237,10 @@ def test_send_async_request_while_other_request_is_already_in_buffer(_socket, co
     bytes_sent_sensor = metrics.mocked_sensors['node-0.bytes-sent']
 
     req1 = MetadataRequest[0](topics='foo')
-    header1 = RequestHeader(req1, client_id=conn.config['client_id'])
+    header1 = RequestHeader(req1.API_KEY, req1.API_VERSION, 0, conn.config['client_id'])
     payload_bytes1 = len(header1.encode()) + len(req1.encode())
     req2 = MetadataRequest[0]([])
-    header2 = RequestHeader(req2, client_id=conn.config['client_id'])
+    header2 = RequestHeader(req2.API_KEY, req2.API_VERSION, 0, conn.config['client_id'])
     payload_bytes2 = len(header2.encode()) + len(req2.encode())
 
     # The first call to the socket will raise a transient SSL exception. This will make the first
@@ -299,7 +299,7 @@ def test_recv_disconnected(_socket, conn):
     assert conn.connected()
 
     req = MetadataRequest[0]([])
-    header = RequestHeader(req, client_id=conn.config['client_id'])
+    header = RequestHeader(req.API_KEY, req.API_VERSION, 0, conn.config['client_id'])
     payload_bytes = len(header.encode()) + len(req.encode())
     _socket.send.side_effect = [4, payload_bytes]
     conn.send(req)
@@ -385,7 +385,7 @@ def test_relookup_on_failure():
 
 
 def test_requests_timed_out(conn):
-    with mock.patch("time.time", return_value=0):
+    with mock.patch("time.monotonic", return_value=0):
         # No in-flight requests, not timed out
         assert not conn.requests_timed_out()
 
@@ -415,7 +415,7 @@ def test_maybe_throttle(conn):
     conn._maybe_throttle(HeartbeatResponse[0](error_code=0))
     assert not conn.throttled()
 
-    with mock.patch("time.time", return_value=1000) as time:
+    with mock.patch("time.monotonic", return_value=1000) as time:
         # server-side throttling in v1.0
         conn.config['api_version'] = (1, 0)
         conn._maybe_throttle(HeartbeatResponse[1](throttle_time_ms=1000, error_code=0))

@@ -1,16 +1,22 @@
-from kafka.structs import TopicPartition
-import pytest
-
 from logging import info
-from test.testutil import env_kafka_version, random_string
 from threading import Event, Thread
 from time import time, sleep
 
+import pytest
+
 from kafka.admin import (
-    ACLFilter, ACLOperation, ACLPermissionType, ResourcePattern, ResourceType, ACL, ConfigResource, ConfigResourceType)
+    ACLFilter, ACLOperation, ACLPermissionType,
+    ResourcePattern, ResourceType, ACL,
+    ConfigResource, ConfigResourceType,
+    NewTopic,
+)
 from kafka.errors import (
-        BrokerResponseError, NoError, CoordinatorNotAvailableError, NonEmptyGroupError,
-        GroupIdNotFoundError, OffsetOutOfRangeError, UnknownTopicOrPartitionError)
+    BrokerResponseError, NoError, CoordinatorNotAvailableError,
+    NonEmptyGroupError, GroupIdNotFoundError, OffsetOutOfRangeError,
+    UnknownTopicOrPartitionError, ElectionNotNeededError,
+)
+from kafka.structs import TopicPartition
+from test.testutil import env_kafka_version, random_string
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="ACL features require broker >=0.11")
@@ -97,9 +103,9 @@ def test_describe_configs_broker_resource_returns_configs(kafka_admin_client):
     configs = kafka_admin_client.describe_configs([ConfigResource(ConfigResourceType.BROKER, broker_id)])
 
     assert len(configs) == 1
-    assert configs[0].resources[0][2] == ConfigResourceType.BROKER
-    assert configs[0].resources[0][3] == str(broker_id)
-    assert len(configs[0].resources[0][4]) > 1
+    assert configs[0].results[0][2] == ConfigResourceType.BROKER
+    assert configs[0].results[0][3] == str(broker_id)
+    assert len(configs[0].results[0][4]) > 1
 
 
 @pytest.mark.xfail(condition=True,
@@ -112,9 +118,9 @@ def test_describe_configs_topic_resource_returns_configs(topic, kafka_admin_clie
     configs = kafka_admin_client.describe_configs([ConfigResource(ConfigResourceType.TOPIC, topic)])
 
     assert len(configs) == 1
-    assert configs[0].resources[0][2] == ConfigResourceType.TOPIC
-    assert configs[0].resources[0][3] == topic
-    assert len(configs[0].resources[0][4]) > 1
+    assert configs[0].results[0][2] == ConfigResourceType.TOPIC
+    assert configs[0].results[0][3] == topic
+    assert len(configs[0].results[0][4]) > 1
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Describe config features require broker >=0.11")
@@ -129,11 +135,11 @@ def test_describe_configs_mixed_resources_returns_configs(topic, kafka_admin_cli
     assert len(configs) == 2
 
     for config in configs:
-        assert (config.resources[0][2] == ConfigResourceType.TOPIC
-                and config.resources[0][3] == topic) or \
-               (config.resources[0][2] == ConfigResourceType.BROKER
-                and config.resources[0][3] == str(broker_id))
-        assert len(config.resources[0][4]) > 1
+        assert (config.results[0][2] == ConfigResourceType.TOPIC
+                and config.results[0][3] == topic) or \
+               (config.results[0][2] == ConfigResourceType.BROKER
+                and config.results[0][3] == str(broker_id))
+        assert len(config.results[0][4]) > 1
 
 
 @pytest.mark.skipif(env_kafka_version() < (0, 11), reason="Describe config features require broker >=0.11")
@@ -383,3 +389,35 @@ def test_delete_records_with_errors(kafka_admin_client, topic, send_messages):
         kafka_admin_client.delete_records({p0: 1000})
     with pytest.raises(BrokerResponseError):
         kafka_admin_client.delete_records({p0: 1000, p1: 1000})
+
+
+@pytest.mark.skipif(env_kafka_version() < (0, 10, 1), reason="Create topics requires broker >=0.10.1")
+def test_create_delete_topics(kafka_admin_client):
+    topic_name = random_string(4)
+    response = kafka_admin_client.create_topics([NewTopic(topic_name, 1, 1)])
+    assert response.topics[0][0] == topic_name
+    assert response.topics[0][1] == 0 # NoError
+
+    response = kafka_admin_client.delete_topics([topic_name])
+    assert response.responses[0][0] == topic_name
+    assert response.responses[0][1] == 0 # NoError
+
+
+@pytest.mark.skipif(env_kafka_version() < (2, 2), reason="Leader Election requires broker >=2.2")
+def test_perform_leader_election(kafka_admin_client, topic):
+    topic_metadata = kafka_admin_client.describe_topics([topic])[0]
+    assert topic_metadata['topic'] == topic
+    partitions = list(map(lambda p: p['partition'], topic_metadata['partitions']))
+    election_type = 0 # Preferred
+    topic_partitions = {topic: partitions}
+    # When Leader Election is not needed (cluster is stable), error 84 is returned
+    response = kafka_admin_client.perform_leader_election(election_type, topic_partitions)
+    assert len(response.replica_election_results) == 1
+    result = response.replica_election_results[0]
+    assert result[0] == topic
+    partition_set = set(partitions)
+    for partition in result[1]:
+        assert partition[0] in partition_set
+        partition_set.remove(partition[0])
+        assert partition[1] == ElectionNotNeededError.errno
+    assert partition_set == set()

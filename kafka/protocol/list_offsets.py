@@ -15,11 +15,11 @@ class ListOffsetsResponse_v0(Response):
     API_VERSION = 0
     SCHEMA = Schema(
         ('topics', Array(
-            ('topic', String('utf-8')),
+            ('name', String('utf-8')),
             ('partitions', Array(
-                ('partition', Int32),
+                ('partition_index', Int32),
                 ('error_code', Int16),
-                ('offsets', Array(Int64))))))
+                ('old_style_offsets', Array(Int64))))))
     )
 
 class ListOffsetsResponse_v1(Response):
@@ -27,9 +27,9 @@ class ListOffsetsResponse_v1(Response):
     API_VERSION = 1
     SCHEMA = Schema(
         ('topics', Array(
-            ('topic', String('utf-8')),
+            ('name', String('utf-8')),
             ('partitions', Array(
-                ('partition', Int32),
+                ('partition_index', Int32),
                 ('error_code', Int16),
                 ('timestamp', Int64),
                 ('offset', Int64)))))
@@ -42,9 +42,9 @@ class ListOffsetsResponse_v2(Response):
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
         ('topics', Array(
-            ('topic', String('utf-8')),
+            ('name', String('utf-8')),
             ('partitions', Array(
-                ('partition', Int32),
+                ('partition_index', Int32),
                 ('error_code', Int16),
                 ('timestamp', Int64),
                 ('offset', Int64)))))
@@ -69,9 +69,9 @@ class ListOffsetsResponse_v4(Response):
     SCHEMA = Schema(
         ('throttle_time_ms', Int32),
         ('topics', Array(
-            ('topic', String('utf-8')),
+            ('name', String('utf-8')),
             ('partitions', Array(
-                ('partition', Int32),
+                ('partition_index', Int32),
                 ('error_code', Int16),
                 ('timestamp', Int64),
                 ('offset', Int64),
@@ -91,15 +91,14 @@ class ListOffsetsResponse_v5(Response):
 class ListOffsetsRequest_v0(Request):
     API_KEY = 2
     API_VERSION = 0
-    RESPONSE_TYPE = ListOffsetsResponse_v0
     SCHEMA = Schema(
         ('replica_id', Int32),
         ('topics', Array(
-            ('topic', String('utf-8')),
+            ('name', String('utf-8')),
             ('partitions', Array(
-                ('partition', Int32),
+                ('partition_index', Int32),
                 ('timestamp', Int64),
-                ('max_offsets', Int32)))))
+                ('max_num_offsets', Int32)))))
     )
     DEFAULTS = {
         'replica_id': -1
@@ -108,13 +107,12 @@ class ListOffsetsRequest_v0(Request):
 class ListOffsetsRequest_v1(Request):
     API_KEY = 2
     API_VERSION = 1
-    RESPONSE_TYPE = ListOffsetsResponse_v1
     SCHEMA = Schema(
         ('replica_id', Int32),
         ('topics', Array(
-            ('topic', String('utf-8')),
+            ('name', String('utf-8')),
             ('partitions', Array(
-                ('partition', Int32),
+                ('partition_index', Int32),
                 ('timestamp', Int64)))))
     )
     DEFAULTS = {
@@ -125,14 +123,13 @@ class ListOffsetsRequest_v1(Request):
 class ListOffsetsRequest_v2(Request):
     API_KEY = 2
     API_VERSION = 2
-    RESPONSE_TYPE = ListOffsetsResponse_v2
     SCHEMA = Schema(
         ('replica_id', Int32),
-        ('isolation_level', Int8),  # <- added isolation_level
+        ('isolation_level', Int8), # <- added isolation_level
         ('topics', Array(
-            ('topic', String('utf-8')),
+            ('name', String('utf-8')),
             ('partitions', Array(
-                ('partition', Int32),
+                ('partition_index', Int32),
                 ('timestamp', Int64)))))
     )
     DEFAULTS = {
@@ -143,7 +140,6 @@ class ListOffsetsRequest_v2(Request):
 class ListOffsetsRequest_v3(Request):
     API_KEY = 2
     API_VERSION = 3
-    RESPONSE_TYPE = ListOffsetsResponse_v3
     SCHEMA = ListOffsetsRequest_v2.SCHEMA
     DEFAULTS = {
         'replica_id': -1
@@ -156,14 +152,13 @@ class ListOffsetsRequest_v4(Request):
     """
     API_KEY = 2
     API_VERSION = 4
-    RESPONSE_TYPE = ListOffsetsResponse_v4
     SCHEMA = Schema(
         ('replica_id', Int32),
-        ('isolation_level', Int8),  # <- added isolation_level
+        ('isolation_level', Int8),
         ('topics', Array(
-            ('topic', String('utf-8')),
+            ('name', String('utf-8')),
             ('partitions', Array(
-                ('partition', Int32),
+                ('partition_index', Int32),
                 ('current_leader_epoch', Int32),
                 ('timestamp', Int64)))))
     )
@@ -175,7 +170,6 @@ class ListOffsetsRequest_v4(Request):
 class ListOffsetsRequest_v5(Request):
     API_KEY = 2
     API_VERSION = 5
-    RESPONSE_TYPE = ListOffsetsResponse_v5
     SCHEMA = ListOffsetsRequest_v4.SCHEMA
     DEFAULTS = {
         'replica_id': -1
